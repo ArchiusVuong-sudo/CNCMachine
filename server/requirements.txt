@@ -1,0 +1,54 @@
+# Core API server
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9      # for UploadFile / Form
+
+# HTTP client (VLM endpoint + URL downloads)
+httpx>=0.27.0
+
+# Pydantic v2 boundary contracts
+pydantic>=2.7.0
+
+# Env file loading (.env / .env.local for local dev)
+python-dotenv>=1.0.0
+
+# PDF → image conversion (rasterizer prefers pypdfium2; pdftoppm/MuPDF are fallbacks)
+pypdfium2>=4.30.0
+
+# Image handling (needed by pdf2image and pypdfium2 output)
+Pillow>=10.3.0
+
+# Approach 4 fuzzy BOM ↔ component matching
+rapidfuzz>=3.0.0
+
+# OpenCascade Python bindings for the vendored OCC recognizer.
+# The cadquery-ocp wheel pulls in OCP.* used by every module under
+# server/engines/extraction_3d/occ/. The cnc_process_mapper milling path
+# also relies on these for solid-volume math.
+cadquery-ocp>=7.9.3
+
+# Supabase Python client — service-role queries against the per-user
+# catalog. Optional: server boots without it and falls back to the
+# built-in default rates in cost_engine.py.
+supabase>=2.0.0
+
+# ─────────────────────────────────────────────────────────────────────────
+# Not installable via pip — provision separately:
+#
+#   FreeCAD Path workbench
+#     Required for: milling/drilling/thread-milling/deburring cycle-time
+#     in process_mapping (and the welding-contact detector in
+#     extraction_3d). Sheet-metal + hardware paths work without it.
+#     Linux:    apt install freecad   (or use a conda env)
+#     macOS:    brew install --cask freecad
+#     Windows:  https://github.com/FreeCAD/FreeCAD/releases
+#     Set FREECAD_PYTHON=/path/to/freecad/python  to point at the right
+#     interpreter; defaults to /workspace/miniconda3/envs/freecad/bin/python3
+#     and falls back to sys.executable.
+#
+#   OCC Python (for the recognizer subprocess)
+#     The OCC recognizer runs as a separate Python process (OCP segfaults
+#     would otherwise take down the FastAPI server). Set OCC_PYTHON to a
+#     Python interpreter with cadquery-ocp installed. Defaults to the
+#     interpreter running uvicorn.
+# ─────────────────────────────────────────────────────────────────────────

@@ -1,0 +1,13 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+713-142958-001,10,CNCL NAK,OD+bore+parting,cnc_lathe,1,3.00,3.00,,,7,Single-OP lathe; cycle sheet 1min20s vs JC 3.0min - gap 2.3x; NC O1816.MAC G95 mode nc_analyze invalid
+713-142958-001,800,DEBUR,deburr,manual_deburr,2,2.00,1.07,,,,
+713-142960-001,10,CNCL NAK,OD+bore+countersink+parting,cnc_lathe,1,2.28,2.28,,,6,Single-OP lathe; cycle sheet 40s vs JC 2.28min - gap 3.4x; NC O1817.NC G95 mode nc_analyze invalid
+713-142960-001,800,DEBUR,deburr,manual_deburr,2,6.00,0.80,,,,DEBUR estimate 6min/pc vs actual 0.80min/pc - 7.5x overestimate
+713-201706-001,10,CNCTM TAK,OD stepped+drill+tap,cnc_lathe,1,5.50,5.53,,,8,OP10 estimate vs actual close (0.6%); setup sheet cycle 1:56 vs JC 5.53min - gap 2.9x
+713-201706-001,20,CNCTM TAK,flip+face+cross-drill+tap,cnc_lathe,2,3.00,3.00,,,5,OP20 cycle exact match; setup 3.0hr vs 1.0hr estimate (3x) - soft jaw proving
+713-201706-001,800,DEBUR,deburr,manual_deburr,3,5.00,2.00,,,,
+713-344410-010,10,LYNX21LYSB,OD+drill+chamfer+subspindle,cnc_lathe,1,10.00,10.00,,,8,Setup sheet cycle 10min exactly matches JC act - k=1.0 for this program; main+sub spindle single OP
+713-344410-010,800,DEBUR,deburr,manual_deburr,2,2.00,1.49,,,,
+713-A05592-003,10,CNCTM TAK (NEX-110Y),OD+bore+groove+ID-thread+parting,cnc_lathe,1,7.99,7.99,,,9,Cycle sheet 7min vs JC 7.99min - ratio 1.14; good match
+713-A05592-003,20,CNCTM TAK (NEX-110Y),face+face-groove+ID-bore-back,cnc_lathe,2,10.00,10.00,,,4,Cycle sheet 10min exactly matches JC; setup 2.0hr vs 0.5hr estimate (4x) - soft jaw+roundness spec
+713-A05592-003,800,DEBUR,deburr,manual_deburr,3,4.00,3.39,,,,

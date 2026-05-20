@@ -1,0 +1,44 @@
+# Ignore everything at root by default
+/*
+
+# Allow only the 3 target folders + this gitignore
+!/.gitignore
+!/KNOWLEDGE_BASE/
+!/server/
+!/frontend/
+
+# === Secrets: never commit (templates with .example suffix are kept) ===
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.production
+**/.env.development
+
+# === Python ===
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.venv/
+**/venv/
+
+# === Node / Next.js ===
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+**/.turbo/
+**/.vercel/
+
+# === Logs & runtime output ===
+**/*.log
+/server/runs/
+
+# === OS / editor ===
+**/.DS_Store
+**/Thumbs.db
+**/.idea/
+**/.vscode/

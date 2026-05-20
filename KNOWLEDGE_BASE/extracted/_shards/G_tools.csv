@@ -1,0 +1,38 @@
+part_number,op,seq,feature_or_op,tool_name,tool_type,dia_mm,flutes,cut_len_mm,tool_len_mm,zmin_mm,feed_mm_min,feed_mm_rev,speed_rpm,stepover_mm,stepdown_mm,material,machine,source
+0022-49255,10,1,rough fly surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,-0.5,500,,5000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,2,finish fly surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,0.0,500,,5000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,3,rough outline,6mm flat EM 2F,end mill,6,2,25,35,-13.0,2000,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,4,semi outline,6mm flat EM 2F,end mill,6,2,25,35,-13.0,1500,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,5,finish outline D20,6mm coated flat EM 2F,end mill,6,2,20,28,-13.0,1000,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,6,finish outline D19,4mm flat EM coated,end mill,4,2,18,25,-13.0,650,,6500,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,20,8,rough fly back surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,-0.3,500,,5000,,,PEEK,CNCV FAN M,setup sheet OP20 PDF
+0022-49255,20,9,finish fly back surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,0.0,500,,5000,,,PEEK,CNCV FAN M,setup sheet OP20 PDF
+0022-49255,30,10,spotting,90deg spot drill 12mm,spot drill,12,2,20,40,-2.0,100,,2000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,11,drill Ø5.5 thru,5.6mm carbide drill,drill,5.6,2,28,35,-22.0,100,,1000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,12,CB Ø10 rough circle mill,6mm flat EM 2F,end mill,6,2,25,35,-5.8,400,,6000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,13,CB Ø10 finish circle mill,6mm flat EM 2F,end mill,6,2,25,35,-5.8,250,,6000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-63955,10,N1+N2,stopper + OD rough,Mitsubishi CNGG120404-MJ HTi10 OD 80deg,turning insert,,,29,,,-,0.25,1500,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N10,OD finish,ZCCT VCGX110302-LH OD 35deg Amo,turning insert,,,56,,,-,0.06,1200,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N3/N9,parting rough/finish,WARK TDC3 TT9030 TTER20×20-2T17,parting,,,49,61,,150,0.30/0.06,1500/350,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N12/N14,ID grooving,WARK MGSR0640L20W130 SIMTEK A06.0016,ID groove,,,27,68,,-,0.06,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N6,ID drill,5.0mm carbide drill long series ER16,drill,5,2,56,113,,-,0.15,850,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N13/N15,OD thread,WARK MTHR0840(R)21A60-N,OD thread,,,26,46,,-,1.27,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N5,spot drill (horizontal),Spot drill Ø6.0 horizontal,spot drill,6,2,19,30,,-,0.10,2000,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N7,ID drill 2.5mm,Carbide drill Ø2.50 horizontal,drill,2.5,2,30,30,,-,0.10,2000,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N8,ID tap M3×0.5,Spiral flute tap M3×0.5,tap,3,2,28,30,,-,0.50,400,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N4/N11,face grooving,WARK MFGR1025L25W300-U SIMTEK A04.0016,face groove,,,18,59,,-,0.10/0.05,900,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N16,final parting (mill F),WARK TDC4 TT9030 TTEL20×20-2T17,parting,,,3,72,,150,,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N19,sub endmill drill,12mm EM 2F ER16 horizontal,end mill,12,2,19,59,,-,0.10,900,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N17,sub OD face,ZCCT VCGX110302-LH 35deg,turning insert,,,0.5,38,,-,0.06,1000,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N18,sub OD mill,Endmill Ø1mm 2F,end mill,1,2,1,27,,150,,2500,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N20/N21,sub ID turn rough/finish,CCGT030102L-W WM3120 GKATE C06K-SCLCR03,ID turning insert,,,19.5,54,,-,0.10/0.06,1000,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+1157-776-01,40,2-4,contour control 2.3+0.5mm + slot 13dp,6mm flat EM 2F BT40-ER25,end mill,6,2,25,30,-14.1,950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,6-8,Ø4.2 Ø5.5 holes + remachine R3,3mm flat EM 2F BT40-ER25,end mill,3,2,8,25.4,-16.8,150-200,,6000-8000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,10-12,P pocket thru + semi + finish,6mm flat EM 2F BT40-ER25,end mill,6,2,25,30,-16.8,700-950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,13-14,side cut rough + finish,6mm flat EM 4F BT40-ER25 (long),end mill,6,4,35,50,-32.3,800-950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,15,M4×0.7 thread mill Nitronic,Walter M4×0.7 thread hob H0428L08 D2.8,thread mill,2.8,3,8,25,-10.0,381,,4000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,16-18,chamfers 0.1mm,3mm spot drill,spot drill,3,2,25,30.5,-6.6,200,,600-6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,50,20,engrave P/N + Rev,0.8mm ball-nose 4F,ball-nose EM,0.8,4,2,20,-15.55,150,,8000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP50 PDF
+1157-776-01,60,22,Ø3.2 drill × 7.5dp,3mm flat EM 2F circle mill,end mill,3,2,8,25.4,-7.5,200,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF
+1157-776-01,60,23,M3×0.5 thread mill,Thread hob M3×0.5 D2.2 CL7 NL7,thread mill,2.2,4,3,25,-6.0,250,,3500,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF
+1157-776-01,60,24,chamfer 0.1mm,3mm spot drill,spot drill,3,2,25,30.5,-0.6,200,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF

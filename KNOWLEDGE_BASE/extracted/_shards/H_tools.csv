@@ -1,0 +1,48 @@
+part_number,op,seq,feature_or_op,tool_name,tool_type,dia_mm,flutes,cut_len_mm,tool_len_mm,zmin_mm,feed_mm_min,feed_mm_rev,speed_rpm,stepover_mm,stepdown_mm,material,machine,source
+713-142958-001,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ HTi10,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N3,Lathe cannell rough,OD Rough Left Mitsubishi insert,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N4,ID drill,12mm Spot Drill 90deg,spot drill,12,,3,,,150,,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N5,ID bore rough+finish,ID Finish SIMTEK A04.0016 YR GT45,boring bar,,,,,,,0.07,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N6,OD finish,OD Finish Left ZCCT VCGX110302-LH SVJCR-2525M-11,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N7,Turn back-chamfer,Turn back-chamfer insert,OD turning insert,,,,,,,0.07,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N9,Part-off,Parting TAEGUTEC TDJ3TT9030 CHAIN EZHR-25M-3D-25,parting blade,,,,,,,0.15,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142960-001,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N3,OD cannell rough,OD Rough Left Mitsubishi insert,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N3b,Spot + drill,12mm Spot Drill 90deg,spot drill,12,,3,,,150,,800,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N4,ID bore rough+finish,ID Finish SIMTEK A04.0016 SIMTEK YR GT45 boring bar,boring bar,,,,,,,0.15,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N9,OD finish,OD Finish Left CHAIN SVJCR-2525M-11 ZCC-CT VCGX110302-LH,OD turning insert,,,,,,,0.07,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N6,Part-off,Parting CHAIN EZHR-25M-3D-25 Taegutec TDJ3TT9030,parting blade,,,,,,,0.08,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-201706-001,10,N2,OD rough,OD Rough Left Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N3,OD cannell rough,OD Rough Left 2nd pass,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N3b,Spot drill,12mm Spot Drill,spot drill,12,,40,,,-,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N4,Drill Ø5.0,Drill 5.0mm x CL40 MERTEX ER16,drill,5,,40,,,200,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N7/N8,Tap M6x1.0,Tap M6x1.0 Spiral STK MERTEX ER16,tap,6,,40,,,,,350,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N9,OD finish,OD Finish Left CHAIN SVJCR-2525M-11 ZCC-CT VCGX110302-LH,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N6,Part-off,Parting CHAIN EZHR-25M-3D-25 Taegutec TDJ3TT9030,parting blade,,,,,,,0.15,220,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,20,N1,Face + OD rough,OD Rough Left Mitsubishi CNGG WALTER DCLNR,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N3,Cross-drill spot,6mm Spot Drill (triple boring holder),spot drill,6,,40,,,150,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N3b,Cross-drill M10 thru,Drill 8.5mm then M10x1.5 tap,drill,8.5,,120,,,150,,1800,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N5,ID bore rough+finish,ID Finish boring bar A06.0012 WARK,boring bar,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N6,OD finish,OD Finish Left CHAIN SVJCR ZCC VCGX,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-344410-010,10,N1,Stopper,Any tool stopper,stopper,,,,,,,,,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N2,OD rough,OD ROUGH Mitsubishi CNGG120404-MJ WALTER DCLNR2020K12,OD turning insert,,,,68.35,,,0.2,2500,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N3,Spot+chamfer,6mm SPOT DRILL Bush holder,spot drill,6,,3,,,,150,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N4,Drill thru,CARBIDE DRILL Ø9.5 CL80 SD10 SG ER16,drill,9.5,,80,,,100,,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N5,ID chamfer (main),ID CHAMFER WARK A06.0012 MBQR0661L30R010,boring bar chamfer,,,1.467,,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N6,OD finish (main),OD FINISH ZCCT VCGX110302-LC CHAIN SVJCR-20x20K-11,OD turning insert,,,,66,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N7,Part-off,PARTING WARK TTEL2020-4T25 TDC4 TT9030,parting blade,,,,63-67,,,0.15,800,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N8,OD finish (sub),OD FINISH ZCCT VCGX110302-LC sub-spindle,OD turning insert,,,,1,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N9,ID chamfer (sub),ID CHAMFER WARK A06.0012 MBQR0661L30R010 sub-spindle,boring bar chamfer,,,1.467,,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-A05592-003,10,N1,Stopper,Any tool stopper,stopper,,,,,,,,,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,30,,,0.25,2000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N3,Spot+ID rough,12mm Spot Drill 90deg ER16,spot drill,12,,3,,,200,,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N4,Drill thru Ø5.8,5.8mm Drill ER16,drill,5.8,,30,,,200,,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N5/N8,ID bore rough+finish,ID Finish WARK A05.0020 MBQR0541L31R005,boring bar,,,21,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N6,ID groove relief,ID GROOVE WARK A07.0020 MGSR0761L41 W150-R6,grooving bar,,,12.5,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N7/N9,ID thread+debur,ID THREADING WARK A06.0020 MHTR0661L20 A60,threading bar,,,12,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N10,OD finish,OD Turn 35/16 ZCCT VCGX110302-LC SVJCR-2525M-11,OD turning insert,,,27.5,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N11,Part-off,PARTING Tungaloy CTER2525-3T25 DGM3-020-15R AH725,parting blade,,,30,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,20,N1,OD facing,OD Turn 80deg ARNO VCGT160404FN-ALU WALTER SVJBR2525M-16,OD turning insert,,,5,,,0.25,2000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N2/N4,ID bore rough+finish (back),ID Finish WARK A06.0020 MBQR0661L30R010,boring bar,,,5.9,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N3/N5,Face groove rough+finish,FACE GROOVE WARK A10.0025 MFGR1025L 25W400-U,face grooving bar,,,23,,,0.06,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N6,OD finish (back),OD Turn 35/16 ZCCT VCGX110302-LC SVJCR-2525M-11,OD turning insert,,,1,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482

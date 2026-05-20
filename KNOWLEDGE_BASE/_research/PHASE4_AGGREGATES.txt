@@ -1,0 +1,193 @@
+
+#### DATASET: 39 parts | 309 jobcost rows | 513 tool rows | 135 op rows
+
+== MACHINE BURDEN RATES RM/hr (median [min..max], n) ==
+  GF FUS                    283  [283..283] n=1
+  DVF 5000                  274  [274..274] n=3
+  HAAS UMC-750 5-axis       274  [274..274] n=1
+  CNC 5-AXIS                274  [274..274] n=2
+  CNCR BARNY                229  [229..229] n=2
+  CNCR EXACT 1616           181  [181..181] n=2
+  Anderson 3X 16I VMC       181  [181..181] n=1
+  CNCR STRAT                181  [181..181] n=1
+  CNCR EXACT (Router)       181  [181..181] n=2
+  EXXACT PLUS               181  [181..181] n=1
+  EXXACT 1616               181  [181..181] n=1
+  CNCR EXACT                181  [181..181] n=14
+  EXXACT1616                181  [181..181] n=1
+  LYNX 2600Y (Turnmill)     180  [180..180] n=1
+  Takisawa Turnmill         180  [180..180] n=2
+  NEX-108Y                  180  [180..180] n=2
+  DOOSAN LYNX 26Y           180  [180..180] n=1
+  DOOSAN LYNX 2100 LYSB     180  [180..180] n=1
+  LYNX21LYSB                180  [180..180] n=1
+  CNC HAAS L                179  [179..179] n=2
+  DNM 6700                  168  [157..179] n=2
+  SOCKET FUS                162  [162..162] n=4
+  DOOSAN DNM 5700 4-Axis VMC    157  [157..157] n=1
+  DNM 5700 4X               157  [157..157] n=4
+  DOOSAN DNM 6700           157  [157..157] n=1
+  DOOSAN DNM 5700 4X        157  [157..157] n=2
+  Doosan Lynx 21 LYSB       150  [150..150] n=1
+  TAKISAWA NEX-108Y         150  [150..150] n=1
+  CNCTM TAK                 150  [150..150] n=2
+  ASSY2                     147  [117..147] n=3
+  NEX-110Y                  146  [113..180] n=4
+  WELD                      142  [142..142] n=6
+  PKG CLN10K                139  [139..139] n=15
+  ASSY3                     139  [139..139] n=9
+  CNCV FAN M                123  [123..123] n=16
+  CNCV Fanuc Milling        123  [123..123] n=1
+  CNCV Fanuc L (Milling)    123  [123..123] n=5
+  CNCV FAN V                123  [123..123] n=5
+  Makino                    123  [123..123] n=3
+  FANUC Robodrill           123  [123..123] n=1
+  CNCV MAK                  123  [110..123] n=8
+  Fanuc Vaccum              123  [123..123] n=3
+  CNCV MAK PS95             123  [123..123] n=1
+  PLANNING                  115  [115..115] n=2
+  NEX-110Y (TAK)            113  [113..113] n=2
+  CNCL TAK                  113  [113..146] n=7
+  NAKAMURA-TOME SC-300      113  [113..113] n=1
+  CNCL NAK                  113  [113..113] n=6
+  TAKISAWA 108              113  [113..113] n=1
+  TAKISAWA NEX-108          113  [113..113] n=4
+  INSPECTASY                 99  [99..99] n=9
+  INSPECT                    99  [99..123] n=17
+  INSPECTLAB                 99  [99..99] n=7
+  INSPECTIPQ                 99  [99..99] n=11
+  INSPECTIQC                 99  [99..99] n=3
+  LEAK TEST                  99  [99..99] n=4
+  FAB                        92  [92..92] n=1
+  DEBUR                      72  [72..72] n=56
+  PART MARK                  72  [72..72] n=6
+  SAW                        72  [72..72] n=3
+  ASSY1                      72  [72..72] n=4
+  SAW MCH                    72  [72..72] n=3
+  PKG                        63  [63..63] n=1
+  SHIPPING                   63  [63..63] n=1
+  PKG AMAT                   63  [63..63] n=1
+
+== NC CALIBRATION k = actual/NC-est, by machine (median, n) ==
+  CNC 5-AXIS             k≈1.47  [1.47..1.47] n=1
+  CNCR EXACT             k≈1.25  [0.38..3.20] n=8
+  CNCR EXACT (Router)    k≈0.99  [0.99..0.99] n=1
+  CNCR EXACT 1616/STRATOS k≈1.02  [1.02..1.02] n=1
+  CNCR EXACT Anderson 3X k≈1.82  [1.82..1.82] n=1
+  CNCR EXXACT 1616       k≈1.38  [0.61..1.64] n=4
+  CNCTM TAK (NEX-108Y)   k≈2.00  [2.00..2.00] n=1
+  CNCV FAN L             k≈1.11  [1.02..1.16] n=5
+  CNCV FAN M             k≈1.27  [1.05..4.52] n=9
+  CNCV FAN V             k≈1.58  [1.00..2.06] n=5
+  CNCV MAK               k≈1.91  [1.10..2.78] n=8
+  CNCV MAK PS95          k≈0.98  [0.98..0.98] n=1
+  DNM 5700 4X            k≈1.10  [0.72..1.30] n=5
+  DNM 6700               k≈1.30  [1.30..1.30] n=1
+  DOOSAN DNM 6700        k≈0.41  [0.41..0.41] n=1
+  DOOSAN LYNX 2100 LYSB  k≈1.00  [1.00..1.00] n=1
+  DVF 5000               k≈0.47  [0.39..1.05] n=3
+  EXXACT PLUS (CNCR EXACT) k≈1.06  [1.06..1.06] n=1
+  EXXACT1616             k≈0.38  [0.38..0.38] n=1
+
+== MATERIAL RM/pc by family x form (median, n) ==
+  PEEK  PLATE   RM   288.70  [50.94..488.58] n=3
+  PEEK  ROD     RM    32.48  [1.45..583.44] n=16
+  PEEK  SHEET   RM  2955.34  [1672.50..4238.17] n=2
+  PEEK  SLAB    RM    39.55  [34.38..44.73] n=2
+  PP    BLOCK   RM   119.97  [119.97..119.97] n=1
+  PP    PIPE+PLATE+ROD RM  2725.70  [2725.70..2725.70] n=1
+  PP    PLATE+SHEET RM   150.43  [150.43..150.43] n=1
+  PP    ROD     RM    21.16  [0.05..143.04] n=4
+  PP    ROD+PLATE RM    67.83  [67.83..67.83] n=1
+  PP    SHEET   RM    20.25  [1.07..194.52] n=5
+
+== FEED mm/min & SPEED rpm by material x tool_type (median[min..max] n) ==
+  PEEK ball-nose em         F   150[150..150]n1            S  8000[8000..8000]n1
+  PEEK ball/corner          F   200[200..200]n1            S  4000[4000..4000]n1
+  PEEK ball_mill            F   250[200..4000]n4           S  5000[3000..8000]n4
+  PEEK boring bar           F –                            S  1000[1000..1000]n3
+  PEEK boring bar chamfer   F –                            S  1000[1000..1000]n2
+  PEEK bull_corner          F   600[600..600]n1            S  6000[6000..6000]n1
+  PEEK bull_mill            F   725[650..800]n2            S  5000[5000..5000]n2
+  PEEK chamfer mill         F   500[500..500]n2            S  8000[8000..8000]n2
+  PEEK chamfer_mill         F   500[500..500]n2            S  8000[8000..8000]n2
+  PEEK dovetail             F   500[500..500]n1            S  5000[5000..5000]n1
+  PEEK drill                F   100[-44..200]n20           S  1425[850..3500]n22
+  PEEK end mill             F   550[100..3500]n24          S  6000[900..13500]n25
+  PEEK end_mill             F   500[50..3000]n37           S  6000[1500..8000]n37
+  PEEK endmill              F   900[100..1000]n7           S  8000[3000..8000]n7
+  PEEK endmill_chipbreaker  F  2500[2500..2500]n1          S 10000[10000..10000]n1
+  PEEK face mill            F   800[800..800]n3            S  5000[4000..5000]n3
+  PEEK face_mill            F   400[400..400]n1            S  4500[4500..4500]n1
+  PEEK facemill             F   500[500..800]n6            S  5000[3000..5000]n6
+  PEEK fly cutter           F   100[100..100]n1            S   500[500..500]n1
+  PEEK lathe_face_groove    F –                            S   825[200..1000]n4
+  PEEK lathe_groove         F –                            S  1000[550..1000]n5
+  PEEK lathe_id             F –                            S   725[330..1000]n4
+  PEEK lathe_od             F –                            S  1000[1000..1200]n4
+  PEEK long neck end mill   F   200[200..200]n1            S 10000[10000..10000]n1
+  PEEK od turning insert    F –                            S  1000[1000..2500]n15
+  PEEK parting              F   150[150..150]n2            S   800[800..1500]n4
+  PEEK parting blade        F –                            S   900[220..1000]n4
+  PEEK reamer               F    88[25..150]n2             S   400[300..500]n2
+  PEEK slitting saw         F    62[50..75]n2              S  1500[1500..1500]n2
+  PEEK special              F   900[250..1000]n3           S  2500[2300..4000]n3
+  PEEK spot drill           F   200[100..1500]n11          S  1500[600..8000]n14
+  PEEK spot_drill           F   500[100..800]n9            S  4000[3500..6000]n9
+  PEEK spotdrill            F   150[150..150]n1            S   300[300..300]n1
+  PEEK t_slot               F   500[500..500]n1            S  6000[6000..6000]n1
+  PEEK tap                  F   190[-12..238]n3            S   325[300..400]n4
+  PEEK tapered_end_mill     F   500[500..500]n1            S  3000[3000..3000]n1
+  PEEK thread mill          F   250[198..381]n3            S  3500[250..4000]n3
+  PEEK thread_mill          F   350[225..350]n3            S  3500[3000..3500]n3
+  PEEK turning insert       F –                            S  1100[1000..1500]n12
+  PP   ball_mill            F   200[200..4000]n3           S  5000[4000..8000]n4
+  PP   ball_nose            F   818[635..1500]n4           S  5000[3000..8000]n5
+  PP   boring_bar           F   300[300..300]n1            S     0[0..0]n1
+  PP   bull_mill            F  1200[1200..1200]n1          S  6000[6000..6000]n1
+  PP   chamfer              F   900[300..1000]n4           S  7000[3000..8000]n4
+  PP   chamfer_mill         F  1000[150..2000]n12          S  8000[4000..11000]n13
+  PP   cut                  F   650[650..650]n1            S  4000[4000..4000]n1
+  PP   dovetail             F   500[500..500]n2            S  7000[6000..8000]n2
+  PP   dovetail_mill        F   600[600..600]n1            S  5000[5000..5000]n1
+  PP   drill                F   175[70..635]n12            S  1500[1000..4000]n13
+  PP   end_mill             F  1000[-250..7000]n105        S  6000[1400..13500]n106
+  PP   engrave              F     0[-200..200]n2           S  6500[5000..8000]n2
+  PP   face_mill            F  1000[800..1000]n5           S  5000[5000..6000]n5
+  PP   facemill             F  2000[800..2000]n3           S  5000[5000..5000]n3
+  PP   lathe_id_finish      F –                            S  1300[1000..1600]n2
+  PP   lathe_od             F   200[200..1200]n4           S  7750[1000..13500]n4
+  PP   lathe_od_finish      F –                            S  1000[1000..1500]n5
+  PP   lathe_od_rough       F –                            S  1100[1000..1200]n4
+  PP   lathe_part           F   425[200..650]n2            S  5500[1000..10000]n2
+  PP   lathe_parting        F –                            S  1050[1000..1100]n2
+  PP   radius_mill          F   500[500..500]n1            S  4000[4000..4000]n1
+  PP   reamer               F    10[10..10]n1              S   420[420..420]n1
+  PP   slot                 F   150[150..150]n1            S  3000[3000..3000]n1
+  PP   slot_mill            F   600[600..600]n1            S  5000[5000..5000]n1
+  PP   specialty            F  -800[-800..-800]n1          S  3500[3500..3500]n1
+  PP   spot_drill           F   600[-3..3500]n11           S  5000[3500..12000]n12
+  PP   tap                  F   650[650..650]n1            S  4000[4000..4000]n1
+  PP   thread_mill          F   375[300..600]n6            S  3250[2000..4500]n6
+  PP   turning_insert       F   300[300..300]n3            S     0[0..0]n3
+
+== SETUP hr/job & COST by CLASS (median) ==
+  [Simple] n=25
+     order_qty            med     44.00  [10.00..267.00]
+     total_setup_hr       med      2.25  [0.20..9.11]
+     total_run_min_pc     med     12.40  [2.28..175.00]
+     material_pc_rm       med     28.65  [0.05..583.44]
+     cost_ea_rm_act       med    119.59  [9.36..901.80]
+     unit_price_rm        med    187.38  [0.00..5143.21]
+  [Complex] n=13
+     order_qty            med     27.00  [4.00..203.00]
+     total_setup_hr       med      4.45  [0.33..7.70]
+     total_run_min_pc     med     52.51  [12.48..225.00]
+     material_pc_rm       med    219.56  [2.29..4238.17]
+     cost_ea_rm_act       med    607.37  [0.00..9715.48]
+     unit_price_rm        med    829.36  [0.00..14206.21]
+
+== PROFIT/LOSS (unit_price - cost_ea_act) ==
+  parts priced: 36 | LOSS-making: 7 | profitable: 29
+  margin% median 58  [-51..1902]
+

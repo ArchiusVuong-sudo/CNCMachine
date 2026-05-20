@@ -1,0 +1,514 @@
+part_number,op,seq,feature_or_op,tool_name,tool_type,dia_mm,flutes,cut_len_mm,tool_len_mm,zmin_mm,feed_mm_min,feed_mm_rev,speed_rpm,stepover_mm,stepdown_mm,material,machine,source
+0020-46358,10,1,fly surface / dovetail step,C-RF-19.05MM X 64-2FL-UNC-END MILL ONSRUD-52-724,end_mill,19.05,2,50.8,70.0,-5.0,2500,,6500,,,PP NPP,CNCR EXACT 1616,setup_sheet
+0020-46358,10,4,slot,C-RF-6MM X 25-2FL-UNC-END MILL ONSRUD-PCL590166,end_mill,6,2,25.0,35.0,-3.175,750,,6000,,,PP NPP,CNCR EXACT 1616,setup_sheet
+0020-46358,10,5,dovetail,FAP-11481 12MM X60DEG DOVETAIL,dovetail_mill,12,4,6.0,25.0,-3.175,600,,5000,,,PP NPP,CNCR EXACT 1616,setup_sheet
+0020-46358,10,6,outline rough,12MM ENDMILL CL55 ONSRUD-52-746,end_mill,12,2,55.0,65.0,-60.0,1800,,6500,,,PP NPP,CNCR EXACT 1616,setup_sheet
+0020-46358,20,1,datum check profile,C-RF-12MM X 55-2FL-UNC-END MILL ONSRUD-52-746,end_mill,12,2,55.0,70.0,-1.0,1500,,6000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,2,fly surface Z0,C-RF-80MM 45DEG FACEMILL AFE45-4080R4,face_mill,80,4,10.0,50.0,0.0,800,,5000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,3,rough pocket step,C-RF-12MM X 55-2FL-UNC-END MILL ONSRUD-52-746,end_mill,12,2,55.0,70.0,-20.705,2500,,6000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,4,semifinish wall,C-F-6MM X 25-2FL-UNC-END MILL ONSRUD-PCL590166,end_mill,6,2,25.0,35.0,-20.705,800,,5000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,5,finish floor pocket,C-F-12MM X 55-2FL-UNC-END MILL ONSRUD-52-746,end_mill,12,2,55.0,70.0,-20.955,750,,5000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,7,rough profile,C-RF-12MM X 55-2FL-UNC-END MILL ONSRUD-52-746,end_mill,12,2,55.0,70.0,-51.0,2500,,6000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,8,finish profile,C-F-12MM X 55-2FL-UNC-END MILL ONSRUD-52-746,end_mill,12,2,55.0,70.0,-51.0,800,,5000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,20,9,chamfer Z0,C-F-3MM X 90DEG-2FL-UNC-CHAMFER MILL GET-S2DSO-090-03U,chamfer_mill,3,2,5.0,25.0,-0.58,1000,,6000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,30,1,pre-bore Ø15 thru,C-RF-10MM X 35-2FL-UNC-END MILL ONSRUD-PCL590167,end_mill,10,2,35.0,40.0,-36.005,1500,,4500,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,30,2,helix bore Ø23.4 NPT,C-RF-10MM X 35-2FL-UNC-END MILL ONSRUD-PCL590167,end_mill,10,2,35.0,40.0,-40.355,1200,,4500,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,30,3,3/4-14 NPT thread mill pass1,TM-490-20 (12.7MM NPT thread mill),thread_mill,12.7,4,2.0,38.0,-40.604,400,,4500,,,PP NPP,CNCV FAN M,setup_sheet
+0020-46358,30,4,3/4-14 NPT thread mill pass2,TM-490-20 (12.7MM NPT thread mill),thread_mill,12.7,4,2.0,38.0,-40.604,400,,4000,,,PP NPP,CNCV FAN M,setup_sheet
+0020-64722,10,N1,Stopper/datum,OD Turn 80deg,turning insert,,,31,48,,,,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N2,OD rough,OD Turn 80deg (CNGG120404-MJ HTi10),turning insert,,,31,48,,,0.25,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N3,OD finish + back chamfer,OD Turn 35 (VCGX110302-LC),turning insert,,,29,33,,,0.06,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N4 N5,Mill rough + semi-finish step,10mm Endmill 2FL,end_mill,10,2,28.5,40,,200,,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N6,Mill step finish,12mm Endmill 2FL,end_mill,12,2,28.5,75,,200,,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N7,Back chamfer,OD Turn 35 (finish),turning insert,,,29,33,,,,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N8,Parting,Parting (WARK TDJ7D TT9030),parting insert,,,32,48,,,0.08,1000,,,,LYNX 26Y,xls_setup
+0020-64722,20,1,Fly top face height control 1.080in,16mm Endmill 2FL ONSRUD,end_mill,16,2,35,50,-27.43,750,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,20,2,FAP11430 T-slot cutter,FAP11430 T-Slot Cutter,t_slot,14,4,4.27,30,-22.57,500,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,1,2mm flat EM (drill entry),2mm Flat End Mill,end_mill,2,4,15,25,-21.08,100,,3000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,2,Drill 2.3mm for 4-40UNC,2.3mm Carbide Drill CL20 Dura,drill,2.3,2,20,25,-21.08,100,,3000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,3,Tap 4-40UNC,4-40UNC CL-20 Spiral Tap Dura,tap,2.845,2,20,25,-21.08,190.5,,300,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,4,Entry hole / helix bore 1.2mm,1.2mm End Mill CL5 NL6-SHD3-TP30-2F,end_mill,1.2,2,4,25,-72.5,150,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,5,Carbide drill 1.6mm,Carbide Drill 1.6mm Dura,drill,1.6,2,12,20,-65.47,30,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,6,Ream 1.778mm bore,Carbide Reamer 1.778 CL8.5 Shk3 TL50 YOCON,reamer,1.778,6,8.5,30,-67.69,25,,500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,7,Spotdrill for 3.5mm,12mm Spot Drill 90deg 2F,spot_drill,12,2,20,40,-72.75,100,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,8,Drill 3.5mm for 8-32UNC,3.5mm Drill,drill,3.5,2,18,28.5,-61.79,100,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,9,Tap 8-32UNC,8-32 UNC Tap,tap,4.166,2,25,30,-63.09,238.125,,300,,,PEEK,DNM 5700 4X,pdf_setup
+0021-53926,10,1,Mill OD rough,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.8,580,,3500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,2,Mill side rough+finish,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-1.0,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,3,Face (main),12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-16.25,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,4,Face two steps,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-13.25,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,5,OD finish,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.8,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,6,Slot (plunge),3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-7.5,50,,1500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,7,Slot (contour),3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-7.5,200,,5000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,1,Face rough,12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-15.15,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,2,Pocket rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-9.05,1600,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,3,OD rough,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.95,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,4,Pocket finish,6mm Endmill CL25 Finishing 2F (ONSRUD),end_mill,6,2,25,35,-8.55,1000,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,5,Pocket wall finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-8.55,1000,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,6,OD finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-7.95,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,7,45deg slot rough (2x),45 DEG Special Tool SHK16 4F,special,16,4,19.27,57.82,-8.55,1000,,2500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,8,Face finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-14.9,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,9,Chamfer,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,-13.2,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,1,Face,12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-8.15,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,2,Face two steps,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-5.15,500,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,3,Wall finish two steps,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-5.15,500,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,4,Slot 3mm,3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-0.2,200,,5000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,5,Spotdrill M5,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,-2.45,400,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,6,Drill M5,4.3mm Solid Carbide Drill,drill,4.3,2,44,55,-2.292,200,,2000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,7,Thread M5x0.8,C-RF-M5x0.8-12pitch-D3.9-NL25 Thread Mill MYOOK,thread_mill,3.9,3,10,25,-1.5,225,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,1,Mill open slots,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-8.15,500,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,2,Pocket finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.85,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,3,Pocket wall finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.85,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,4,45deg gap finish (4x),45 DEG Special Tool SHK16 4F,special,16,4,19.27,57.82,-7.85,900,,2300,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,5,Face finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-14.2,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,6,Chamfer (2x),12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,7,Chamfer 0.1 (4x),3mm Chamfermill 90deg Dura,chamfer_mill,3,2,1.5,30.5,,500-1000,,8000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,1,12deg angle mill rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-5.839,500,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,2,Face finish (6mm),6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.65,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,3,Face two steps finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-4.65,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,4,12deg angle mill finish,12 Deg Tapered Endmill 4F,tapered_end_mill,5.5,4,15.29,50,-5.839,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,5,OD finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-6.85,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,6,Chamfer,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,7,Chamfer 0.1 (4x),3mm Chamfermill 90deg Dura,chamfer_mill,3,2,1.5,30.5,,500,,8000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,8,Engrave P/N + vendor code,P-RF-0.8mm x 2-2FL Ball Mill Dura CBN,ball_mill,0.8,2,2,20,-9.45,200,,6000-8000,,,PEEK,CNCV FAN L,pdf_setup
+0021-55284,10,N1,STOPPER,Stopper,stopper,,,,,,,,,,,,CNCL TAK,xls op10.xlsx
+0021-55284,10,N2,OD rough,OD Turn 80° (Mitsubishi CNGG120404-MJ HTi10),turning insert,,,31,,,, 0.10,1000,,,PEEK 450GL30,CNCL TAK,xls op10.xlsx
+0021-55284,10,N4,OD finish,OD TURN 35° SIZE 16 (ZCCT VCGX110302-LC),turning insert,,,31,,,, 0.07,1500,,,PEEK 450GL30,CNCL TAK,xls op10.xlsx
+0021-55284,10,N6,Parting,PARTING (Tungaloy DGM 3-020-15R AH725),parting,3,,32,,,, 0.15,800,,,PEEK 450GL30,CNCL TAK,xls op10.xlsx
+0021-55284,20,N1,OD rough back,OD Turn 80° (Mitsubishi CNGG120404-MJ HTi10),turning insert,,,10,,,, 0.10,1000,,,PEEK 450GL30,CNCL TAK,xls op20.xlsx
+0021-55284,20,N2,OD finish back,OD TURN 35° (ZCCT VCGX110302-LC),turning insert,,,10,,,, 0.07,1500,,,PEEK 450GL30,CNCL TAK,xls op20.xlsx
+0021-55284,40,T2,PATTING PART arc profile,C-RF-16 MM X 35-2FL-UNC-EM,end mill,16,2,35,65,-32.26,500,,8000,,,PEEK 450GL30,CNCV FAN M,setup sheet 3175 SETUP
+0021-55284,50,T5,ROUGH C'BORE,C-RF-6 MM X 25-2FL-UNC-EM,end mill,6,2,25,35,-22.66,150,,1500,,,PEEK 450GL30,CNCV FAN M,setup sheet 3176 SETUP
+0021-55284,50,T13,D13 FINISH C'BORE,C-F-6 MM X 25-2FL-UNC-EM,end mill,6,2,25,35,-22.86,100,,4000,,,PEEK 450GL30,CNCV FAN M,setup sheet 3176 SETUP
+0021-55284,50,T16,SPOTDRILL,6MM SPOTDRILL 90 DEG DURA,spot drill,6,2,3,35,-25.26,400,,4000,,,PEEK 450GL30,CNCV FAN M,setup sheet 3176 SETUP
+0021-55284,50,T17,DRILL 4.6,4.6MM DRILL,drill,4.6,2,40,45,-33.0,150,,1500,,,PEEK 450GL30,CNCV FAN M,setup sheet 3176 SETUP
+0022-09112,10,1,Fly surface,50mm Facemill Mitsubishi 4F,face_mill,50,4,17,50,0.0,400,,4500,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,2,OD Ø68 rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-17.0,700,,4500,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,3,OD Ø68 finish,6mm Endmill CL25 F ONSRUD 2F,end_mill,6,2,25,35,-17.0,400,,6000,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,4,Chamfer 0.5,3mm Spotdrill,spot_drill,3,2,1.5,30,0.0,500,,4000,,,PEEK,CNCTM TAK,pdf_setup
+0022-26284,10,T1,FLY TO 12MM,50MM FACEMILL 4F,face mill,50,4,4,40,0.0,800,,4000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-26284,10,T5,ROUGH OUTLINE,6MM ENDMILL 2F,end mill,6,2,25,35,-12.0,1000,,8000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-26284,10,T13,D13 FINISHING OUTLINE,6MM ENDMILL 2F FINISHING,end mill,6,2,25,35,-12.0,600,,5000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-26284,10,T6,SEMIFINISHING OUTLINE,3MM ENDMILL 2F,end mill,3,2,8,20,-12.0,500,,3000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-26284,10,T14,D14 FINISHING INSIDE RADIUS,3MM ENDMILL 2F FINISHING,end mill,3,2,8,20,-12.0,300,,3000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-26284,10,T16,D16 SMALL SLOT THRU,1.5MM LONG NECK EM CL3 SHK4 [GET TOOL],long neck end mill,1.5,4,3,22,-12.0,200,,10000,,,PEEK unfilled,CNCV FAN V,setup sheet 3776
+0022-27201,20,T5,ROUGH/FINISH SURFACE,6MM ENDMILL 2F,end mill,6,2,25,35,0.0,1000,,5000,,,PEEK 450G,CNCV MAK,setup sheet 2895
+0022-27201,20,T16,D16 OUTING 7-0.1,10MM-5 RELIEF DIA 8 (T-slot cutter style),special,10,4,26.67,60,-13.0,250,,4000,,,PEEK 450G,CNCV MAK,setup sheet 2895
+0022-27201,30,T17,SLOT x4 pass1,45MM SLITTING SAW SHK DIA 22 (0.9mm wide),slitting saw,45,4,0.9,95,-60.45,50,,1500,,,PEEK 450G,CNCV MAK,setup sheet 2896
+0022-27201,40,T17,SLOT x4 pass2 (higher feed),45MM SLITTING SAW SHK DIA 22 (0.9mm wide),slitting saw,45,4,0.9,95,-60.45,75,,1500,,,PEEK 450G,CNCV MAK,setup sheet 3519
+0022-42142,10,N1,STOPPER,Stopper,stopper,,,,,,,,,,,,CNCL TAK,xls op10.xlsx
+0022-42142,10,N2,OD rough,OD Turn 80° (Mitsubishi CNGG120404-MJ HTi10 / WALTER DCLNR2525M12),turning insert,,,31,,,, 0.10,1000,,,PEEK 450G,CNCL TAK NEX-110Y,xls op10.xlsx
+0022-42142,10,N4,OD finish,OD TURN 35° SIZE 16 (ZCCT VCGX110302-LC / SVJCR-2525M-11),turning insert,,,31,,,, 0.07,1500,,,PEEK 450G,CNCL TAK NEX-110Y,xls op10.xlsx
+0022-42142,10,N6,Parting,PARTING (Tungaloy DGM 3-020-15R AH725 / CTER2525-3T25),parting,3,,32,,,, 0.15,800,,,PEEK 450G,CNCL TAK NEX-110Y,xls op10.xlsx
+0022-42142,20,N1,OD rough flip,OD Turn 80° (Mitsubishi CNGG120404-MJ HTi10),turning insert,,,10,,,, 0.10,1000,,,PEEK 450G,CNCL TAK NEX-110Y,xls op20.xlsx
+0022-42142,20,N2,OD finish flip,OD TURN 35° (ZCCT VCGX110302-LC),turning insert,,,10,,,, 0.07,1500,,,PEEK 450G,CNCL TAK NEX-110Y,xls op20.xlsx
+0022-42143,09,T1,CUT TO SIZE,10MM ROUGHING ENDMILL PCL590167 [FAP11335],end mill,10,2,35,40,-12.2,3500,,13500,,,PEEK 450G,CNCR EXACT (Anderson 3X 16I),setup sheet 4778
+0022-42143,09,T4,CUT MATERIAL,3MM NC SPOT 90 DEG [S2DSO-090-030U],spot drill,3,2,5,30,-12.7,1500,,8000,,,PEEK 450G,CNCR EXACT (Anderson 3X 16I),setup sheet 4778
+0022-42143,10,T1,FLY SURFACE,50MM FACEMILL MITSUBISHI 4F,face mill,50,4,17,50,0.0,800,,5000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T7,SPOTDRILL,12MM SPOTDRILL 90 DEG DURA,spot drill,12,2,6,50.8,-2.6,400,,4000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T15,DRILL 5,5MM DRILL,drill,5,2,25,40,-11.2,120,,1200,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T5,RELEASE HOLE; D5 HOLE 9.2; D5 C'BORE 13.2,6MM FLAT ENDMILL DURA 2F (circle mill),end mill,6,2,20,30,-11.2,100-500,,1000-3000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T4,D4 OUTING,10MM FLAT ENDMILL DURA 2F,end mill,10,2,20,40,-11.2,800,,6000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T16,RADIUS R3,R3 CORNER RADIUS SHK DIA 12 TIP 6MM,ball/corner,6,4,3,40,-3.0,200,,4000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,10,T9,CHAMFER,3MM CHAMFERMILL 90 DEG DURA,chamfer mill,3,2,1.5,30.5,,500,,8000,,,PEEK 450G,CNCV FAN V,setup sheet 4779
+0022-42143,20,T1,FLY SURFACE back,50MM FACEMILL MITSUBISHI 4F,face mill,50,4,17,50,0.0,800,,5000,,,PEEK 450G,CNCV FAN M Robodrill,setup sheet 4780
+0022-42143,20,T6,D6 C'BORE DIA 8,3MM FLAT ENDMILL DURA 2F (circle mill),end mill,3,2,8,25.4,-7.0,100,,3000,,,PEEK 450G,CNCV FAN M Robodrill,setup sheet 4780
+0022-42143,20,T7,CHAMFER 1MM,12MM SPOTDRILL 90 DEG DURA,spot drill,12,2,6,50.8,0.0,400,,4000,,,PEEK 450G,CNCV FAN M Robodrill,setup sheet 4780
+0022-42143,20,T9,CHAMFER,3MM CHAMFERMILL 90 DEG DURA,chamfer mill,3,2,1.5,30.5,-7.0,500,,8000,,,PEEK 450G,CNCV FAN M Robodrill,setup sheet 4780
+0022-49255,10,1,rough fly surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,-0.5,500,,5000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,2,finish fly surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,0.0,500,,5000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,3,rough outline,6mm flat EM 2F,end mill,6,2,25,35,-13.0,2000,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,4,semi outline,6mm flat EM 2F,end mill,6,2,25,35,-13.0,1500,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,5,finish outline D20,6mm coated flat EM 2F,end mill,6,2,20,28,-13.0,1000,,6000,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,10,6,finish outline D19,4mm flat EM coated,end mill,4,2,18,25,-13.0,650,,6500,,,PEEK,CNCV FAN V,setup sheet OP10 PDF
+0022-49255,20,8,rough fly back surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,-0.3,500,,5000,,,PEEK,CNCV FAN M,setup sheet OP20 PDF
+0022-49255,20,9,finish fly back surface,50mm Facemill Mitsubishi 4F,facemill,45,4,10,40,0.0,500,,5000,,,PEEK,CNCV FAN M,setup sheet OP20 PDF
+0022-49255,30,10,spotting,90deg spot drill 12mm,spot drill,12,2,20,40,-2.0,100,,2000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,11,drill Ø5.5 thru,5.6mm carbide drill,drill,5.6,2,28,35,-22.0,100,,1000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,12,CB Ø10 rough circle mill,6mm flat EM 2F,end mill,6,2,25,35,-5.8,400,,6000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-49255,30,13,CB Ø10 finish circle mill,6mm flat EM 2F,end mill,6,2,25,35,-5.8,250,,6000,,,PEEK,CNCV FAN M,setup sheet OP30 PDF
+0022-63955,10,N1+N2,stopper + OD rough,Mitsubishi CNGG120404-MJ HTi10 OD 80deg,turning insert,,,29,,,-,0.25,1500,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N10,OD finish,ZCCT VCGX110302-LH OD 35deg Amo,turning insert,,,56,,,-,0.06,1200,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N3/N9,parting rough/finish,WARK TDC3 TT9030 TTER20×20-2T17,parting,,,49,61,,150,0.30/0.06,1500/350,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N12/N14,ID grooving,WARK MGSR0640L20W130 SIMTEK A06.0016,ID groove,,,27,68,,-,0.06,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N6,ID drill,5.0mm carbide drill long series ER16,drill,5,2,56,113,,-,0.15,850,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N13/N15,OD thread,WARK MTHR0840(R)21A60-N,OD thread,,,26,46,,-,1.27,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N5,spot drill (horizontal),Spot drill Ø6.0 horizontal,spot drill,6,2,19,30,,-,0.10,2000,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N7,ID drill 2.5mm,Carbide drill Ø2.50 horizontal,drill,2.5,2,30,30,,-,0.10,2000,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N8,ID tap M3×0.5,Spiral flute tap M3×0.5,tap,3,2,28,30,,-,0.50,400,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N4/N11,face grooving,WARK MFGR1025L25W300-U SIMTEK A04.0016,face groove,,,18,59,,-,0.10/0.05,900,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N16,final parting (mill F),WARK TDC4 TT9030 TTEL20×20-2T17,parting,,,3,72,,150,,800,,,PEEK,LYNX 21 LYSB,setup sheet OP10 xlsx
+0022-63955,10,N19,sub endmill drill,12mm EM 2F ER16 horizontal,end mill,12,2,19,59,,-,0.10,900,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N17,sub OD face,ZCCT VCGX110302-LH 35deg,turning insert,,,0.5,38,,-,0.06,1000,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N18,sub OD mill,Endmill Ø1mm 2F,end mill,1,2,1,27,,150,,2500,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0022-63955,10,N20/N21,sub ID turn rough/finish,CCGT030102L-W WM3120 GKATE C06K-SCLCR03,ID turning insert,,,19.5,54,,-,0.10/0.06,1000,,,PEEK,LYNX 21 LYSB SUB,setup sheet OP10 xlsx
+0023-12637,10,1,OD rough,MITSUBISHI CNGG120404-MJ HTi10 / WALTER DCLNR2525M12,lathe_OD_rough,,,,,-0.0,,0.15,1200,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,10,2,T-drill 32mm,SUMITOMO T-DRILL 32MM,lathe_drill,32,,,,-57.0,,0.07,1800,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,10,3,ID rough,ZCC-CT VCGX110302-LH / GKATE C16R-STUPR11,lathe_ID_rough,,,,,-56.65,,0.25,1800,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,10,4,OD finish,ZCC-CT VCGX110302-LH / CHAIN SVJCR2525M11,lathe_OD_finish,,,,,-0.0,,0.07,1500,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,10,5,ID finish,ZCC-CT VCGX110302-LH / GKATE C16R-STUPR11,lathe_ID_finish,,,,,-56.8,,0.07,1600,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,10,6,OD parting (PCD),WARK MGGN300R 15R PCD / MGEHR2020 3T25,lathe_parting,,,,,-56.8,,0.07,1000→2000,,,PP NPP,NAKAMURA-TOME SC-300,setup_sheet
+0023-12637,20,1,OD rough (2nd op),MITSUBISHI CNGG120404-MJ HTi10 / WALTER DCLNR2525M12,lathe_OD_rough,,,,,-55.6,,0.20,1000,,,PP NPP,TAKISAWA NEX-108Y,setup_sheet
+0023-12637,20,2,OD finish,ZCC-CT VCGX110302-LH / CHAIN SVJCR2525M11,lathe_OD_finish,,,,,-55.8,,0.07,1500,,,PP NPP,TAKISAWA NEX-108Y,setup_sheet
+0023-12637,20,3,radial leaders (7x),E143-0 Ø3.0MM FLAT ENDMILL (horizontal live),end_mill,3,4,50.0,60.0,-4.0,200,,1600,,,PP NPP,TAKISAWA NEX-108Y,setup_sheet
+0041-14421,10,1,rough outline 9.525mm,10MM ROUGHING ENDMILL PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-9.525,300,,11000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,2,finish outline 9.525mm,10MM FINISHING ENDMILL PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-9.525,500,,12500,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,3,chamfer weld edge,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,0.0,1000,,8000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,4,registration mark,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,-0.2,1000,,8000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,5,drill 3.5mm for 8-32UNC,DRILL 3.5MM COBALT,drill,3.5,2,20.0,30.0,-12.0,200,,1500,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,6,8-32 UNC thread-hob,THREADHOB 8-32 UNC TIP DIA 3.2MM,thread_mill,3.2,4,2.381,30.0,-10.5,300,,3000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,10,7,cut material,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,-9.525,2000,,11000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,20,1,rough outline 6.35mm,10MM ROUGHING ENDMILL PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-6.35,300,,11000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,20,2,finish outline 6.35mm,10MM FINISHING ENDMILL PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-6.35,500,,11000,,,PP White UL94,CNCR EXACT (Router),setup_sheet
+0041-14421,20,3,slot thru 6.35mm,— (D23 slot),slot,,,,,-6.35,150,,3000,,,PP White UL94,CNCR EXACT (Router),nc
+0041-14421,20,4,chamfer weld,3MM NC SPOT 90DEG,chamfer_mill,3,2,5.0,30.0,0.0,,,11000,,,PP White UL94,CNCR EXACT (Router),nc
+0041-62474,10,1,face/profile,10mm FLAT ENDMILL 2F,endmill,10,2,20,40,,,3810,,11000,,,PEEK,CNCR BARNY,setup PDF 3139 OP10
+0041-62474,10,3,chamfer,3mm FLAT ENDMILL 2F,endmill,3,2,8,25,,,300,,11000,,,PEEK,CNCR BARNY,setup PDF 3139 OP10
+0041-62474,10,4,chamfer,3mm CHAMFERMILL 90deg,chamfermill,3,2,1.5,25,,,3810,,11000,,,PEEK,CNCR BARNY,setup PDF 3139 OP10
+0041-62474,10,6,profile/slot,6mm FLAT ENDMILL 2F,endmill,6,2,20,30,,,200,,11000,,,PEEK,CNCR BARNY,setup PDF 3139 OP10
+0041-62474,10,8,face,80mm FACEMILL MITSUBISHI 4F,facemill,80,4,6,50,,,2000,,5000,,,PEEK,CNCR BARNY,setup PDF 3139 OP10
+0041-62474,20,1,face,50mm FACEMILL MITSUBISHI 4F,facemill,50,4,17,40,,,1000,,5000,,,PEEK,CNCR BARNY,setup PDF 3140 OP20
+0041-62474,20,5,slot/pocket,6mm FLAT ENDMILL 2F,endmill,6,2,20,30,,,500,,7000,,,PEEK,CNCR BARNY,setup PDF 3140 OP20
+0041-62474,20,6,slot/pocket,3mm FLAT ENDMILL 2F,endmill,3,2,8,25.4,,,500,,11000,,,PEEK,CNCR BARNY,setup PDF 3140 OP20
+0041-62474,30,6,slot/engrave,3mm FLAT ENDMILL 2F,endmill,3,2,8,25.4,,,150,,6000,,,PEEK,CNCV MAK,setup PDF 3141 OP30
+0041-62474,40,6,slot,3mm FLAT ENDMILL 2F,endmill,3,2,8,25.4,,,150,,6000,,,PEEK,CNCL TAK,setup PDF 3144 OP40
+0041-62474,50,5,slot,6mm FLAT ENDMILL 2F,endmill,6,2,20,30,,,500,,4500,,,PEEK,CNCL TAK,setup PDF 3145 OP50
+0041-62474,60,5,slot/contour,6mm FLAT ENDMILL 2F,endmill,6,2,20,30,,,200,,4500,,,PEEK,FAB,setup PDF 3146 OP60
+0041-62474,60,6,slot/contour,3mm FLAT ENDMILL 2F,endmill,3,2,8,25.4,,,500,,6000,,,PEEK,FAB,setup PDF 3146 OP60
+0042-15176,10,1,face,50MM FACEMILL MITSUBISHI,facemill,50,,40,,,600,,3000,,,PEEK,CNCV FAN V,setup PDF 5176 OP10
+0042-15176,10,17,face finish,Helicopter Fly Cutter,fly cutter,150,,5,,,100,,500,,,PEEK,CNCV FAN V,setup PDF 5176 OP10
+0042-15176,20,6,step contour,3MM FLAT ENDMILL 2F,endmill,3,2,25,,,1000,,8000,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,20,15,contour,Dia 1.5MM EM 1.5x4.5x4x50,endmill,1.5,,4.5,,,600,,8000,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,20,16,chamfer,3MM CHAMFERMILL 90 DEG 2F,chamfermill,3,2,,,,,1000,,8000,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,20,9,drill spotdrill,Dia 2.1mm Drill,drill,2.1,2,17,,,100,,3000,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,20,17,spotdrill/cbore,Dia 24.4(230) 90 DEG,spotdrill,24.4,,20,,,150,,300,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,20,4,pocket/profile,10MM FLAT ENDMILL 2F,endmill,10,2,20,,,1000,,6000,,,PEEK,CNCV FAN V,setup PDF 5177 OP20
+0042-15176,30,7,spotdrill,12MM SPOTDRILL 90 DEG 2F,spotdrill,12,2,,,,,100,,3000,-2.5,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,15,drill,3MM Drill,drill,3,2,30,,,100,,3000,-11.7,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,16,tap,10-24 UNC Spiral Tap,tap,,,,,,-11.7,250,,,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,6,pocket/contour,6MM FLAT ENDMILL 2F,endmill,6,2,20,,,800,,8000,-8.03,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,20,reamer,Dia 4.74mm(120) Reamer-Dura,reamer,4.74,,,,,150,,300,,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,120,dovetail,TAP AP11317 Dovetail,dovetail cutter,4.235,,,,,-1.245,300,,600,,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,18,corner radius,Shank Dia4 Tip Dia1.5 R0.5 Corner Radius Cutter,bull endmill,4,,,,,-8.7,1000,,9000,,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0042-15176,30,21,contour,Dia 3mm EM Coated-Dura,endmill,3,,,,,,-12.042,600,,8000,,,PEEK,CNCV FAN V,setup PDF 5178 OP30
+0200-02605,10,N1,stopper,Stopper,stopper,,,,,,,,,,,,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N3,ID drill center,Sport Drill 10mm,spot drill,10,,2.4,,,-2.4,70,,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N4,drill 4mm,Carbide Drill 4mm 118deg,drill,4,,11,,,70,,1000,-11.0,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N5,ID thread -32UNF,ID Thread WARK MTHR0425L08A,thread mill,4.25,,5.3,,,198.438,,250,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N6,deburr,Carbide Drill 4mm (deburr pass),drill,4,,11,,,,,,,,,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N7,rough hole 0.040in,0.9mm Carbide Drill DURA,drill,0.9,,16,,,30,,3000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N8,reamer 1.02mm,Reamer Dia1.02 DURA (SHK1.5 FL5 TL40),reamer,1.02,,15.3,40,,,100,,800,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N9,OD rough/facing,OD Turn 35 ZCCT SVJCR-2525M VCGX110302-LC,turning insert,,,,,,,,0.25,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N10,mill hexagon,Endmill 2F Dia10mm,endmill,10,2,3.8,,,100,,3000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N11,OD groove,OD Groove/Parting 1.5mm SIMTEK TH2.2525,groove tool,1.5,,18.6,,,-18.532,,0.08,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N12,facing,OD Turn 35 ZCCT SVJCR-2525M VCGX110302-LC,turning insert,,,,,,,0.25,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N13,OD groove finish,OD Groove/Parting 1.5mm SIMTEK TH2.2525,groove tool,1.5,,18.6,,,,,0.08,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N14,OD threading .312-24UNF,OD Threading KTKFR 2020 JX-12,threading tool,,,17,,,,1.0583,1200,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N15,taper angle 22.8deg,OD Groove/Parting 1.5mm SIMTEK TH2.2525,groove tool,1.5,,18.6,,,,,0.08,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,10,N16,parting,OD Groove/Parting 1.5mm SIMTEK TH2.2525,groove tool,1.5,,18.6,,,,,0.08,1000,,,PEEK,NEX-108Y,xls OP10 TAKI
+0200-02605,20,N1,OD rough,OD Turn 35 ZCCT SVJCR-2525M VCGX110302-LC,turning insert,,,20,,,,,0.25,1000,,,PEEK,NEX-108Y,xls OP20 TAKI
+0200-02605,20,N2,OD finish,OD Turn 35 ZCCT SVJCR-2525M VCGX110302-LC,turning insert,,,20,,,,,0.25,1000,,,PEEK,NEX-108Y,xls OP20 TAKI
+0200-02605,20,N3,chamfer,Spot Drill 60deg SY Precision Dia3,spot drill,3,,0.85,,,,70,,1000,,,PEEK,NEX-108Y,xls OP20 TAKI
+1157-776-01,40,2-4,contour control 2.3+0.5mm + slot 13dp,6mm flat EM 2F BT40-ER25,end mill,6,2,25,30,-14.1,950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,6-8,Ø4.2 Ø5.5 holes + remachine R3,3mm flat EM 2F BT40-ER25,end mill,3,2,8,25.4,-16.8,150-200,,6000-8000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,10-12,P pocket thru + semi + finish,6mm flat EM 2F BT40-ER25,end mill,6,2,25,30,-16.8,700-950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,13-14,side cut rough + finish,6mm flat EM 4F BT40-ER25 (long),end mill,6,4,35,50,-32.3,800-950,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,15,M4×0.7 thread mill Nitronic,Walter M4×0.7 thread hob H0428L08 D2.8,thread mill,2.8,3,8,25,-10.0,381,,4000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,40,16-18,chamfers 0.1mm,3mm spot drill,spot drill,3,2,25,30.5,-6.6,200,,600-6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP40 PDF
+1157-776-01,50,20,engrave P/N + Rev,0.8mm ball-nose 4F,ball-nose EM,0.8,4,2,20,-15.55,150,,8000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP50 PDF
+1157-776-01,60,22,Ø3.2 drill × 7.5dp,3mm flat EM 2F circle mill,end mill,3,2,8,25.4,-7.5,200,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF
+1157-776-01,60,23,M3×0.5 thread mill,Thread hob M3×0.5 D2.2 CL7 NL7,thread mill,2.2,4,3,25,-6.0,250,,3500,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF
+1157-776-01,60,24,chamfer 0.1mm,3mm spot drill,spot drill,3,2,25,30.5,-0.6,200,,6000,,,PEEK,CNCV MAK (DNM-4500),setup sheet OP60 PDF
+1241-714-01,10,1,face+OD rough,MITSUBISHI CNGG120404-MJ HTi10 / WALTER DCLNR2020K12,lathe_OD_rough,,,,,-0.3,,0.20,1200,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,2,OD finish,ZCC-CT VCGX110302-LH / CHAIN SVJCR2525M11,lathe_OD_finish,,,,,-36.0,,0.06,1000,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,3,H-drill Ø12 live,12MM FLAT ENDMILL 4F (horizontal live),end_mill,12,4,50.0,75.0,-38.8,300,,2000,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,4,H-drill Ø4 live,FAP-00027 4MM,drill,4,2,29.3,75.0,-37.075,70,,2500,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,5,H-drill Ø3.15 live,FAP-00026 3.15MM,drill,3.15,2,8.0,75.0,-44.075,70,,2500,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,6,engrave (vertical),0.8MM BALL ENDMILL 4F,ball_mill,0.8,4,50.0,75.0,,300–200,,4000,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,10,7,OD parting,ISCAR TAG R3J-15D IC908 / SHANGINGSGBU 20-32,lathe_parting,,,,,-38.0,,0.15,1100,,,PP NPP,DOOSAN 2600Y,setup_sheet
+1241-714-01,20,1,Ø15 pocket rough,12MM ENDMILL 2F,end_mill,12,2,25.0,50.0,-5.8,2000,,7200,,,PP NPP,CNCV MAK PS95,setup_sheet
+1241-714-01,20,2,Ø15 pocket finish,10MM ENDMILL 2F FINISHING,end_mill,10,2,25.0,40.0,-6.0,720,,7200,,,PP NPP,CNCV MAK PS95,setup_sheet
+1241-714-01,20,3,Ø6H9 bore rough (helix),5MM FLAT ENDMILL 4F,end_mill,5,4,30.0,75.0,-24.0,350,,6450,,,PP NPP,CNCV MAK PS95,setup_sheet
+1241-714-01,20,4,Ø6H9 reamer,6.03MM REAMER DURA 6F,reamer,6.03,6,26.0,93.0,-24.0,10,,420,,,PP NPP,CNCV MAK PS95,setup_sheet
+1241-714-01,20,5,face thickness rough,12MM ENDMILL 2F,end_mill,12,2,25.0,50.0,0.25,2000,,8200,,,PP NPP,CNCV MAK PS95,setup_sheet
+1241-714-01,20,6,face thickness finish,10MM ENDMILL 2F FINISHING,end_mill,10,2,25.0,40.0,0.0,720,,7200,,,PP NPP,CNCV MAK PS95,setup_sheet
+15-137820-00,10,1,roughing facing,20MM ENDMILL CHIPBREAKER,end_mill,20,2,65.0,80.0,-11.0,3000,,13500,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,2,finishing facing,20MM ENDMILL CHIPBREAKER,end_mill,20,2,65.0,80.0,-11.0,2000,,10000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,3,rough outline,10MM ROUGHING EM PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-10.0,3500,,13500,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,4,finish outline,10MM FINISHING EM PCL590167 FAP11335,end_mill,10,2,35.0,40.0,-10.0,3000,,12500,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,5,chamfer,20MM SPOT DRILL 90DEG,chamfer_mill,20,2,35.0,50.0,-7.35,1200,,8000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,6,rough c-bore Ø12.7,6MM ROUGHING EM PCL590166 FAP11336,end_mill,6,2,25.0,35.0,-3.61,500,,5000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,7,finish c-bore Ø12.7,6MM FINISHING EM PCL590166 FAP11336,end_mill,6,2,25.0,35.0,-3.81,500,,5000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,8,helix bore Ø6.73,3MM ENDMILL PCL590193 FAP11334,end_mill,3,2,10.0,30.0,-11.0,500,,5000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,9,chamfer holes,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,-4.81,500,,9000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,10,10,cut material,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,-10.8,2000,,11000,,,PP White WPP,EXXACT PLUS,setup_sheet
+15-137820-00,20,1,rough facing back,20MM ENDMILL CHIPBREAKER,end_mill,20,2,65.0,80.0,-11.0,3000,,13500,,,PP White WPP,EXXACT 1616,setup_sheet
+15-137820-00,20,2,finish facing back,20MM ENDMILL CHIPBREAKER,end_mill,20,2,65.0,80.0,-11.0,2000,,10000,,,PP White WPP,EXXACT 1616,setup_sheet
+15-137820-00,20,3,rough step 3.3mm,6MM ROUGHING EM PCL590166 FAP11336,end_mill,6,2,25.0,35.0,-3.002,1500,,13500,,,PP White WPP,EXXACT 1616,setup_sheet
+15-137820-00,20,4,finish step 3.3mm,6MM FINISHING EM PCL590166 FAP11336,end_mill,6,2,25.0,35.0,-3.302,1200,,10000,,,PP White WPP,EXXACT 1616,setup_sheet
+15-137820-00,20,5,chamfer back,3MM NC SPOT 90DEG S2DSO-090-030U,chamfer_mill,3,2,5.0,30.0,-0.7,2000,,11000,,,PP White WPP,EXXACT 1616,setup_sheet
+15-395585-00,10,1,face stopper / OD rough,MITSUBISHI CNGG120404-MJ HTi10 / WALTER DCLNR2525M12,lathe_OD_rough,,,,,0.3,,0.20,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+15-395585-00,10,2,OD finish,ZCC-CT VCGX110302-LH / CHAIN SVJCR2525M11,lathe_OD_finish,,,,,-13.6,,0.07,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+15-395585-00,10,3,back chamfer,ZCC-CT VCGX110302-LH / CHAIN SVJCR2525M11,lathe_OD_finish,,,,,-13.395,,0.07,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+15-395585-00,10,4,ID drill 6mm EM,Ø6.00MM END MILL (drill substitute),drill,6,,,,-15.2,,0.10,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+15-395585-00,10,5,ID finish,WARK MBQR0441L16R010 / SIMTEK A04.0016,lathe_ID_finish,,,,,-13.7,,0.07,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+15-395585-00,10,6,OD parting,TAEGUTEC TDJ2TT8020 / T-CLAMP TTER2525-2T17,lathe_parting,,,,,-14.7,,0.07,1000,,,PP NPP,TAKISAWA 108,setup_sheet
+16-408773-00,OP10-ITEM1,N1,ROUGH TOP,50mm Facemill 45deg,facemill,45,4,40,40,-10.0,800,,5000,,,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N2,ROUGH OD+POCKETS+SLOT,12MM ENDMILL 2F,end_mill,12,2,25,50,-35.4,250-4000,,8000,,,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N3,ROUGH SLOT 0.130,3MM ENDMILL 2F,end_mill,3,2,8,20,-3.0,250,,6000,0.15,3.0,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N4,FIN SURFACES,10MM ENDMILL 2F FULLERTON,end_mill,10,2,25,40,-15.236,600-1000,,6000,,,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N5,FIN ANGLE 20DEG,6MM BALLNOSE 2F,ball_mill,6,2,20,30,-2.197,4000,,8000,,,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N6,CHAMFER TOP,6MM NC SPOTDRILL 90DEG,spot_drill,6,2,25,30,-1.196,1000,,6000,,,PP,CNCV FAN V,4091 setup sheet
+16-408773-00,OP10-ITEM1,N7,HOLE 0.194,drill ~4.9mm,drill,4.9,2,,,, 150,,4000,,,PP,CNCV FAN V,NC 4091 est
+16-408773-00,OP20-ITEM1,N1,ROUGH FACING (post-weld),2D highspeed EM,end_mill,,,,,, 2500,,8000,,,PP,DNM 5700 4X,NC 4093
+16-408773-00,OP20-ITEM1,N2,CONTOUR OD (post-weld),dovetail cutter Dia7.51,specialty,7.51,2,,,,-800,,3500,,,PP,DNM 5700 4X,NC 4093 / dovetail spec PDF
+16-408773-00,OP20-ITEM1,N8,ENGRAVE PN,engraving tool,engrave,,2,,,,-200,,8000,0,0.2,PP,DNM 5700 4X,NC 4093 op 29
+16-408773-00,OP10-ITEM2,N1,FACING,facemill 80mm 45deg,facemill,80,4,10,50,0.3,2000,,5000,,,PP,CNCR EXACT,4088 NC
+16-408773-00,OP10-ITEM2,N2,ROUGH OD + ANGLE 20DEG,12MM EM 2F,end_mill,12,2,,,,-250,,13500,,,PP,CNCR EXACT,NC 4088
+16-408773-00,OP10-ITEM2,N3,CUT MATERIAL,parting/cut,cut,,,,,,650,,4000,,,PP,CNCR EXACT,NC 4088
+16-408773-00,OP20-ITEM2,N1,FACING+ROUGH/FIN OD,12MM EM,end_mill,12,2,,,,300-2500,,5000-13500,,,PP,EXXACT1616,NC 4089
+16-408773-00,OP20-ITEM2,N4,ROUGH SLOT 0.130,3MM EM or similar,end_mill,3,2,,,,200,,6000,,,PP,EXXACT1616,NC 4089
+16-408773-00,OP20-ITEM2,N7,FIN ANGLE 20DEG,12MM EM,end_mill,12,2,,,,300,,13500,,,PP,EXXACT1616,NC 4089
+16-408773-00,OP20-ITEM2,N9,FIN ID,12MM EM,end_mill,12,2,,,,2500,,8000,,,PP,EXXACT1616,NC 4089
+16-408773-00,OP10-ITEM3,N1,ROUGH OD,OD turning insert,lathe_od,,,,137.2,,200,0.25,13500,,,PP,CNCR EXACT,NC 4087
+16-408773-00,OP10-ITEM3,N2,FIN OD,OD finish insert,lathe_od,,,,137.2,,1200,0.08,13500,,,PP,CNCR EXACT,NC 4087
+16-408773-00,OP10-ITEM3,N3,CUT/PART,parting insert,lathe_part,,,,,,650,0.08,10000,,,PP,CNCR EXACT,NC 4087
+16-455529-00,OP10-ITEM1,N1,OD TURNING BLANK,OD Turn 80deg insert (CNGG120404),lathe_od,,,,137.2,,200,0.25,2000,,,PP,CNCL TAK,OP10 xlsx setup sheet
+16-455529-00,OP10-ITEM1,N2,PARTING,PARTING insert (AC830P),lathe_part,,,,137.2,,200,0.08,1000,,,PP,CNCL TAK,OP10 xlsx setup sheet
+16-455529-00,OP10-ITEM1,N3,OD FINISH,OD TURN 35 (VCGX110302-LC),lathe_od,,,,137.2,,200,0.08,1000,,,PP,CNCL TAK,OP10 xlsx setup sheet
+16-455529-00,OP20-ITEM1,N1,FACING 0.0,C-F-12MM X55-2FL EM,end_mill,12,2,55,60,-24.215,1000,,5000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N2,ROUGH OD,C-RF-12MM X55-2FL EM,end_mill,12,2,55,60,-28.279,889-1270,,5000-10000,0.889,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N3,FIN OD 0.750,C-F-12MM X55-2FL EM,end_mill,12,2,55,60,-15.264,1270,,10000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N4,SPOT/CHAMFER HOLE,C-RF-12MM 90DEG CHAMFER 4FL,chamfer_mill,12,4,6,50,0.502,150-1000,,4000-6000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N5,HOLE 0.340 (Ø8.636mm),CARB DRILL 8.60 DURA,drill,8.6,2,60,65,0.502,203-508,,1350-2000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N6,FIN HOLE 0.600,C-F-10MM X35-2FL EM,end_mill,10,2,35,40,10.027,762,,2000-10000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N7,ROUGH DIST 0.725,C-RF-12MM X55-2FL EM,end_mill,12,2,55,60,-15.142,1500,,8000,,,PP,DVF 5000,4561 setup sheet
+16-455529-00,OP20-ITEM1,N8,SLOT 0.210,slot mill,slot_mill,,,,,-15,600,,5000,,,PP,DVF 5000,NC T30
+16-455529-00,OP10-ITEM2,N1,ROUGH FACING,C-RF-80MM 45DEG FACEMILL,facemill,80,4,10,50,0.3,2000,,5000,,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP10-ITEM2,N2,ROUGH OD,C-RF-12MM X55-2FL EM,end_mill,12,2,55,55,-27.7,300,,5000-12000,0.5,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP10-ITEM2,N3,FACING 0.0,C-F-12MM X55-2FL EM,end_mill,12,2,55,55,0.0,1000,,5000,,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP10-ITEM2,N4,FIN OD,C-F-12MM X55-2FL EM,end_mill,12,2,55,55,-27.7,1000,,5000-6000,,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP10-ITEM2,N5,FIN R5.00,Carbide Corner R5.0 DURA,bull_mill,2,4,5,30,-5.0,1200,,6000,,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP10-ITEM2,N6,CUT MATERIAL,C-F-3MM 90DEG CHAMFER 2FL,chamfer_mill,3,2,5,30,-28.3,650,,6000,,,PP,DNM 6700,4558 setup sheet
+16-455529-00,OP30-ITEM2,N1,ENGRAVE PART NUMBER,engrave cutter,engrave,,2,,,,200,,5000,,,PP,CNCV FAN M,NC 4560
+713-142958-001,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ HTi10,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N3,Lathe cannell rough,OD Rough Left Mitsubishi insert,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N4,ID drill,12mm Spot Drill 90deg,spot drill,12,,3,,,150,,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N5,ID bore rough+finish,ID Finish SIMTEK A04.0016 YR GT45,boring bar,,,,,,,0.07,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N6,OD finish,OD Finish Left ZCCT VCGX110302-LH SVJCR-2525M-11,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N7,Turn back-chamfer,Turn back-chamfer insert,OD turning insert,,,,,,,0.07,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142958-001,10,N9,Part-off,Parting TAEGUTEC TDJ3TT9030 CHAIN EZHR-25M-3D-25,parting blade,,,,,,,0.15,1000,,,PEEK NAT,NAKAMURA,Taki setup sheet OP10 O1816
+713-142960-001,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N3,OD cannell rough,OD Rough Left Mitsubishi insert,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N3b,Spot + drill,12mm Spot Drill 90deg,spot drill,12,,3,,,150,,800,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N4,ID bore rough+finish,ID Finish SIMTEK A04.0016 SIMTEK YR GT45 boring bar,boring bar,,,,,,,0.15,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N9,OD finish,OD Finish Left CHAIN SVJCR-2525M-11 ZCC-CT VCGX110302-LH,OD turning insert,,,,,,,0.07,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-142960-001,10,N6,Part-off,Parting CHAIN EZHR-25M-3D-25 Taegutec TDJ3TT9030,parting blade,,,,,,,0.08,1000,,,PEEK NAT,CNCL NAK,Taki setup sheet OP10 O1817
+713-187739-236,20,N1,rough fly surface,C-RF Ø80 45deg facemill,facemill,80,,,,,800,,5000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,chip-breaker rough,20mm 3FL chip-breaker EM,endmill_chipbreaker,20,3,,,,2500,,10000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,rough pockets/profile,C-RF Ø10 2FL EM,endmill,10,2,,,,1000-2000,,6000-10000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,finish profile,Ø10 2FL finish EM,endmill,10,2,,,,900-1500,,8000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,drill 5.2 for M5 helicoil,5.2 carbide drill,drill,5.2,,,,,150,,3500,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,thread mill M5x0.8,M5x0.8 thread mill,thread_mill,3.9,,,,,,,,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,corner/fillet,10xR1 / 4xR0.3 bull R0.5 corner,bull_corner,,4,,,,600-1000,,6000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-201706-001,10,N2,OD rough,OD Rough Left Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N3,OD cannell rough,OD Rough Left 2nd pass,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N3b,Spot drill,12mm Spot Drill,spot drill,12,,40,,,-,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N4,Drill Ø5.0,Drill 5.0mm x CL40 MERTEX ER16,drill,5,,40,,,200,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N7/N8,Tap M6x1.0,Tap M6x1.0 Spiral STK MERTEX ER16,tap,6,,40,,,,,350,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N9,OD finish,OD Finish Left CHAIN SVJCR-2525M-11 ZCC-CT VCGX110302-LH,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,10,N6,Part-off,Parting CHAIN EZHR-25M-3D-25 Taegutec TDJ3TT9030,parting blade,,,,,,,0.15,220,,,PEEK NAT,CNCTM TAK,Setup sheet OP10 O1820
+713-201706-001,20,N1,Face + OD rough,OD Rough Left Mitsubishi CNGG WALTER DCLNR,OD turning insert,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N3,Cross-drill spot,6mm Spot Drill (triple boring holder),spot drill,6,,40,,,150,,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N3b,Cross-drill M10 thru,Drill 8.5mm then M10x1.5 tap,drill,8.5,,120,,,150,,1800,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N5,ID bore rough+finish,ID Finish boring bar A06.0012 WARK,boring bar,,,,,,,0.1,1000,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-201706-001,20,N6,OD finish,OD Finish Left CHAIN SVJCR ZCC VCGX,OD turning insert,,,,,,,0.07,1500,,,PEEK NAT,CNCTM TAK,Setup sheet OP20 O1821
+713-226789-201,09,1-6,rough+fin slot 7.00,6MM FLAT END MILL 2F ONSRUD,end_mill,6,2,25,35,-3.0,650-1500,,5000-8000,,,PEEK,CNCV FAN M,2267_OP09_setup_sheet
+713-226789-201,09,7-8,dovetail groove for vise,DOVETAIL CUTTER Ø12×60° FAP11481,dovetail,12,4,6,35,-3.0,500,,5000,,,PEEK,CNCV FAN M,2267_OP09_setup_sheet
+713-226789-201,09,9-10,mark side,3MM FLAT END MILL 2F,end_mill,3,2,8,20,-2.0,850,,6000,,,PEEK,CNCV FAN M,2267_OP09_setup_sheet
+713-226789-201,10,11-13,rough facing+OD,16MM FLAT END MILL 2F ONSRUD,end_mill,16,2,50,85,-80.5,1000-2500,,6000-8000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,14-19,rough Ø20.68 bores+pockets+Ø10.70,10MM END MILL 4F COATED,end_mill,10,2,35,40,-75.2,250-650,,6000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,20-28,facing+fin Ø20.68 bore+fin rad R0.38,CARB BULLMILL Ø10 R0.5 4F COATED,bull_mill,10,4,25,40,-2.71,650-3500,,5000-8000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,23-29,fin rad R1.30,6MM BALL NOSE 2F,ball_mill,6,2,20,30,-72.7,4000,,8000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,24-31,drill Ø10.70 (4× holes),CARB DRILL Ø10.70 TL118 coated WALTER,drill,10.7,2,25,75,-69.3,100,,1350,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,32-33,fin full-radius bottom hole,CARB BALLNOSE Ø10 LONG SERIES 2F coated,ball_mill,10,4,30,65,-66.4,250,,3000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,34,spot for M5 helicoil,12MM SPOT 90° CHAMFER [S2DSO-090-120U],spot_drill,12,2,20,50,-3.05,200,,4000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,35,drill for M5 helicoil,CARB DRILL Ø5.30,drill,5.3,2,25,35,-10.5,80,,1350,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,36,thread mill M5×0.8,THREADMILL M5×0.8 Ø3.90 MYOOK,thread_mill,3.9,4,20,30,-9.0,350,,3500,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,37,spot for M4 helicoil,CARB SPOT DRILL Ø6 90°,spot_drill,6,2,25,35,-75.95,200,,4000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,38,drill for M4 helicoil,CARB DRILL Ø4.30,drill,4.3,2,25,40,-75.95,100,,1350,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,39,thread mill M4×0.7,THREADMILL M4×0.7 Ø3.15 MYOOK,thread_mill,3.15,4,16,30,-76.9,350,,3500,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,10,40-63,fin OD+dist 7.60+chamfers,10MM END MILL ONSRUD PCL590167 FAP11335,end_mill,10,2,35,40,-75.3,800,,5000-6000,,,PEEK,DVF 5000 (HAAS UMC-750),2268_OP10_setup_sheet
+713-226789-201,20,65-71,rough top+3× angle sweeps,10MM END MILL 4F COATED,end_mill,10,2,25,35,-23.8,3000,,8000-10000,,,PEEK,CNCV FAN M,2269_OP20_setup_sheet
+713-226789-201,20,72-78,facing top+fin 3× angle sweeps (11.9°),CARB BULLMILL Ø10 R1.0 4F,bull_mill,10,4,25,35,-24.6,800-5000,,5000-10000,,,PEEK,CNCV FAN M,2269_OP20_setup_sheet
+713-226789-201,20,79,chamfer 2.00,12MM NC SPOT 90° 2F,spot_drill,12,2,20,40,-3.0,600,,6000,,,PEEK,CNCV FAN M,2269_OP20_setup_sheet
+713-323740-001,10,N2,OD rough left (main spindle),OD ROUGH LEFT - MITSUBISHI CNGG120404-MJ HTi10,lathe_OD,,,,,-37.0,,0.2,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N3,ID drill Ø16,16MM END MILL (drill mode),drill,16,,,,,-44.3,,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N4,OD grooving rough 3mm wide,OD GROOVING 2mm - WARK TDC3 TT9030,lathe_groove,,,,,-20.3,,0.1,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N5,OD finish left,OD FINISH LEFT - ZCC-CT VCGX110302-LH,lathe_OD,,,,,-25.2,,0.05,1200,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N6,OD grooving finish 3mm,OD GROOVING 2mm - WARK TDC2 TT9030,lathe_groove,,,,,-21.4,,0.08,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N7,ID rough (min Ø16 dia),ID ROUGH MIN.16 DIA - WARK CCGT060202L-W,lathe_ID,,,,,-23.0,,0.15,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N8,ID finish (min Ø10 dia),ID FINISH MIN.10 DIA - WARK CCGT060202L-W,lathe_ID,,,,,-21.2,,0.06,550,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N9,ID grooving rough 0.8mm,ID GROOVE MIN.3 DIA - WARK GEPI-300-R0.2,lathe_groove,,,,,-16.8,,0.1,800,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N10,ID grooving finish 0.8mm,ID GROOVE MIN.3 DIA - WARK GEPI-300-R0.2,lathe_groove,,,,,-17.5,,0.06,550,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N11,ID face grooving rough,ID FACE GROOVING - WARK MFGR07L10.5×R0.76,lathe_face_groove,,,,,-9.1,,0.1,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N12,ID face grooving finish,ID FACE GROOVING - WARK MFGR07L10.5×R0.76,lathe_face_groove,,,,,-9.3,,0.06,850,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N13,engrave P/N (sub-spindle live mill),Ø0.8 BALL ENDMILL 4FL - VARTICAL LIFE TOOLING,ball_mill,0.8,4,4,75,-0.1,250,,4000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet+NC_O0855
+713-323740-001,10,N14-17,ID grooving 0.8mm (4× grooves),ID GROOVE MIN.0.8 DIA - WARK MBG09-D0.8×R0.4,lathe_groove,,,,,-5.1,,0.08,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N15,part-off (4mm wide),OD CUTOFF RIGHT - WARK TDC4 TT9030,lathe_cutoff,,,,,0.53,,0.08,197,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N16,OD rough right (sub-spindle back),OD ROUGH RIGHT - MITSUBISHI CNGG120404-MJ HTi10,lathe_OD,,,,,466.8,,0.1,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N17,ID rough back (sub-spindle),ID ROUGH MIN.3 DIA 80° - SIMTEK MBQR0441L20R015,lathe_ID,,,,,464.1,,0.1,330,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N18,OD finish right (sub-spindle),OD FINISH RIGHT - ZCC-CT VCGX110302-LH,lathe_OD,,,,,466.0,,0.06,1000,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N19,ID face grooving rough (back),ID FACE GROOVE - MFGR0730L10R1.27,lathe_face_groove,,,,,466.8,,0.1,200,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N20,ID finish back,ID FINISH BACK - WARK MBQR0441L20R015,lathe_ID,,,,,466.8,,0.06,900,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-323740-001,10,N21,ID face finish back,ID FACE FINISH - MFGR0730L10R1.27,lathe_face_groove,,,,,466.8,,0.06,800,,,PEEK,DOOSAN LYNX 2100 LYSB,OP10_setup_sheet
+713-344410-010,10,N1,Stopper,Any tool stopper,stopper,,,,,,,,,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N2,OD rough,OD ROUGH Mitsubishi CNGG120404-MJ WALTER DCLNR2020K12,OD turning insert,,,,68.35,,,0.2,2500,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N3,Spot+chamfer,6mm SPOT DRILL Bush holder,spot drill,6,,3,,,,150,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N4,Drill thru,CARBIDE DRILL Ø9.5 CL80 SD10 SG ER16,drill,9.5,,80,,,100,,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N5,ID chamfer (main),ID CHAMFER WARK A06.0012 MBQR0661L30R010,boring bar chamfer,,,1.467,,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N6,OD finish (main),OD FINISH ZCCT VCGX110302-LC CHAIN SVJCR-20x20K-11,OD turning insert,,,,66,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N7,Part-off,PARTING WARK TTEL2020-4T25 TDC4 TT9030,parting blade,,,,63-67,,,0.15,800,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N8,OD finish (sub),OD FINISH ZCCT VCGX110302-LC sub-spindle,OD turning insert,,,,1,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-344410-010,10,N9,ID chamfer (sub),ID CHAMFER WARK A06.0012 MBQR0661L30R010 sub-spindle,boring bar chamfer,,,1.467,,,,0.08,1000,,,PEEK NAT,LYNX21LYSB,Doosan 2100LSYB setup sheet OP10 O8049
+713-A05592-003,10,N1,Stopper,Any tool stopper,stopper,,,,,,,,,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N2,OD rough,OD Turn 80deg Mitsubishi CNGG120404-MJ WALTER DCLNR2525M12,OD turning insert,,,30,,,0.25,2000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N3,Spot+ID rough,12mm Spot Drill 90deg ER16,spot drill,12,,3,,,200,,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N4,Drill thru Ø5.8,5.8mm Drill ER16,drill,5.8,,30,,,200,,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N5/N8,ID bore rough+finish,ID Finish WARK A05.0020 MBQR0541L31R005,boring bar,,,21,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N6,ID groove relief,ID GROOVE WARK A07.0020 MGSR0761L41 W150-R6,grooving bar,,,12.5,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N7/N9,ID thread+debur,ID THREADING WARK A06.0020 MHTR0661L20 A60,threading bar,,,12,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N10,OD finish,OD Turn 35/16 ZCCT VCGX110302-LC SVJCR-2525M-11,OD turning insert,,,27.5,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,10,N11,Part-off,PARTING Tungaloy CTER2525-3T25 DGM3-020-15R AH725,parting blade,,,30,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP10 O3481
+713-A05592-003,20,N1,OD facing,OD Turn 80deg ARNO VCGT160404FN-ALU WALTER SVJBR2525M-16,OD turning insert,,,5,,,0.25,2000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N2/N4,ID bore rough+finish (back),ID Finish WARK A06.0020 MBQR0661L30R010,boring bar,,,5.9,,,0.05,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N3/N5,Face groove rough+finish,FACE GROOVE WARK A10.0025 MFGR1025L 25W400-U,face grooving bar,,,23,,,0.06,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A05592-003,20,N6,OD finish (back),OD Turn 35/16 ZCCT VCGX110302-LC SVJCR-2525M-11,OD turning insert,,,1,,,0.08,1000,,,PEEK,CNCTM TAK NEX-110Y,Taki setup sheet OP20 O3482
+713-A42978-022,10,N1,Rough OD cut to size,10MM ROUGHING ENDMILL PCL590167,end_mill,10,2,35,40,,1700,,13500,,,PP,CNCR EXACT,setup_pdf_op10
+713-A42978-022,10,N2,D20 Finish contour 820x704,20MM CHIP BREAKER END MILL AUS-A2003100,end_mill,20,2,35,40,,3500,,12500,,,PP,CNCR EXACT,setup_pdf_op10
+713-A42978-022,10,N4,Cut material,3MM NC SPOT 90 DEG,spot_drill,3,2,30,40,,3500,,12000,,,PP,CNCR EXACT,setup_pdf_op10
+713-A42978-022,20,T6,Rough profile (chip-breaker),3MM FLAT END MILL CL10 ONSPUD-2F,end_mill,3,2,10,25,,-10.0,,,,PP,CNC HAAS L,setup_pdf_op20
+713-A42978-022,20,T25,Finish outline / M5x0.8 threadmill,10MM CHIP BREAKER END MILL AUS-A2003100,end_mill,10,3,35,40,,-9.4,,,,PP,CNC HAAS L,setup_pdf_op20
+713-A42978-022,20,T25b,M5x0.8 threadmill,M5x0.8 THREADCHOB DIA3.9MM CL10MM,thread_mill,3.9,12,10,25,,-9.4,,,,PP,CNC HAAS L,setup_pdf_op20
+713-A42978-022,20,T28,Spotdrill / chamfer,20MM SPOTDRILL FULL 90 DEG,spot_drill,20,2,50,100,,-3.0,,4000,,,PP,CNC HAAS L,setup_pdf_op20
+713-A42978-022,30,T21,Rough pocket depth 6mm,16MM x CL50 x 3FL CHIPBREAKER GET,end_mill,16,3,50,100,,-7.7,,,1500,,5000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A42978-022,30,T12,Rough step 3mm,10MM CHIP BREAKER ENDMILL AUS-A2003100,end_mill,10,3,35,40,,-11.9,,,1000,,5000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A42978-022,30,T25,Finish outline D12 60mm,10MM x CL35 x 3FL CHIP BREAKER END MILL,end_mill,10,3,35,40,,-11.9,,,1500,,5000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A42978-022,30,T4,Rough Ø410 contour,10MM FLAT END MILL AUS-A2003100,end_mill,10,2,35,40,,-8.1,,,1500,,5000,PP,CNC HAAS L,setup_pdf_op30
+713-A42978-022,30,T9,Spotdrill chamfer,3MM NC SPOT 90 DEG 2F,spot_drill,3,2,5,30,,-4.0,,,1000,,4000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A42978-022,30,T15,Finish helicoil bore 15mm,15MM FLAT END MILL (FULLERTON-2F),end_mill,15,2,35,40,,-7.7,,,900,,5000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A42978-022,30,T28,20MM Spotdrill,20MM SPOTDRILL FULL 90 DEG,spot_drill,20,2,50,100,,-4.0,,,400,,3000,PP,CNC HAAS L,setup_pdf_op30_tl
+713-A51655-001,10,N1,Rough OD,6MM ROUGHING ENDMILL PCL590166 FAP11336,end_mill,6,2,25,35,,-12.1,,,13500,,,PP,CNCR EXACT,setup_pdf_op10
+713-A51655-001,10,N2,Finish OD,6MM FINISHING ENDMILL PCL590166 FAP11336,end_mill,6,2,25,35,,-12.0,,,13500,,,PP,CNCR EXACT,setup_pdf_op10
+713-A51655-001,10,N3,Remachining R0.10,3MM ENDMILL PCL590193 FAP11334,end_mill,3,2,10,30,,-12.7,,,5000,,,PP,CNCR EXACT,setup_pdf_op10
+713-A51655-001,10,N4,Cut material,3MM NC SPOT 90 DEG,spot_drill,3,2,5,30,,0,,8000,,,PP,CNCR EXACT,setup_pdf_op10
+713-A51655-001,20,T7,Spot drill Ø0.206,12MM NC SPOT 90 DEG 2F,spot_drill,12,2,20,40,,-28.4,,,4000,,,PP,CNCV FAN M,setup_pdf_op20
+713-A51655-001,20,T16,Drill Ø5.23mm (0.206in),DRILL 5.23MM,drill,5.23,2,25,35,,-34.5,,,1350,,,PP,CNCV FAN M,setup_pdf_op20
+713-A51655-001,20,T14,Finish bore Ø0.206,3MM ENDMILL 2F FINISHING,end_mill,3,2,8,20,,-33.0,,,5000,,,PP,CNCV FAN M,setup_pdf_op20
+839-219206-002,10,T4,Fly thickness,10MM ENDMILL 2F,end_mill,10,2,25,40,,-4.0,,,4000,,,PP,CNCV FAN M,setup_pdf_op10
+839-219206-002,10,T12,Rough step depth 4mm,6MM ENDMILL 2F,end_mill,6,2,35,40,,-4.0,,,6000,,,PP,CNCV FAN M,setup_pdf_op10
+839-219206-002,10,T12b,Finish step depth,10MM ENDMILL 2F FINISHING,end_mill,10,2,25,40,,-4.0,,,6000,,,PP,CNCV FAN M,setup_pdf_op10
+839-219206-002,10,T16,Dovetail slot clamp,DOVE TAIL 60 DEG HALF 30 DEG FAP11481,dovetail,12,2,25,40,,-4.0,,,4000,,,PP,CNCV FAN M,setup_pdf_op10
+839-219206-002,20,T23,Rough fly surface,16MM ENDMILL-CL35 TP85-TL100-2F ALLIED,end_mill,16,2,35,100,,-65.0,,,3000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-219206-002,20,T21,Finish outline,10MM ENDMILL-CL25 2F ALLIED,end_mill,10,2,25,100,,,,,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-219206-002,20,T21b,DIG finish island Ø0.94,10MM ENDMILL-CL25 SHK 10MM UNCOATED,end_mill,10,2,25,100,,,,6000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-219206-002,30,T2,Rough fly surface back,16MM ENDMILL 2F,end_mill,16,2,35,100,,,,,,,PP,CNCV FAN M,setup_pdf_op30
+839-219206-002,30,T14,Rough C-bore Ø0.206,3MM ENDMILL 2F FINISHING,end_mill,3,2,8,20,,,,,,,PP,CNCV FAN M,setup_pdf_op30
+839-219206-002,30,T19,Spotdrill,3MM NC SPOT 90 DEG 2F,spot_drill,3,2,5,30,,,,,,,PP,CNCV FAN M,setup_pdf_op30
+839-219206-002,30,T9,Permanent engrave,0.8MM BALLNOSE 2F,ball_mill,0.8,2,3,20,,,,,,,PP,CNCV FAN M,setup_pdf_op30
+839-232763-002,09,T1,Facing (ITEM1),80MM FACEMILL MITSUBISHI 4F,face_mill,80,4,0,58,0.0,1000,,5000,,,PP,CNCV MAK,setup_pdf_item1_op09
+839-232763-002,09,T12,Dovetail Z-3.175 (ITEM1),DOVETAIL FAP11461 16MM,dovetail,16,2,60,60,-3.175,500,,8000,,,PP,CNCV MAK,setup_pdf_item1_op09
+839-232763-002,09,T9,Dovetail pin (ITEM1),6MM ENDMILL 2F,end_mill,6,2,25,25,-3.175,500,,6000,,,PP,CNCV MAK,setup_pdf_item1_op09
+839-232763-002,10,T1,Rough outline (ITEM1),10MM ROUGH ENDMILL PCL590167,end_mill,10,2,35,40,,3000,,13500,,,PP,DVF 5000,setup_pdf_item1_op10
+839-232763-002,10,T4,Fin outline (ITEM1),10MM FINISHING ENDMILL PCL590167,end_mill,10,2,35,40,,3000,,13500,,,PP,DVF 5000,setup_pdf_item1_op10
+839-232763-002,10,T3,Registration holes (ITEM1),3MM ENDMILL PCL590193 2F,end_mill,3,2,10,30,,2000,,11000,,,PP,DVF 5000,setup_pdf_item1_op10
+839-232763-002,10,T12,Rough Ø0.44 bore (ITEM1),3MM ENDMILL PCL590193 2F,end_mill,3,2,10,30,,500,,6500,,,PP,DVF 5000,setup_pdf_item1_op10
+839-232763-002,10,T4b,Cut material (ITEM1),3MM NC SPOT 90 DEG,spot_drill,3,2,5,30,,3000,,5000,,,PP,DVF 5000,setup_pdf_item1_op10
+839-232763-002,20,T1,Facing back (ITEM1),80MM FACEMILL MITSUBISHI 4F,face_mill,80,4,0,58,0.0,1000,,5000,,,PP,CNCV MAK,setup_pdf_item1_op20
+839-232763-002,20,T18,R1.5 fillet (ITEM1),RADIUS CUTTER R1.5 TIP 1.5,radius_mill,1.5,2,30,30,-1.5,500,,4000,,,PP,CNCV MAK,setup_pdf_item1_op20
+839-232763-002,09b,T1,Rough outline (ITEM3),10MM ROUGH ENDMILL PCL590167,end_mill,10,2,35,40,,3000,,13500,,,PP,CNCR EXACT,setup_pdf_item3_op09
+839-232763-002,09b,T4,Fin outline (ITEM3),10MM FINISHING ENDMILL PCL590167,end_mill,10,2,35,40,,3000,,13500,,,PP,CNCR EXACT,setup_pdf_item3_op09
+839-297424-004,OP10-THK19.05,N1,OD OUTER,10MM ROUGHING EM PCL590167,end_mill,10,2,35,40,-18.55,7000,,13500,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N2,ROUGH DP 0.380,10MM ROUGHING EM PCL590167,end_mill,10,2,35,40,-9.302,5500,,13500,0.5,0.35,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N3,FIN DP 0.38,10MM FINISHING EM PCL590167,end_mill,10,2,35,40,-9.652,800,,5000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N4,RELIEF/CHAMFER,10MM ROUGHING EM,end_mill,10,2,35,40,-5.5,1500,,6000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N5,CHAMFER 0.19X45,12MM NC SPOT 90DEG,spot_drill,12,2,20,50,-5.326,600,,4000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N6,REGISTRATION MARK,3MM NC SPOT 90DEG,spot_drill,3,2,5,30,-0.6,1500,,10000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N7,ENGRAVE LOT MARKING,0.8MM BALLNOSE CBN,ball_mill,0.8,2,1.5,20,-0.2,200,,5000,0,0.2,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N8,POKA YOKE POCKET,2MM ENDMILL 2F GET,end_mill,2,2,10,15,-2.5,600,,6000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP10-THK19.05,N9,CUT MATERIAL,90DEG half-45 chamfer Ø6,chamfer_mill,6,2,10,25,-12.552,600,,4000,,,PP,CNCR EXACT,2298 setup sheet
+839-297424-004,OP20-THK19.05,N1,REGISTRATION MARK,3MM NC SPOT 90DEG,spot_drill,3,2,5,30,-0.6,1500,,10000,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N2,POKA YOKE POCKET,2MM ENDMILL 2F GET,end_mill,2,2,10,15,-2.5,600,,6000,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N3,ENGRAVE LOT,0.8MM BALLNOSE CBN,ball_mill,0.8,2,1.5,20,-0.2,200,,5000,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N4,HELICOIL TAP 10-32 (spot),NC SPOT 10MM 120DEG,spot_drill,10,2,15,35,-1.0,150,,4000,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N5,HOLE HELICOIL TAP 10-32,CARB DRILL 5.10MM,drill,5.1,2,25,35,-16.0,150,,1350,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N6,HOLE HELICOIL TAP 4-40,CARB DRILL 3.10MM,drill,3.1,2,25,30,-14.0,150,,1350,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N7,HOLE HELICOIL TAP 8-32,CARB DRILL 3.80MM,drill,3.8,2,25,30,-14.0,150,,1350,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP20-THK19.05,N8,HELICOIL THREADMILL 8-32,THREADMILL 8-32 DIA3.2 MYOOK,thread_mill,3.2,4,16,30,-14.0,350-450,,3500,,,PP,CNCR EXXACT 1616,2299 setup sheet
+839-297424-004,OP10-THK12.70,N1,CUT TO SIZE,profiling EM,end_mill,,,,,,200,,13500,,,PP,CNCR EXACT,NC 2974
+839-297424-004,OP10-THK12.70,N2,CHAMFER 3.00,chamfer tool,chamfer_mill,,,,,,250,,10000,,,PP,CNCR EXACT,NC 2974
+839-297424-004,OP20-THK12.70,N1,ROUGH OD,profiling EM,end_mill,,,,,,200,,13500,,,PP,CNCR EXXACT 1616,NC 2975
+839-297424-004,OP20-THK12.70,N2,FIN OD,finish EM,end_mill,,,,,,600,,4000-10000,,,PP,CNCR EXXACT 1616,NC 2975
+839-297424-004,OP20-THK12.70,N3,HELICOIL TAP 10-32,threadmill 8-32 Ø3.2,thread_mill,3.2,4,16,30,,600,,2000,,,PP,CNCR EXXACT 1616,NC 2975
+839-297424-004,OP20-THK12.70,N4,TAP 1/4-20,tap,tap,,,,,,650,,4000,,,PP,CNCR EXXACT 1616,NC 2975
+839-A05168-102 ITEM1,10,1,cut length roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,-32.504,2000,,8000,,,NPP,CNCV MAK,setup_sheet+NC
+839-A05168-102 ITEM1,10,2,Ø15.24 thru roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,-6.0,1000,,8000,,,NPP,CNCV MAK,setup_sheet+NC
+839-A05168-102 ITEM1,10,3,cut length finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,-32.304,1000,,5490,,,NPP,CNCV MAK,setup_sheet+NC
+839-A05168-102 ITEM1,10,4,Ø15.24 thru finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,-6.0,500,,5490,,,NPP,CNCV MAK,setup_sheet+NC
+839-A05168-102 ITEM5,10,1,outline roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,,1000,,13500,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM5,10,2,Ø15.24 roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,,1000,,13500,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM5,10,3,outline finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,,1000,,8000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM5,10,4,Ø15.24 finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,,2000,,8000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM5,10,5,radius blend,D10MM BALL NOSE,ball_nose,10,2,,,,,, 8000,,,NPP,CNCR EXACT,NC
+839-A05168-102 ITEM5,10,6,cut material,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,,1000,,8000,,,NPP,CNCR EXACT,NC
+839-A05168-102 ITEM6,10,1,outline roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,40,-8.925,4000,,10000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM6,10,2,Ø32.26 thru roughing (2D dynamic),C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,40,-8.925,3000,,10000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM6,10,3,outline finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,40,-8.925,1000,,8000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM6,10,4,Ø32.26 thru finishing,C-F-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,40,-8.925,500,,8000,,,NPP,CNCR EXACT,setup_sheet+NC
+839-A05168-102 ITEM6,10,5,cut material / chamfer,C-F-3 MM X 90 DEG-2FL-UNC-CHAMFER MILL,chamfer,3,2,5,30,-9.225,1000,,8000,,,NPP,CNCR EXACT,setup_sheet
+839-A05168-102 ITEM7,10,1,top facing,C-RF-80 MM-45DEG LEAD-FACEMILL,face_mill,80,4,10,50,0.0,1000,,5000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,2,outline roughing,C-RF-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,3000,,8000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,3,profile finishing,C-F-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,2000,,5490,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,4,corner R6 roughing,RADIUS CUTTER R6,ball_nose,8,4,6,35,0.0,1500,,3000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,5,corner R6 finishing,RADIUS CUTTER R6,ball_nose,8,4,6,35,0.0,1000,,3000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,6,spotdrill Ø8,C-RF-12 MM X 90 DEG-4FL-UNC-CHAMFER MILL,chamfer,12,4,6,40,0.0,300,,3000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,7,drill Ø11.13,DRILL 7/16 LONG SERIES KENNAMETAL (11.113MM),drill,11.13,2,150,150,0.0,300,,2000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,8,Ø24.2 bore roughing,DIA 10MMXCL40XTL150XND9.5XNL100 FAP12028,end_mill,10,4,40,115,0.0,1000,,6000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,9,Ø24.2 bore finishing,DIA 10MMXCL40XTL150XND9.5XNL100 FAP12028,end_mill,10,4,40,115,0.0,600,,5490,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,10,chamfer,C-F-3 MM X 90 DEG-2FL-UNC-CHAMFER MILL,chamfer,3,2,5,25,0.0,800,,6000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,11,Ø76.2 pocket DP12.7 roughing,C-RF-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,4000,,10000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,12,Ø58.4 pocket DP40.6 roughing,C-RF-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,4000,,10000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,13,Ø76.2 pocket finish,C-F-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,2000,,5490,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,14,Ø58.4 floor finish,C-F-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,1000,,5000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,15,Ø58.4 wall finish,C-F-12 MM X 55-2FL-UNC-END MILL,end_mill,12,2,55,70,0.0,2000,,5490,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,10,16,chamfer,C-F-3 MM X 90 DEG-2FL-UNC-CHAMFER MILL,chamfer,3,2,5,25,0.0,1000,,8000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,20,1,back-side pocket roughing,C-RF-10 MM X 35-2FL-UNC-END MILL,end_mill,10,2,35,50,0.0,2000,,6000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,20,2,clear top surface,C-RF-80 MM-45DEG LEAD-FACEMILL,face_mill,80,4,10,50,0.0,1000,,6000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,20,3,corner R6 roughing,RADIUS CUTTER R6,ball_nose,8,4,6,35,0.0,635,,5000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM7,20,4,corner R6 finishing,RADIUS CUTTER R6,ball_nose,8,4,6,35,0.0,635,,5000,,,NPP,DNM 5700 4X,setup_sheet+NC
+839-A05168-102 ITEM8,10,1,OD rough face+turn,OD ROUGH RIGHT (MITSUBISHI CNGG120404-MJ HTi10),turning_insert,,,,,-,300,,0.2,1100,,NPP,CNCL TAK (NEX-108),setup_sheet
+839-A05168-102 ITEM9,10,1,OD face+rough turn,OD ROUGH RIGHT (MITSUBISHI CNGG120404-MJ HTi10),turning_insert,,,,,-,300,,0.2,1000,,NPP,CNCL TAK (NEX-108),setup_sheet
+839-A05168-102 ITEM9,20,1,face rough,OD ROUGH RIGHT (MITSUBISHI CNGG120404-MJ HTi10),turning_insert,,,,,-,300,,0.2,1000,,NPP,CNCL TAK (NEX-108),setup_sheet
+839-A05168-102 ITEM9,20,2,ID rough bore,ID ROUGH (WARK min dia bore),boring_bar,,,,,-,300,,0.2,1100,,NPP,CNCL TAK (NEX-108),setup_sheet
+839-A07950-001,10,1,facing rough top (pocket raster),6MM CL25-2FL-PCL590166 ONSRUD ENDMILL,end_mill,6,2,25,35,-2.159,2286,,6000,,,NPP,DOOSAN DNM 6700,setup_sheet+NC
+839-A07950-001,10,2,thru peck drill Ø6.4 (6x),CARB DRILL 6.40MM,drill,6.4,2,25,35,-1.943,635,,3000,,,NPP,DOOSAN DNM 6700,setup_sheet+NC
+839-A07950-001,10,3,finish hole CB Ø8.6 (helix bore),6MM CL25-2FL-PCL590166 ONSRUD ENDMILL,end_mill,6,2,25,35,-1.943,350,,5000,,,NPP,DOOSAN DNM 6700,setup_sheet+NC
+839-A07950-001,10,4,facing rough (2nd pass),6MM CL25-2FL-PCL590166 ONSRUD ENDMILL,end_mill,6,2,25,35,-2.159,2286,,6000,,,NPP,DOOSAN DNM 6700,setup_sheet+NC
+839-A29596-001,10,N1,Face flat surface,12MM FLAT END MILL 2F,end_mill,12,2,50,50,0.0,1000,,5000,,,PP,CNCV FAN M,setup_pdf_op10
+839-A29596-001,10,N2,Width cut 40mm Z-4.5mm,12MM FLAT END MILL 2F,end_mill,12,2,50,50,-4.5,1000,,5000,,,PP,CNCV FAN M,setup_pdf_op10
+839-A29596-001,10,N3,Dovetail Z-4mm,12MM x 60DEG DOVETAIL,dovetail,12,4,25,60,-4.0,500,,6000,,,PP,CNCV FAN M,setup_pdf_op10
+839-A29596-001,10,N4,Slot7 Z-2.7mm,6MM ENDMILL-CL25-TP85-TL65-2F,end_mill,6,2,25,65,-2.7,1000,,6000,,,PP,CNCV FAN M,setup_pdf_op10
+839-A29596-001,20,T16,Fly surface top Z0,16MM FLAT END MILL CL35 ONSPUD 2FL,end_mill,16,2,35,100,0.0,500,,5000-5500,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T2,Rough block 1/2/3,10MM FLAT END MILL CL35 ONSPUD 2FL,end_mill,10,2,35,100,,500,,5000-5500,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T18,D18 Matching R0.13in,18MM FLAT END MILL CL35 ONSPUD 2FL,end_mill,18,2,35,100,,450,,5000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T5,Rough collar / Ø0.332,8MM FLAT END MILL CL25 ONSPUD 2FL,end_mill,8,2,25,100,,500,,3500-5000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T6,Rough thru holes Ø0.221 / 0.190,5.6MM FLAT END MILL CL35 ONSPUD 2FL,end_mill,5.6,2,35,100,,300-500,,3500,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T22,Spotting x6,3MM NC SPOT 90 DEG,spot_drill,3,2,5,30,,200,,4000-5000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T21,7MM carbide drill x6,7MM CARBIDE DRILL,drill,7,2,40,90,,200,,1400-4000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,20,T20,1/8-27 NPT thread mill x2,1/8-27 NPT THREADMILL,thread_mill,8,,,,,300,,3000,,,PP,CNC 5-AXIS,setup_pdf_op20
+839-A29596-001,30,T2,Roughing back face,16MM FLAT END MILL 2FL,end_mill,16,2,35,100,,1000,,5500,,,PP,CNCV FAN M,setup_pdf_op30
+839-A29596-001,30,T3,Fly surface 2.27in control,12MM FLAT END MILL CL35 2FL,end_mill,12,2,35,50,,500,,5500,,,PP,CNCV FAN M,setup_pdf_op30
+839-A29596-001,30,T7,Spotting,3MM NC SPOT 90 DEG,spot_drill,3,2,5,30,,200,,5000,,,PP,CNCV FAN M,setup_pdf_op30
+839-A29596-001,30,T21,7MM carbide drill,7MM CARBIDE DRILL,drill,7,2,40,90,,200,,4000,,,PP,CNCV FAN M,setup_pdf_op30
+839-A29596-001,30,T5,Ø0.35 bore depth 0.80in,8MM FLAT END MILL 2FL,end_mill,8,2,25,100,,350,,1400,,,PP,CNCV FAN M,setup_pdf_op30
+839-A29596-001,30,T7b,Chamfer 0.04x45deg,3MM NC SPOT 90 DEG,spot_drill,3,2,5,30,,50,,3500,,,PP,CNCV FAN M,setup_pdf_op30

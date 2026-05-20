@@ -1,0 +1,136 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+0020-46358,10,CNCR EXACT 1616/STRATOS,fly surface + dovetail + slot + outline,cnc_milling,1,4.00,4.00,4.11,1.02,4,NC OP10 router 28.8 min total / 7pc per run (approx) = 4.11 min/pc
+0020-46358,20,CNCV FAN M,step pocket + finish profile + NPT helix pre,cnc_milling,2,11.00,11.52,36.85,,8,NC OP20 2PCS file 73.7 min / 2 = 36.85 min — this is combined OP20+OP40 equivalent; split between 20/30/40 in job cost
+0020-46358,25,CNCV FAN M,short setup/facing op,cnc_milling,3,2.00,1.96,,,3,Very short op (RM26 labor actual); function uncertain — likely facing/prep
+0020-46358,30,CNCV FAN M,NPT thread mill + profiles,cnc_milling,4,10.00,12.86,,,8,NC file 3449 OP30 = 5.5 min only (partial); actual 12.86 from Job Cost
+0020-46358,40,CNCV FAN M,equal scallop surface + final profile + chamfers,cnc_milling,5,35.00,35.02,36.85,1.05,10,NC OP20 2PCS 73.7/2=36.85 vs actual 35.02 → k=1.05 (CNCV FAN M)
+0020-64722,10,LYNX 26Y,Turn OD + mill step + part,cnc_lathe_milling,1,4.98,4.98,,, 7,Setup sheet cycle 4MIN matches Job Cost run 4.98min/pc well
+0020-64722,20,CNCV FAN M,Fly face + T-slot groove,cnc_milling,2,1.50,1.50,0.38,,2,NC OP20 5PC est 1.9min/5=0.38min/pc vs actual 1.50 -> k=3.9 unreliable (NC only 2 short ops); setup sheet cycle=1min39s~1.65min
+0020-64722,30,DNM 57004X,Drill/ream/tap small holes (4-axis HRT),cnc_milling,3,6.00,6.00,40.8,,9,NC est 40.8min dominated by reamer (T25 F=25 RPM=500 long dwell) and 1.6mm drill; actual only 6min/pc -> NC over-estimates for tapping/reaming cycles; setup sheet total=18min45s vs 6min actual suggests NC cycle time shown per-job not per-pc; not reliable for k
+0021-53926,10,CNCV FAN L,OD mill + face + slot,cnc_milling,1,34.00,34.00,30.1,1.13,7,Setup sheet stated 29:05 cycle; NC est 30.1min; actual 34.0 -> k=1.13
+0021-53926,20,CNCV FAN L,Face + pocket rough/finish + OD + 45deg slots + chamfer,cnc_milling,2,60.00,60.00,57.5,1.04,9,Setup sheet stated 56:30 cycle; NC est 57.5min; actual 60.0 -> k=1.04
+0021-53926,30,CNCV FAN L,Face + slot + M5 thread mill,cnc_milling,3,18.00,18.00,17.6,1.02,7,Setup sheet stated 16:30 cycle; NC est 17.6min; actual 18.0 -> k=1.02
+0021-53926,40,CNCV FAN L,Slots + pocket finish + 45deg gap finish + chamfers,cnc_milling,4,45.00,45.00,38.8,1.16,7,Setup sheet stated 38:05 cycle; NC est 38.8min; actual 45.0 -> k=1.16; difference possibly rework or cautious feeds
+0021-53926,50,CNCV FAN L,12deg angle mill + OD finish + chamfers + engrave,cnc_milling,5,40.83,40.83,36.6,1.11,8,Setup sheet stated 35:32 cycle; NC est 36.6min; actual 40.8 -> k=1.11; 1 scrap piece in this op
+0021-55284,10,CNCL TAK,OD turn + bore + parting,cnc_lathe,1,6.00,6.00,,, 3,Hard jaws; cut len 31mm; stopper+OD 80+OD 35+parting; estimates matched actuals
+0021-55284,20,CNCL TAK,OD finish backside,cnc_lathe,2,5.00,5.00,,, 2,Soft jaws flip; cut len 10mm; OD rough+finish back; estimates matched actuals
+0021-55284,40,CNCV FAN M,Arc profile pattering,cnc_milling,3,5.00,5.00,3.95,1.27, 1,G54+G55 2-PC fixture; NC raw=7.9 min/1pc → /2=3.95; actual=5.00; k=1.27; setup 5× overrun
+0021-55284,50,CNCV FAN M,C'bores + holes,cnc_milling,4,3.50,3.50,3.30,1.06, 4,Ø4.6 drill + cbore Ø0.312 both ends; NC=3.3 min actual=3.5 k=1.06
+0022-09112,10,CNCTM TAK,Fly face + OD turn/mill Ø68,cnc_lathe_milling,1,4.00,4.00,,,4,Setup sheet shows 33:19 cycle for what appears to be single-pc CNCV FAN V (milling-only) program; Job Cost actual 4.0min/pc on CNCTM TAK (turn+mill) suggests different/faster routing was used in production vs the obsolete milling setup sheet
+0022-09112,20,CNCTM TAK,Bore pocket + inner features + mark,cnc_lathe_milling,2,18.00,18.00,,,, No separate setup sheet for OP20; derived from Job Cost; CNCTM TAK likely did bore/pocket interior features
+0022-26284,10,CNCV FAN V,Full profile + face + slot (10pc transform),cnc_milling,1,12.00,12.00,6.97,1.72, 6,10-PC vacuum transform; NC=69.7 min/10=6.97 per pc; actual=12.0; k=1.72; includes flip-face
+0022-27201,10,CNCL TAK,OD turn + flange + bore + part-off,cnc_lathe,1,8.00,8.00,,, 3,Ø10 rod; hard jaws; setup massively over-ran 0.5→3.75 hr
+0022-27201,20,CNCV MAK,Rough+finish surface + profile relief,cnc_milling,2,1.53,1.00,0.38,2.63, 2,16pc/lot J579 fixture; NC/lot=6.1 min /16=0.38 pc; actual ~1.0 min/pc using QtyRun=156; k≈2.6
+0022-27201,30,CNCV MAK,4x slitting saw slots pass 1,cnc_milling,3,1.53,1.00,0.52,1.92, 1,45mm slitting saw 0.9mm wide F=50 mm/min; 4 slots per part
+0022-27201,40,CNCV MAK,4x slitting saw slots pass 2 (higher feed),cnc_milling,4,1.53,1.00,0.36,2.78, 1,Same saw at F=75 mm/min; finish pass of slots
+0022-42142,10,CNCL TAK NEX-110Y,OD rough+finish + parting (front),cnc_lathe,1,1.50,1.50,,, 3,Hard jaws; stopper+OD 80+OD35+parting; cut len 31mm; setup sheet cycle 4 min (overstated)
+0022-42142,20,CNCL TAK NEX-110Y,OD rough+finish backside,cnc_lathe,2,1.50,1.50,,, 2,Soft jaws flip; cut len 10mm; estimate=actual; fast repeat job
+0022-42143,09,CNCR EXACT Anderson 3X,Cut blank to size (6pc per run),cnc_milling,1,1.00,1.00,0.55,1.82, 2,6pc per cut-to-size; NC=3.3 min/6pc=0.55; actual=1.0 min/pc; k=1.82 Anderson VMC
+0022-42143,10,CNCV FAN V,Full profile + bores + cbores + corners (6pc transform),cnc_milling,2,6.10,6.10,2.97,2.06, 11,6-PC transform; NC=17.8 min/6=2.97; actual=6.10; k=2.06; 61 ops in NC
+0022-42143,20,CNCV FAN M,Back face + center cbore + chamfers,cnc_milling,3,5.70,5.70,2.50,2.28, 5,FANUC Robodrill single-piece; NC=2.5 min; actual=5.70; k=2.28; pkgclean hugely over-ran
+0022-49255,09,CNCR STRAT,cut sheet to blank,router_cut,1,2.0,0.20,11.3,,0,NC est 11.3 min total for router cut; act 0.20 min/pc (72pc batch efficient)
+0022-49255,10,CNCV FAN V,fly surface + profile outline,face_mill+profile,2,3.50,3.80,2.40,1.58,4,6PC program: NC 14.4min/6=2.40min/pc; act 3.80→k=1.58; machine: vacuum fixture
+0022-49255,20,CNCV FAN M,back-side fly surface,face_mill,3,5.0,5.0,1.30,,2,NC est 1.3min (face only) vs 5.0 actual; k≈3.85 not reliable (short program); vise
+0022-49255,30,CNCV FAN M,drill + counterbore,drill+circle_mill,4,3.0,3.0,1.0,,4,NC est 1.0min vs 3.0 actual; k≈3.0; includes fixtured drill thru+CB; vise
+0022-49255,810,DEBUR,deburr,manual,5,2.0,2.0,,,0,manual deburr
+0022-63955,10,LYNX 21 LYSB,full turning + sub-spindle mill,turn+mill (lathe-mill),1,22.0,22.0,,,,15,single OP covers all features; setup sheet states 20min cycle vs 22min actual; sub-spindle flip included
+0022-75931,10,CNCL TAK,OD turn + bore + part-off,turn+bore+part,1,3.50,3.50,,,,~3,no setup sheet or NC; simple ring spacer; est matches actual exactly
+0023-12637,10,NAKAMURA-TOME SC-300,OD+ID turning + T-drill + parting,cnc_lathe,1,14.00,13.99,,,6,MAC G95 not parsed; setup sheet cycle 6:50 min (understates by 2x)
+0023-12637,20,TAKISAWA NEX-108Y,OD turn + 7x radial slots (live milling),cnc_lathe_milling,2,6.00,6.00,,,3,MAC G95 not parsed; setup sheet states 8:16 min
+0041-14421,10,CNCR EXACT (Router),profile rough+finish + chamfer + drill + 8-32UNC thread + cut (9.525mm sheet),cnc_milling,1,5.00,5.00,5.08,0.99,7,NC 91.5 min / 18 pc = 5.08 min/pc; k=0.99 CNCR EXACT
+0041-14421,20,CNCR EXACT (Router),profile rough+finish + slot + chamfer + cut (6.35mm sheet),cnc_milling,2,5.00,5.00,2.13,,4,NC 38.4/18=2.13 min — NC doesn't capture all ops; actual from JC
+0041-14421,810,WELD,weld two sheet pieces,welding,3,20.00,21.77,,,,Weld dominates job cost; RM927.26 burden / 18 = RM51/pc
+0041-62474,10,CNCR BARNY,face + profile + slots,cnc_milling,1,4.0,,,,5,Program O3139; tools: 10mm EM / 3mm EM / chamfermill / 6mm EM / 80mm facemill
+0041-62474,20,CNCR BARNY,pockets + slots (dominant op),cnc_milling,2,30.0,,,,3,Program O3140; 50mm facemill + 6mm EM + 3mm EM; 30 min/pc = largest milling op
+0041-62474,30,CNCV MAK,finish mill,cnc_milling,3,5.0,,,,1,Program O3141; 3mm EM 2F only
+0041-62474,40,CNCL TAK,lathe/turn features,cnc_lathe_milling,4,5.0,,,,1,Program O3144; 3mm EM 2F
+0041-62474,50,CNCL TAK,lathe/turn features,cnc_lathe_milling,5,6.0,,,,1,Program O3145; 6mm EM 2F
+0041-62474,60,FAB,fabrication hand ops,manual,6,25.0,,,,2,Program O3146; 6mm + 3mm EM
+0042-15176,10,CNCV FAN V (Fanuc Vaccum),face both sides + OD contour fly,cnc_milling,1,53.3,74.8,,,,2 tools; Ø50 facemill rough + Ø150 helicopter fly finish; setup sheet 40:15 cycle plan vs 74.8 actual
+0042-15176,20,CNCV FAN V (Fanuc Vaccum),bore + pockets + tapped holes + chamfer,cnc_milling,2,60.0,106.0,,,,8 tools; most complex OP; Ø1.5mm EM micro-feature; 12:22 plan vs 106 actual
+0042-15176,30,CNCV FAN V (Fanuc Vaccum),back-side features + dowel holes + finish,cnc_milling,3,106.7,,,,,~21 tools; 1:12:02 plan cycle; no actuals (OP not run for all pcs)
+0042-15176,810,DEBUR,deburr all edges,manual,4,20.0,20.3,,,,manual deburr
+0042-15176,40,CNCL NAK,dowel pin turning (8mm rod),cnc_lathe,5,2.4,10.7,,,,lathe turn PEEK dowel pins for press-fit
+0200-02605,10,CNCTM TAK (NEX-108Y),OD turn + hex mill + drill + tap + thread + groove + part,cnc_lathe_milling,1,13.0,13.0,,2.0-2.1,11,Program O5269; 11 tools; setup 3.5E/4.5A hr; plan 5:19 vs actual 13.0; NC unreliable (MAC file F=1 init)
+0200-02605,20,CNCTM TAK (NEX-108Y),OD finish turn + chamfer,cnc_lathe_milling,2,4.0,4.0,,,,3 tools; Program O5498; soft jaw + J1272 fixture; plan 3:00 vs actual 4.0
+1157-776-01,800,SAW,cut Ø160 rod billet,saw,0,7.99,8.0,,,0,bandsaw cut; 8 min/pc at qty 25
+1157-776-01,10,CNCL NAK,OD rough turn + face,turn_rough,1,6.0,6.0,,,,~5,lathe OP; no setup sheet available; est=actual
+1157-776-01,20,CNCL NAK,OD finish + ID features,turn_finish+bore,2,15.0,15.0,,,,~5,lathe OP; no setup sheet; est=actual; setup overrun 0.5→1.0hr
+1157-776-01,30,CNCL NAK,back-side lathe features,turn+groove,3,11.0,11.0,,,,~4,lathe OP; no setup sheet; est=actual (labor$ act = 0 → suspect data; burden confirms)
+1157-776-01,40,CNCV MAK,pocket+slot+holes+thread mill+side cut+chamfer,pocket+profile+drill+thread,4,30.0,30.0,19.73,1.52,5,setup sheet OP40 total 19:44min vs actual 30min/pc → k≈1.52; 5 distinct tools
+1157-776-01,50,CNCV MAK,engraving P/N + Rev,engrave,5,2.0,2.0,1.32,,1,setup sheet 1:19 vs actual 2.0min/pc; k≈1.52 consistent; OP50 setup massively overran (0.3→3.3hr)
+1157-776-01,60,CNCV MAK,drill M3 holes + M3 thread mill + chamfer,drill+thread+chamfer,6,4.0,4.0,2.83,,3,setup sheet 2:50 vs actual 4.0min/pc; k≈1.41
+1241-714-01,10,DOOSAN 2600Y (LYNX 26Y),OD rough+finish + H-drill Ø12/4/3.15 + engrave + parting,cnc_lathe,1,18.00,18.00,,,8,MAC G95 not parsed; setup sheet 10:20 min (understates)
+1241-714-01,20,CNCV MAK PS95,Ø15 pocket + Ø6H9 reamer + face thickness,cnc_milling,2,8.01,8.01,8.15,0.98,6,NC 16.3 min / 2 (2-up fixture) = 8.15 min; k=0.98 CNCV MAK
+15-137820-00,10,EXXACT PLUS (CNCR EXACT),facing + profile + chamfer + c-bore + drill + cut (20pc batch),cnc_milling,1,13.30,13.30,12.52,1.06,5,NC 250.4 min / 20 pc = 12.52 min/pc; k=1.06 CNCR EXACT
+15-137820-00,20,EXXACT 1616 (CNCR EXACT),facing back + step 3.3mm + chamfer,cnc_milling,2,10.00,10.00,5.60,,3,NC OP20 = 5.6 min partial (only 5 ops found); actual 10 min from JC
+15-395585-00,10,TAKISAWA 108 (CNCL TAK),OD face+rough+finish + ID bore + parting,cnc_lathe,1,3.00,3.00,,,7,MAC G95 not parsed; setup sheet 1:09 min (artifact — understates 2.6x)
+16-408773-00,OP09-ITEM1,CNCV FAN V,facing THK 37.50mm,face_mill,1,3.0,4.09,4.1,1.00,1,NC 4090; k~1.0 for simple face op
+16-408773-00,OP10-ITEM1,CNCV FAN V,oval OD+pockets+slots+20deg+bore+chamfer+drill+engrave,multi,2,,87.00,67.5,1.29,16,NC 4091 67.5min vs JC actual 87.0 -> k=1.29
+16-408773-00,OP10-ITEM2-A,CNCR EXACT,facing+OD+20deg+hole+cut,multi,1,9.0,9.00,21.7,0.41,7,NC 4088 21.7min vs JC 9.0min; NC inflated (repeated pass blocks); unreliable k
+16-408773-00,OP20-ITEM2,EXXACT1616,facing+OD+slots+angles+ID+cut,multi,2,35.0,35.00,91.6,0.38,20,NC 4089 91.6min vs JC 35.0min; same NC repetition issue; k=0.38 not reliable
+16-408773-00,OP10-ITEM3,CNCR EXACT,lathe OD rough+fin+part,lathe,1,4.0,4.00,10.5,0.38,3,NC 4087; lathe repeat passes inflate NC
+16-408773-00,OP10-ASSEMBLY,DNM 5700 4X,post-weld machining OP10,multi,3,28.0,28.00,,, ,Assembly JC; 12.6hr/27pc=28min/pc
+16-408773-00,OP20-ASSEMBLY,DNM 5700 4X,post-weld machining OP20,multi,4,45.0,45.00,32.6,0.72,30+,NC 4093 32.6min vs JC 45min; k=0.72 DNM5700 post-weld
+16-455529-00,OP10-ITEM1,CNCL TAK,OD turning + bore + parting,lathe,1,,19.6,,, 3,QtyRun=10 (3 extra vs OrderQty=7); run_hr 3.26/10pc=19.6min/pc
+16-455529-00,OP20-ITEM1,DVF 5000,faces+OD+holes+bore+slot+chamfer,multi,2,,7.38,18.9,0.39,17,NC 4561-DOOSAN 18.9min vs JC 7.4min (QtyRun=10); k=0.39 anomalous; DVF5000 5-axis
+16-455529-00,OP10-ITEM2,DNM 6700,facing+OD rough+fin+R5+cut,multi,1,4.0,4.03,44.4,0.09,6,NC 4558 44.4min vs JC 4.0min; NC has 76 ops many redundant -> k=0.09 not reliable
+16-455529-00,OP20-ITEM2,DVF 5000,contour+holes+drills+chamfer,multi,2,9.3,9.34,19.8,0.47,14+,NC 4559 19.8min vs JC 9.3min; k=0.47 moderate; DVF5000 5-axis
+16-455529-00,OP30-ITEM2,CNCV FAN M,engrave part number,engrave,3,5.0,4.97,1.1,4.52,1,NC 4560 1.1min vs JC 5.0min; engrave actual much slower than NC est (PP burr/care)
+713-142958-001,10,CNCL NAK,OD+bore+parting,cnc_lathe,1,3.00,3.00,,,7,Single-OP lathe; cycle sheet 1min20s vs JC 3.0min - gap 2.3x; NC O1816.MAC G95 mode nc_analyze invalid
+713-142958-001,800,DEBUR,deburr,manual_deburr,2,2.00,1.07,,,,
+713-142960-001,10,CNCL NAK,OD+bore+countersink+parting,cnc_lathe,1,2.28,2.28,,,6,Single-OP lathe; cycle sheet 40s vs JC 2.28min - gap 3.4x; NC O1817.NC G95 mode nc_analyze invalid
+713-142960-001,800,DEBUR,deburr,manual_deburr,2,6.00,0.80,,,,DEBUR estimate 6min/pc vs actual 0.80min/pc - 7.5x overestimate
+713-187739-236,10,CNCV MAK,"fly face, outline, dovetail, slot",mill_rough_finish,1,3.30,3.30,3.0,1.1,6,OP10 NC≈3.0min vs act 3.3 → k≈1.1
+713-187739-236,20,DNM 5700 4X,faces drills pockets bores helicoil fillets chamfers,mill_4axis,2,36.0,36.0,28,1.3,26,OP20 NC is -2PC- 56.8/2≈28 vs 36 act → k≈1.3 (accel/decel+air)
+713-187739-236,30,DNM 5700 4X,back-side features finish threads,mill_4axis,3,36.0,36.0,,1.3,~24,OP30 back-side; setup act 2.50 vs 1.50 est
+713-201706-001,10,CNCTM TAK,OD stepped+drill+tap,cnc_lathe,1,5.50,5.53,,,8,OP10 estimate vs actual close (0.6%); setup sheet cycle 1:56 vs JC 5.53min - gap 2.9x
+713-201706-001,20,CNCTM TAK,flip+face+cross-drill+tap,cnc_lathe,2,3.00,3.00,,,5,OP20 cycle exact match; setup 3.0hr vs 1.0hr estimate (3x) - soft jaw proving
+713-201706-001,800,DEBUR,deburr,manual_deburr,3,5.00,2.00,,,,
+713-226789-201,09,CNCV FAN M,fixture grove+slots+mark,milling,1,3.00,3.00,,,(3),slots 7mm + dovetail vise groove + mark side; 4.1 min sheet sum
+713-226789-201,10,DVF 5000 (HAAS UMC-750),OD+bores+drills+taps+chamfers,milling_5axis,2,41.52,41.52,,,(12),no NC file; setup sheet sum ~24.9min vs JC 41.52 => factor ~1.67; 5-axis swept angles
+713-226789-201,20,CNCV FAN M,angled boss contours (11.9°),milling,3,10.50,10.50,,,(3),swept 2D surface at 11.9 degree angle; setup sheet sum ~15.3min vs JC 10.5 min (sheet may double-count G55)
+713-323740-001,10,DOOSAN LYNX 2100 LYSB,complete part (OD+ID+grooves+engrave+cutoff+back),cnc_lathe,1,20.00,20.00,20.0,1.00,(21),NC C/T header 20min; JC actual 20.00 min/pc; k=1.00 confirmed; includes sub-spindle back operations and Ø0.8mm engraving
+713-344410-010,10,LYNX21LYSB,OD+drill+chamfer+subspindle,cnc_lathe,1,10.00,10.00,,,8,Setup sheet cycle 10min exactly matches JC act - k=1.0 for this program; main+sub spindle single OP
+713-344410-010,800,DEBUR,deburr,manual_deburr,2,2.00,1.49,,,,
+713-A05592-003,10,CNCTM TAK (NEX-110Y),OD+bore+groove+ID-thread+parting,cnc_lathe,1,7.99,7.99,,,9,Cycle sheet 7min vs JC 7.99min - ratio 1.14; good match
+713-A05592-003,20,CNCTM TAK (NEX-110Y),face+face-groove+ID-bore-back,cnc_lathe,2,10.00,10.00,,,4,Cycle sheet 10min exactly matches JC; setup 2.0hr vs 0.5hr estimate (4x) - soft jaw+roundness spec
+713-A05592-003,800,DEBUR,deburr,manual_deburr,3,4.00,3.39,,,,
+713-A42978-022,10,CNCR EXACT,cut PP sheet to 820x704x12.7mm,profile_milling,1,9.0,9.0,,,2,E=A confirmed (zero burden variance); NC not available
+713-A42978-022,20,CNC HAAS L,chip-breaker profile + chamfer + M5x0.8 threadmill,mixed_milling,2,16.0,16.0,,,5,E=A confirmed; vacuum bed fixture; uses chip-breaker EM for PP
+713-A42978-022,30,CNC HAAS L,full pockets / Ø410 bore / mounting bosses / helicoil bore,complex_milling,3,150.0,150.0,,,~15,E=A confirmed; dominates job; NC not available; PLEASE USE COOLANT noted
+713-A51655-001,10,CNCR EXACT,rough OD + finish OD + re-machine R0.10 + cut material (20-pc strip),profile_milling_strip,1,1.40,1.40,23.0 (strip),1.22,4,NC est 23 min for 20-pc strip → 1.15/pc; k=1.22 (CNCR EXACT lathe-like)
+713-A51655-001,20,CNCV FAN M,spot + drill Ø5.23 + finish bore Ø0.206 (2-pc fixture G54/G55),drill_bore,2,2.0,1.95,1.1,1.77,5,NC 5166: est 1.1 min vs 1.95 actual; k=1.77 (CNCV FAN M VMC); 2-pc fixture
+839-219206-002,10,CNCV FAN M,fly thickness + step depth + dovetail clamp,face_and_profile,1,9.0,9.0,,,5,E=A; dovetail slot for fixture clamping
+839-219206-002,20,CNC 5-AXIS,rough+finish outline + 5-axis faces + NPT ports + socket fuse bore,5axis_complex,2,25.0,25.0,,,~12,E=A; 5-axis; setup 5× over estimate (1.5 hr act vs 0.30 est)
+839-219206-002,30,CNCV FAN M,remove raw material back + finish step + engrave,face_and_profile,3,9.96,9.96,,,~5,E=A; work week macro engrave at OP30
+839-232763-002,09,CNCV MAK,facing + dovetail datum + dovetail pin (ITEM1),facing_and_dovetail,1,2.0,3.0,1.3,2.3,3,NC k=2.3 high — likely approach/dwell overhead on short ops; ITEM1 sub-job
+839-232763-002,10,DVF 5000,rough+fin outline + registration + Ø0.44+0.206 bores + cut material (ITEM1),profile_milling,2,38.0,38.0,36.2,1.05,~8,NC k=1.05 excellent; E=A confirmed; ITEM1 sub-job; DVF5000=5-axis at RM274/hr
+839-232763-002,20,CNCV MAK,facing back + R1.5 fillet (ITEM1),facing_and_radius,3,4.0,4.0,2.1,1.90,2,NC k=1.90 high — R1.5 cutter slow arcing; ITEM1 sub-job
+839-232763-002,10b,CNCL TAK,OD rough+finish + step (ITEM2),turning,1,10.0,10.0,,,~3,NC (O4185 MAC) unusable — CSS G96 mode no mm/rev feed; ITEM2 sub-job
+839-232763-002,20b,CNCL TAK,parting + groove (ITEM2),turning_parting,2,2.0,2.0,,,~2,NC (O4186 MAC) unusable; ITEM2 sub-job
+839-232763-002,09b,CNCR EXACT,rough+fin outline + registration + bores + cut material (ITEM3),profile_milling,1,4.2,5.4,36.2,1.5,~7,NC est 36.2 min for 10-pc fixture → 3.6/pc; k≈1.5; ITEM3 sub-job
+839-297424-004,OP10-THK19.05,CNCR EXACT,cut-to-size+chamfer+engrave+registration+ref hole,multi,1,21.2,27.00,21.2,1.27,9,NC 2976 REV-C; k=1.27 for CNCR EXXACT 1616 plate profiling
+839-297424-004,OP20-THK19.05,CNCR EXXACT 1616,OD+helicoil holes+NPT taps+poka yoke+fin,multi,2,51.0,75.00,53.5,1.40,15,NC 2977 REV-C; k=1.40 for complex drilling+tapping
+839-297424-004,OP30-THK19.05,CNCR EXXACT 1616,back-side OD+pocket+chamfer+engrave+ref hole,multi,3,16.3,22.00,16.3,1.35,9,NC 2978 REV-C; k=1.35
+839-297424-004,OP40-THK19.05,CNCR EXXACT 1616,side-face OD+pockets+helicoil+engrave,multi,4,45.6,75.00,45.6,1.64,~12,NC 2979 REV-C; k=1.64 (engrave inflates actual)
+839-297424-004,OP50-THK19.05,CNCV FAN M,helicoil 8-32 thread insert,thread_mill,5,2.8,2.00,2.8,1.40,3,NC 2980 REV-C; 2 positions; k~1.4 consistent
+839-297424-004,OP60-THK19.05,DNM 6700,engrave part number,engrave,6,1.3,1.00,1.3,1.30,1,NC 2981 REV-C; k~1.3
+839-297424-004,OP10-THK12.70,CNCR EXACT,cut-to-size+chamfer+ref hole,multi,1,22.2,12.00,22.2,0.54,3,NC 2974 REV-C; k=0.54; thinner plate faster actual vs NC
+839-297424-004,OP20-THK12.70,CNCR EXXACT 1616,OD+taps+helicoils,multi,2,106.3,65.00,106.3,0.61,10+,NC 2975 REV-C; k=0.61; many tap passes inflate NC vs simple plate actual
+839-A05168-102 ASSY,840,GF FUS,GF pipe fusion (main runs),gf_fusion,1,,70.80,,,, No NC; setup sheet not found for fusion ops; job cost only truth
+839-A05168-102 ASSY,830,SOCKET FUS,socket fuse GF fittings,socket_fusion,1,,36.75,,,, No NC
+839-A05168-102 ASSY,820,WELD,butt-weld pipe joints,welding,1,,30.00,,,, No NC
+839-A05168-102 ITEM1,10,CNCV MAK,pipe length + Ø15.24 thru-holes,cnc_milling,1,,7.98,6.0,1.33,2,NC k=1.33 (CNCV MAK PP); 2 tools (rough+finish EM Ø10); Item 1 pipe 32mm OD GF stock
+839-A05168-102 ITEM5,10,CNCR EXACT,plate outline + 3x Ø15.24 + ball-nose radius,cnc_milling,1,,9.71,7.51,1.29,3,NC 67.6 min for 9-pc nested run ÷9=7.51 min/pc → k=1.29; 3 tools (rough EM+finish EM+ball-nose)
+839-A05168-102 ITEM6,10,CNCR EXACT,plate outline + Ø32.26 thru,cnc_milling,1,,1.73,0.54,3.20,3,NC 4.9 min for 9-pc nested ÷9=0.54 min/pc → k=3.2 anomalous (actual includes deburr/inspect); 3 tools
+839-A05168-102 ITEM7,10,DNM 5700 4X,face+profile+bore+pockets+R6+drills+chamfer,cnc_milling,1,,17.33,15.8,1.10,9,NC k=1.10 (DNM 5700 4X PP OP10); 9 distinct tool operations
+839-A05168-102 ITEM7,20,DNM 5700 4X,back-side face+pocket roughing+R6,cnc_milling,2,,9.00,9.3,0.97,3,NC k=0.97 (DNM 5700 4X PP OP20); 3 tools
+839-A05168-102 ITEM8,10,CNCL TAK (NEX-108),OD turn + face OP10,cnc_lathe,1,,3.46,,, 3,NC not usable (.MAC G95 feedrate=0 in analyzer); actual from job cost
+839-A05168-102 ITEM8,20,CNCL TAK (NEX-108),OD turn OP20,cnc_lathe,2,,1.48,,,1,NC not usable (.MAC); 2 ops 0.32 min/pc actual
+839-A05168-102 ITEM9,10,CNCL TAK (NEX-108),OD face + rough turn OP10,cnc_lathe,1,,7.85,,,2,NC not usable (.MAC); 1.70 hr/13 pc = 7.85 min/pc act
+839-A05168-102 ITEM9,20,CNCL TAK (NEX-108),face + ID bore OP20,cnc_lathe,2,,1.02,,,2,NC not usable (.MAC); 0.22 hr/13 pc = 1.02 min/pc act
+839-A07950-001,10,DOOSAN DNM 6700,face top + 6x Ø6.4 drill + Ø8.6 cbore,cnc_milling,1,,22.00,53.4,0.41,3,Setup sheet states 22 min cycle; NC est 53.4 min (over-estimate: full-face raster with Ø6 EM); k=0.41 not generalizable (geometry-specific); no job cost to validate actual
+839-A29596-001,10,CNCV FAN M,face flat + width cut + dovetail + slot,face_dovetail_slot,1,2.0,2.0,1.9,1.05,4,NC 1657: k=1.05 excellent match; simple 4-op
+839-A29596-001,20,CNC 5-AXIS,rough+fin block + 5-axis angles + collar + holes + NPT thread-mill,5axis_complex,2,32.0,32.0,21.75,1.47,~22,NC 1658 is 2PC: 43.5/2=21.75 vs 32 actual; k=1.47; 57 NC operations
+839-A29596-001,30,CNCV FAN M,roughing back + fly surface + drill + spot + chamfer,face_drill_chamfer,3,4.0,4.0,3.6,1.11,5,NC 1659: k=1.11; 7 NC operations

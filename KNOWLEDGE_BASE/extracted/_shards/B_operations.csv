@@ -1,0 +1,14 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+0041-62474,10,CNCR BARNY,face + profile + slots,cnc_milling,1,4.0,,,,5,Program O3139; tools: 10mm EM / 3mm EM / chamfermill / 6mm EM / 80mm facemill
+0041-62474,20,CNCR BARNY,pockets + slots (dominant op),cnc_milling,2,30.0,,,,3,Program O3140; 50mm facemill + 6mm EM + 3mm EM; 30 min/pc = largest milling op
+0041-62474,30,CNCV MAK,finish mill,cnc_milling,3,5.0,,,,1,Program O3141; 3mm EM 2F only
+0041-62474,40,CNCL TAK,lathe/turn features,cnc_lathe_milling,4,5.0,,,,1,Program O3144; 3mm EM 2F
+0041-62474,50,CNCL TAK,lathe/turn features,cnc_lathe_milling,5,6.0,,,,1,Program O3145; 6mm EM 2F
+0041-62474,60,FAB,fabrication hand ops,manual,6,25.0,,,,2,Program O3146; 6mm + 3mm EM
+0042-15176,10,CNCV FAN V (Fanuc Vaccum),face both sides + OD contour fly,cnc_milling,1,53.3,74.8,,,,2 tools; Ø50 facemill rough + Ø150 helicopter fly finish; setup sheet 40:15 cycle plan vs 74.8 actual
+0042-15176,20,CNCV FAN V (Fanuc Vaccum),bore + pockets + tapped holes + chamfer,cnc_milling,2,60.0,106.0,,,,8 tools; most complex OP; Ø1.5mm EM micro-feature; 12:22 plan vs 106 actual
+0042-15176,30,CNCV FAN V (Fanuc Vaccum),back-side features + dowel holes + finish,cnc_milling,3,106.7,,,,,~21 tools; 1:12:02 plan cycle; no actuals (OP not run for all pcs)
+0042-15176,810,DEBUR,deburr all edges,manual,4,20.0,20.3,,,,manual deburr
+0042-15176,40,CNCL NAK,dowel pin turning (8mm rod),cnc_lathe,5,2.4,10.7,,,,lathe turn PEEK dowel pins for press-fit
+0200-02605,10,CNCTM TAK (NEX-108Y),OD turn + hex mill + drill + tap + thread + groove + part,cnc_lathe_milling,1,13.0,13.0,,2.0-2.1,11,Program O5269; 11 tools; setup 3.5E/4.5A hr; plan 5:19 vs actual 13.0; NC unreliable (MAC file F=1 init)
+0200-02605,20,CNCTM TAK (NEX-108Y),OD finish turn + chamfer,cnc_lathe_milling,2,4.0,4.0,,,,3 tools; Program O5498; soft jaw + J1272 fixture; plan 3:00 vs actual 4.0

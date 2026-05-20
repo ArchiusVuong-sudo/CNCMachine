@@ -1,0 +1,26 @@
+{
+  "analysis_id": "c7372da3-9d61-4315-ade4-929aa32a50aa",
+  "written_at_epoch": 1779285379.480049,
+  "summary": {
+    "components": [
+      {
+        "component_index": 0,
+        "name": "TC2-2062556_04-0022-26609",
+        "part_type": "cnc_lathe_milling",
+        "material": "PEEK",
+        "machine_class": null,
+        "chosen_machine_id": null,
+        "ranked_machines": [],
+        "total_run_min_per_part": null,
+        "setup_min_per_lot": null,
+        "analogues_used": null,
+        "fallback_rungs": null,
+        "iterations_by_phase": null,
+        "tool_call_count_by_phase": null
+      }
+    ],
+    "total_usd": 40.69,
+    "n_components": 1,
+    "n_routing_rows": 0
+  }
+}

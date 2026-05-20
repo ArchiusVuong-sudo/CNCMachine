@@ -1,0 +1,61 @@
+part_number,op,seq,feature_or_op,tool_name,tool_type,dia_mm,flutes,cut_len_mm,tool_len_mm,zmin_mm,feed_mm_min,feed_mm_rev,speed_rpm,stepover_mm,stepdown_mm,material,machine,source
+0020-64722,10,N1,Stopper/datum,OD Turn 80deg,turning insert,,,31,48,,,,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N2,OD rough,OD Turn 80deg (CNGG120404-MJ HTi10),turning insert,,,31,48,,,0.25,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N3,OD finish + back chamfer,OD Turn 35 (VCGX110302-LC),turning insert,,,29,33,,,0.06,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N4 N5,Mill rough + semi-finish step,10mm Endmill 2FL,end_mill,10,2,28.5,40,,200,,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N6,Mill step finish,12mm Endmill 2FL,end_mill,12,2,28.5,75,,200,,2000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N7,Back chamfer,OD Turn 35 (finish),turning insert,,,29,33,,,,1000,,,,LYNX 26Y,xls_setup
+0020-64722,10,N8,Parting,Parting (WARK TDJ7D TT9030),parting insert,,,32,48,,,0.08,1000,,,,LYNX 26Y,xls_setup
+0020-64722,20,1,Fly top face height control 1.080in,16mm Endmill 2FL ONSRUD,end_mill,16,2,35,50,-27.43,750,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,20,2,FAP11430 T-slot cutter,FAP11430 T-Slot Cutter,t_slot,14,4,4.27,30,-22.57,500,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,1,2mm flat EM (drill entry),2mm Flat End Mill,end_mill,2,4,15,25,-21.08,100,,3000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,2,Drill 2.3mm for 4-40UNC,2.3mm Carbide Drill CL20 Dura,drill,2.3,2,20,25,-21.08,100,,3000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,3,Tap 4-40UNC,4-40UNC CL-20 Spiral Tap Dura,tap,2.845,2,20,25,-21.08,190.5,,300,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,4,Entry hole / helix bore 1.2mm,1.2mm End Mill CL5 NL6-SHD3-TP30-2F,end_mill,1.2,2,4,25,-72.5,150,,6000,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,5,Carbide drill 1.6mm,Carbide Drill 1.6mm Dura,drill,1.6,2,12,20,-65.47,30,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,6,Ream 1.778mm bore,Carbide Reamer 1.778 CL8.5 Shk3 TL50 YOCON,reamer,1.778,6,8.5,30,-67.69,25,,500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,7,Spotdrill for 3.5mm,12mm Spot Drill 90deg 2F,spot_drill,12,2,20,40,-72.75,100,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,8,Drill 3.5mm for 8-32UNC,3.5mm Drill,drill,3.5,2,18,28.5,-61.79,100,,3500,,,PEEK,DNM 5700 4X,pdf_setup
+0020-64722,30,9,Tap 8-32UNC,8-32 UNC Tap,tap,4.166,2,25,30,-63.09,238.125,,300,,,PEEK,DNM 5700 4X,pdf_setup
+0021-53926,10,1,Mill OD rough,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.8,580,,3500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,2,Mill side rough+finish,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-1.0,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,3,Face (main),12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-16.25,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,4,Face two steps,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-13.25,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,5,OD finish,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.8,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,6,Slot (plunge),3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-7.5,50,,1500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,10,7,Slot (contour),3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-7.5,200,,5000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,1,Face rough,12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-15.15,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,2,Pocket rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-9.05,1600,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,3,OD rough,10mm Flat Endmill Allied 2F,end_mill,10,2,20,40,-7.95,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,4,Pocket finish,6mm Endmill CL25 Finishing 2F (ONSRUD),end_mill,6,2,25,35,-8.55,1000,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,5,Pocket wall finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-8.55,1000,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,6,OD finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-7.95,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,7,45deg slot rough (2x),45 DEG Special Tool SHK16 4F,special,16,4,19.27,57.82,-8.55,1000,,2500,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,8,Face finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-14.9,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,20,9,Chamfer,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,-13.2,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,1,Face,12mm Flat Endmill Allied 2F,end_mill,12,2,25,45,-8.15,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,2,Face two steps,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-5.15,500,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,3,Wall finish two steps,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-5.15,500,,6000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,4,Slot 3mm,3mm Flat Endmill Allied 2F,end_mill,3,2,8,25.4,-0.2,200,,5000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,5,Spotdrill M5,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,-2.45,400,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,6,Drill M5,4.3mm Solid Carbide Drill,drill,4.3,2,44,55,-2.292,200,,2000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,30,7,Thread M5x0.8,C-RF-M5x0.8-12pitch-D3.9-NL25 Thread Mill MYOOK,thread_mill,3.9,3,10,25,-1.5,225,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,1,Mill open slots,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-8.15,500,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,2,Pocket finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.85,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,3,Pocket wall finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.85,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,4,45deg gap finish (4x),45 DEG Special Tool SHK16 4F,special,16,4,19.27,57.82,-7.85,900,,2300,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,5,Face finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-14.2,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,6,Chamfer (2x),12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,40,7,Chamfer 0.1 (4x),3mm Chamfermill 90deg Dura,chamfer_mill,3,2,1.5,30.5,,500-1000,,8000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,1,12deg angle mill rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-5.839,500,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,2,Face finish (6mm),6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-7.65,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,3,Face two steps finish,6mm Endmill CL25 Finishing 2F,end_mill,6,2,25,35,-4.65,300,,6400,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,4,12deg angle mill finish,12 Deg Tapered Endmill 4F,tapered_end_mill,5.5,4,15.29,50,-5.839,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,5,OD finish,C-F-10mm 35-2FL-UNC End Mill ONSRUD,end_mill,10,2,35,40,-6.85,500,,3000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,6,Chamfer,12mm Spotdrill 90deg Dura,spot_drill,12,2,6,50.8,,800,,4000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,7,Chamfer 0.1 (4x),3mm Chamfermill 90deg Dura,chamfer_mill,3,2,1.5,30.5,,500,,8000,,,PEEK,CNCV FAN L,pdf_setup
+0021-53926,50,8,Engrave P/N + vendor code,P-RF-0.8mm x 2-2FL Ball Mill Dura CBN,ball_mill,0.8,2,2,20,-9.45,200,,6000-8000,,,PEEK,CNCV FAN L,pdf_setup
+0022-09112,10,1,Fly surface,50mm Facemill Mitsubishi 4F,face_mill,50,4,17,50,0.0,400,,4500,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,2,OD Ø68 rough,6mm Flat Endmill Allied 2F,end_mill,6,2,25,30,-17.0,700,,4500,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,3,OD Ø68 finish,6mm Endmill CL25 F ONSRUD 2F,end_mill,6,2,25,35,-17.0,400,,6000,,,PEEK,CNCTM TAK,pdf_setup
+0022-09112,10,4,Chamfer 0.5,3mm Spotdrill,spot_drill,3,2,1.5,30,0.0,500,,4000,,,PEEK,CNCTM TAK,pdf_setup

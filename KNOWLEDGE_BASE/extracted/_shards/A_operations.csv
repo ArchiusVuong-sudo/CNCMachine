@@ -1,0 +1,11 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+0020-64722,10,LYNX 26Y,Turn OD + mill step + part,cnc_lathe_milling,1,4.98,4.98,,, 7,Setup sheet cycle 4MIN matches Job Cost run 4.98min/pc well
+0020-64722,20,CNCV FAN M,Fly face + T-slot groove,cnc_milling,2,1.50,1.50,0.38,,2,NC OP20 5PC est 1.9min/5=0.38min/pc vs actual 1.50 -> k=3.9 unreliable (NC only 2 short ops); setup sheet cycle=1min39s~1.65min
+0020-64722,30,DNM 57004X,Drill/ream/tap small holes (4-axis HRT),cnc_milling,3,6.00,6.00,40.8,,9,NC est 40.8min dominated by reamer (T25 F=25 RPM=500 long dwell) and 1.6mm drill; actual only 6min/pc -> NC over-estimates for tapping/reaming cycles; setup sheet total=18min45s vs 6min actual suggests NC cycle time shown per-job not per-pc; not reliable for k
+0021-53926,10,CNCV FAN L,OD mill + face + slot,cnc_milling,1,34.00,34.00,30.1,1.13,7,Setup sheet stated 29:05 cycle; NC est 30.1min; actual 34.0 -> k=1.13
+0021-53926,20,CNCV FAN L,Face + pocket rough/finish + OD + 45deg slots + chamfer,cnc_milling,2,60.00,60.00,57.5,1.04,9,Setup sheet stated 56:30 cycle; NC est 57.5min; actual 60.0 -> k=1.04
+0021-53926,30,CNCV FAN L,Face + slot + M5 thread mill,cnc_milling,3,18.00,18.00,17.6,1.02,7,Setup sheet stated 16:30 cycle; NC est 17.6min; actual 18.0 -> k=1.02
+0021-53926,40,CNCV FAN L,Slots + pocket finish + 45deg gap finish + chamfers,cnc_milling,4,45.00,45.00,38.8,1.16,7,Setup sheet stated 38:05 cycle; NC est 38.8min; actual 45.0 -> k=1.16; difference possibly rework or cautious feeds
+0021-53926,50,CNCV FAN L,12deg angle mill + OD finish + chamfers + engrave,cnc_milling,5,40.83,40.83,36.6,1.11,8,Setup sheet stated 35:32 cycle; NC est 36.6min; actual 40.8 -> k=1.11; 1 scrap piece in this op
+0022-09112,10,CNCTM TAK,Fly face + OD turn/mill Ø68,cnc_lathe_milling,1,4.00,4.00,,,4,Setup sheet shows 33:19 cycle for what appears to be single-pc CNCV FAN V (milling-only) program; Job Cost actual 4.0min/pc on CNCTM TAK (turn+mill) suggests different/faster routing was used in production vs the obsolete milling setup sheet
+0022-09112,20,CNCTM TAK,Bore pocket + inner features + mark,cnc_lathe_milling,2,18.00,18.00,,,, No separate setup sheet for OP20; derived from Job Cost; CNCTM TAK likely did bore/pocket interior features

@@ -1,0 +1,8 @@
+part_number,op,seq,feature_or_op,tool_name,tool_type,dia_mm,flutes,cut_len_mm,tool_len_mm,zmin_mm,feed_mm_min,feed_mm_rev,speed_rpm,stepover_mm,stepdown_mm,material,machine,source
+713-187739-236,20,N1,rough fly surface,C-RF Ø80 45deg facemill,facemill,80,,,,,800,,5000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,chip-breaker rough,20mm 3FL chip-breaker EM,endmill_chipbreaker,20,3,,,,2500,,10000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,rough pockets/profile,C-RF Ø10 2FL EM,endmill,10,2,,,,1000-2000,,6000-10000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,finish profile,Ø10 2FL finish EM,endmill,10,2,,,,900-1500,,8000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,drill 5.2 for M5 helicoil,5.2 carbide drill,drill,5.2,,,,,150,,3500,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,thread mill M5x0.8,M5x0.8 thread mill,thread_mill,3.9,,,,,,,,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup
+713-187739-236,20,,corner/fillet,10xR1 / 4xR0.3 bull R0.5 corner,bull_corner,,4,,,,600-1000,,6000,,,Victrex PEEK 450G,DNM 5700 4X,xls_setup

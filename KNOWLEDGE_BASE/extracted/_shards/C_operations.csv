@@ -1,0 +1,5 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+713-226789-201,09,CNCV FAN M,fixture grove+slots+mark,milling,1,3.00,3.00,,,(3),"slots 7mm + dovetail vise groove + mark side; 4.1 min sheet sum"
+713-226789-201,10,DVF 5000 (HAAS UMC-750),OD+bores+drills+taps+chamfers,milling_5axis,2,41.52,41.52,,,(12),"no NC file; setup sheet sum ~24.9min vs JC 41.52 => factor ~1.67; 5-axis swept angles"
+713-226789-201,20,CNCV FAN M,angled boss contours (11.9°),milling,3,10.50,10.50,,,(3),"swept 2D surface at 11.9 degree angle; setup sheet sum ~15.3min vs JC 10.5 min (sheet may double-count G55)"
+713-323740-001,10,DOOSAN LYNX 2100 LYSB,complete part (OD+ID+grooves+engrave+cutoff+back),cnc_lathe,1,20.00,20.00,20.0,1.00,(21),"NC C/T header 20min; JC actual 20.00 min/pc; k=1.00 confirmed; includes sub-spindle back operations and Ø0.8mm engraving"

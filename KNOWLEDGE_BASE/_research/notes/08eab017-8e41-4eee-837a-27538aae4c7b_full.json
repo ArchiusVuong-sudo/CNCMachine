@@ -1,0 +1,899 @@
+{
+  "analysis_id": "08eab017-8e41-4eee-837a-27538aae4c7b",
+  "approach": "modular_monolith",
+  "batch_size": 1,
+  "assembly_name": "TC2-2062556_04-0022-26609",
+  "file_name": "0022-26609_04_Green_Standard_F2.stp",
+  "total_minutes": 0.0,
+  "total_usd": 40.69,
+  "elapsed_seconds": 418.8,
+  "vlm_extraction": {
+    "part_number": "0022-26609",
+    "revision": "04",
+    "description": "SCREW COVER, INSULATOR",
+    "material": "PEEK",
+    "surface_finish": "63/030",
+    "dimension_unit": "in",
+    "title_block": {
+      "part_number": "0022-26609",
+      "revision": "04",
+      "title": null,
+      "description": "SCREW COVER, INSULATOR",
+      "drawn_by": "Nina Zhou",
+      "checked_by": null,
+      "date": "26-Sep-2016",
+      "company": null,
+      "scale": null,
+      "sheet": null,
+      "dimension_unit": "in"
+    },
+    "bom_items": [],
+    "drawing_notes": [
+      "APPLICABLE STANDARDS/SPECIFICATIONS: ASME Y14.5M-1994, DIMENSIONING AND TOLERANCING, ASME Y14.36-1999, ABBREVIATIONS AND ACRONYMS, APPLIED MATERIALS 0251-05096: INCH/MILLIMETER CONVERSION PROCEDURE.",
+      "SHALL COMPLY WITH PRODUCT EHS REQUIREMENTS PER APPLIED MATERIALS 0250-27105.",
+      "SEE PQC APPENDIX FOR PART QUALIFICATION AND QUALITY CONTROL REQUIREMENTS PER IQMS 04.4-01-11.",
+      "DO NOT HANDLE WITH BARE HANDS, HANDLE WITH BARRIER TYPE (I.E. NITRILE ) GLOVES AFTER CLEANING.",
+      "COSMETIC PER APPLIED MATERIALS 0250-01019, APPENDIX A, CODE II-B.",
+      "CLEAN PER APPLIED MATERIALS 0250-70351, TYPE II.",
+      "IDENTIFY PER APPLIED MATERIALS 0250-01033, METHOD I2.",
+      "PACKAGE PER APPLIED MATERIALS 0250-00098.",
+      "REFERENCE APPLIED MATERIALS SPECIFICATION 04.4-01-11 FOR PROCEDURES RELATED TO INDICATED REQUIREMENTS",
+      "UNLESS SPECIFIED BY AN APPLIED MATERIALS REPRESENTATIVE, ALL PQC CONTROLS SPECIFIED AS 'YES' REQUIRE COMPLETION ONLY WHILE AT EVAL, NSR_CES, OR PRODUCTION STATUS"
+    ],
+    "dimensions": [
+      {
+        "label": "Length of threaded section",
+        "nominal": 0.19,
+        "unit": "in",
+        "tolerance_plus": 0.005,
+        "tolerance_minus": 0.005,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D001"
+      },
+      {
+        "label": "Diameter of inner bore",
+        "nominal": 0.14,
+        "unit": "in",
+        "tolerance_plus": 0.0,
+        "tolerance_minus": 0.005,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D002"
+      },
+      {
+        "label": "Outer diameter of main body",
+        "nominal": 0.34,
+        "unit": "in",
+        "tolerance_plus": 0.0,
+        "tolerance_minus": 0.005,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D003"
+      },
+      {
+        "label": "Height of main body",
+        "nominal": 0.35,
+        "unit": "in",
+        "tolerance_plus": 0.0,
+        "tolerance_minus": 0.005,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D004"
+      },
+      {
+        "label": "Depth of counterbore",
+        "nominal": 0.065,
+        "unit": "in",
+        "tolerance_plus": null,
+        "tolerance_minus": null,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D005"
+      },
+      {
+        "label": "Radius of fillet",
+        "nominal": 0.02,
+        "unit": "in",
+        "tolerance_plus": null,
+        "tolerance_minus": null,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 2,
+        "id": "D006"
+      },
+      {
+        "label": "Width of oval shape",
+        "nominal": 0.75,
+        "unit": "in",
+        "tolerance_plus": 0.004,
+        "tolerance_minus": 0.004,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D007"
+      },
+      {
+        "label": "Height of oval shape",
+        "nominal": 0.5,
+        "unit": "in",
+        "tolerance_plus": 0.004,
+        "tolerance_minus": 0.004,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D008"
+      },
+      {
+        "label": "Wall thickness around perimeter",
+        "nominal": 0.03,
+        "unit": "in",
+        "tolerance_plus": 0.003,
+        "tolerance_minus": 0.003,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D009"
+      },
+      {
+        "label": "Overall height including shoulder",
+        "nominal": 0.55,
+        "unit": "in",
+        "tolerance_plus": 0.0,
+        "tolerance_minus": 0.01,
+        "tolerance": null,
+        "notes": null,
+        "quantity": 1,
+        "id": "D010"
+      }
+    ],
+    "gdt_callouts": [
+      {
+        "symbol": "position",
+        "tolerance": 0.005,
+        "unit": "in",
+        "datums": [
+          "A",
+          "B"
+        ],
+        "feature_control_frame_location": "BOUNDARY",
+        "id": "G001"
+      },
+      {
+        "symbol": "position",
+        "tolerance": 0.005,
+        "unit": "in",
+        "datums": [
+          "A",
+          "B"
+        ],
+        "feature_control_frame_location": "BOUNDARY",
+        "id": "G002"
+      }
+    ],
+    "threads": [
+      {
+        "spec": ".190-32 UNF-2B",
+        "label": null,
+        "count": null,
+        "depth_mm": 4.828,
+        "is_blind": null,
+        "quantity": 2,
+        "id": "T001"
+      }
+    ]
+  },
+  "assembly_data": {
+    "component_count": 1,
+    "total_volume_mm3": 2936.713,
+    "pmi_available": false,
+    "welding_contacts": []
+  },
+  "components": [
+    {
+      "component_index": 0,
+      "name": "TC2-2062556_04-0022-26609",
+      "description": "",
+      "assembly_path": "/TC2-2062556_04-0022-26609",
+      "instance_count": 1,
+      "part_type": "cnc_lathe_milling",
+      "part_type_confidence": 0.4412,
+      "volume_mm3": 2936.713,
+      "surface_area_mm2": 1453.053,
+      "bbox": {
+        "length_mm": 21.745946856959012,
+        "width_mm": 13.9700002,
+        "height_mm": 15.395946856959013,
+        "x_min": -10.872973428479506,
+        "x_max": 10.872973428479506,
+        "y_min": -13.9700001,
+        "y_max": 1e-07,
+        "z_min": -7.697973428479506,
+        "z_max": 7.697973428479506
+      },
+      "thickness": {
+        "min_mm": 5.08,
+        "max_mm": 13.462,
+        "mean_mm": 10.287,
+        "std_dev_mm": 3.485,
+        "is_uniform": false
+      },
+      "total_perimeter_mm": 70.074,
+      "features": [
+        {
+          "feature_id": "rb_42899382",
+          "feature_type": "drilled_hole",
+          "count": 1,
+          "confidence": 0.85,
+          "source": "rule_based",
+          "dimensions": {
+            "diameter_mm": 4.039,
+            "drill_angle_deg": 118.0,
+            "axis": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "depth_mm": 4.572
+          },
+          "perimeter_mm": 12.688,
+          "location": {
+            "x": 0.0,
+            "y": -2.413,
+            "z": -0.0
+          },
+          "orientation": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "key_face_id": "Face24_065251932a395d2f",
+          "face_ids": [
+            22,
+            23
+          ]
+        },
+        {
+          "feature_id": "rb_2b4ba45e",
+          "feature_type": "blind_hole",
+          "count": 1,
+          "confidence": 0.85,
+          "source": "rule_based",
+          "dimensions": {
+            "diameter_mm": 8.636,
+            "depth_mm": 4.826,
+            "axis": [
+              0.0,
+              -1.0,
+              0.0
+            ]
+          },
+          "perimeter_mm": 27.131,
+          "location": {
+            "x": -0.0,
+            "y": -11.43,
+            "z": -0.0
+          },
+          "orientation": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "key_face_id": "Face4_9ab792deeb6d14a6",
+          "face_ids": [
+            2,
+            3
+          ],
+          "tolerance_class": "ground",
+          "needs_finishing": true,
+          "needs_inspection": true,
+          "tagged_dimensions": [
+            {
+              "source": "dimension",
+              "value_mm": 8.636,
+              "tolerance_class": "ground",
+              "match_score": 1.0
+            },
+            {
+              "source": "dimension",
+              "value_mm": 8.89,
+              "tolerance_class": "ground",
+              "match_score": 0.153
+            }
+          ]
+        },
+        {
+          "feature_id": "rb_eab212e2",
+          "feature_type": "fillet",
+          "count": 5,
+          "confidence": 0.8099999999999999,
+          "source": "rule_based",
+          "dimensions": {
+            "radius_mm": 0.508
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -7.103,
+            "y": -13.782,
+            "z": 0.0
+          },
+          "orientation": null,
+          "key_face_id": "Face11_6a413a40777b7150",
+          "face_ids": [
+            9,
+            10,
+            11,
+            12,
+            15
+          ]
+        },
+        {
+          "feature_id": "rb_dfdcfc6f",
+          "feature_type": "fillet",
+          "count": 8,
+          "confidence": 0.8,
+          "source": "rule_based",
+          "dimensions": {
+            "radius_mm": 0.254
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -0.0,
+            "y": -9.238,
+            "z": 0.0
+          },
+          "orientation": null,
+          "key_face_id": "Face14_0053167bb30a66f9",
+          "face_ids": [
+            13,
+            24,
+            27,
+            28,
+            29,
+            30,
+            31,
+            32
+          ]
+        },
+        {
+          "feature_id": "rb_9861bf5c",
+          "feature_type": "pocket",
+          "count": 1,
+          "confidence": 0.75,
+          "source": "rule_based",
+          "dimensions": {
+            "area_mm2": 27.531,
+            "depth_mm": 8.89,
+            "volume_mm3": 244.747,
+            "wall_angle_deg": 90.0,
+            "undercut": true
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": 0.0,
+            "y": -8.89,
+            "z": 0.0
+          },
+          "orientation": [
+            0.0,
+            1.0,
+            0.0
+          ],
+          "key_face_id": "Face21_5a102227b509b1a7",
+          "face_ids": [
+            20,
+            25,
+            26
+          ]
+        },
+        {
+          "feature_id": "rb_4ecdb0ad",
+          "feature_type": "chamfer",
+          "count": 1,
+          "confidence": 0.75,
+          "source": "rule_based",
+          "dimensions": {
+            "width_mm": 3.556,
+            "angle_deg": 45.0
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -0.0,
+            "y": -11.035,
+            "z": 0.0
+          },
+          "orientation": null,
+          "key_face_id": "Face15_c61eda5b979d0cd8",
+          "face_ids": [
+            14
+          ]
+        },
+        {
+          "feature_id": "rb_178e16a3",
+          "feature_type": "fillet",
+          "count": 2,
+          "confidence": 0.75,
+          "source": "rule_based",
+          "dimensions": {
+            "radius_mm": 6.35
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -7.218,
+            "y": -11.176,
+            "z": -0.0
+          },
+          "orientation": null,
+          "key_face_id": "Face8_2a58f2c57b2dc50f",
+          "face_ids": [
+            7,
+            8
+          ]
+        },
+        {
+          "feature_id": "rb_b8cb23f9",
+          "feature_type": "fillet",
+          "count": 2,
+          "confidence": 0.75,
+          "source": "rule_based",
+          "dimensions": {
+            "radius_mm": 7.112
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -7.703,
+            "y": -4.445,
+            "z": -0.0
+          },
+          "orientation": null,
+          "key_face_id": "Face17_7bc4dd000ba4ec72",
+          "face_ids": [
+            16,
+            18
+          ]
+        },
+        {
+          "feature_id": "rb_b2ecc72c",
+          "feature_type": "boss",
+          "count": 1,
+          "confidence": 0.7,
+          "source": "rule_based",
+          "dimensions": {
+            "diameter_mm": 3.556,
+            "height_mm": 2.159
+          },
+          "perimeter_mm": null,
+          "location": {
+            "x": -0.0,
+            "y": -9.97,
+            "z": 0.0
+          },
+          "orientation": [
+            0.0,
+            -1.0,
+            0.0
+          ],
+          "key_face_id": "Face3_403a87ea9ce27ae9",
+          "face_ids": [
+            1
+          ],
+          "tolerance_class": "ground",
+          "needs_finishing": true,
+          "needs_inspection": true,
+          "tagged_dimensions": [
+            {
+              "source": "dimension",
+              "value_mm": 3.556,
+              "tolerance_class": "ground",
+              "match_score": 1.0
+            }
+          ]
+        }
+      ],
+      "pmi_available": false,
+      "pmi_annotations": [],
+      "mapped_to_bom_item": null,
+      "material": "PEEK",
+      "mapping_method": "unknown",
+      "bom_part_type": null,
+      "tagged_dimensions": [
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Length of threaded section",
+            "nominal": 0.19,
+            "unit": "in",
+            "tolerance_plus": 0.005,
+            "tolerance_minus": 0.005,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D001"
+          },
+          "value_mm": 4.826,
+          "kind": "unknown",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Diameter of inner bore",
+            "nominal": 0.14,
+            "unit": "in",
+            "tolerance_plus": 0.0,
+            "tolerance_minus": 0.005,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D002"
+          },
+          "value_mm": 3.556,
+          "kind": "diameter",
+          "tolerance_class": "ground",
+          "matched_feature_index": 8,
+          "matched_face_ids": [
+            1
+          ],
+          "match_kind": "feature",
+          "match_score": 1.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Outer diameter of main body",
+            "nominal": 0.34,
+            "unit": "in",
+            "tolerance_plus": 0.0,
+            "tolerance_minus": 0.005,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D003"
+          },
+          "value_mm": 8.636,
+          "kind": "diameter",
+          "tolerance_class": "ground",
+          "matched_feature_index": 1,
+          "matched_face_ids": [
+            2,
+            3
+          ],
+          "match_kind": "feature",
+          "match_score": 1.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Height of main body",
+            "nominal": 0.35,
+            "unit": "in",
+            "tolerance_plus": 0.0,
+            "tolerance_minus": 0.005,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D004"
+          },
+          "value_mm": 8.89,
+          "kind": "unknown",
+          "tolerance_class": "ground",
+          "matched_feature_index": 1,
+          "matched_face_ids": [
+            2,
+            3
+          ],
+          "match_kind": "feature",
+          "match_score": 0.153,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Depth of counterbore",
+            "nominal": 0.065,
+            "unit": "in",
+            "tolerance_plus": null,
+            "tolerance_minus": null,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D005"
+          },
+          "value_mm": 1.651,
+          "kind": "unknown",
+          "tolerance_class": "standard",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": false,
+          "needs_inspection": false
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Radius of fillet",
+            "nominal": 0.02,
+            "unit": "in",
+            "tolerance_plus": null,
+            "tolerance_minus": null,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 2,
+            "id": "D006"
+          },
+          "value_mm": 0.508,
+          "kind": "diameter",
+          "tolerance_class": "standard",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": false,
+          "needs_inspection": false
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Width of oval shape",
+            "nominal": 0.75,
+            "unit": "in",
+            "tolerance_plus": 0.004,
+            "tolerance_minus": 0.004,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D007"
+          },
+          "value_mm": 19.05,
+          "kind": "unknown",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Height of oval shape",
+            "nominal": 0.5,
+            "unit": "in",
+            "tolerance_plus": 0.004,
+            "tolerance_minus": 0.004,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D008"
+          },
+          "value_mm": 12.7,
+          "kind": "unknown",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Wall thickness around perimeter",
+            "nominal": 0.03,
+            "unit": "in",
+            "tolerance_plus": 0.003,
+            "tolerance_minus": 0.003,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D009"
+          },
+          "value_mm": 0.762,
+          "kind": "unknown",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "dimension",
+          "vlm_dim": {
+            "label": "Overall height including shoulder",
+            "nominal": 0.55,
+            "unit": "in",
+            "tolerance_plus": 0.0,
+            "tolerance_minus": 0.01,
+            "tolerance": null,
+            "notes": null,
+            "quantity": 1,
+            "id": "D010"
+          },
+          "value_mm": 13.97,
+          "kind": "unknown",
+          "tolerance_class": "tight",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "bbox",
+          "match_score": 1.0,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "gdt",
+          "vlm_dim": {
+            "symbol": "position",
+            "tolerance": 0.005,
+            "unit": "in",
+            "datums": [
+              "A",
+              "B"
+            ],
+            "feature_control_frame_location": "BOUNDARY",
+            "id": "G001"
+          },
+          "value_mm": null,
+          "kind": "position",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "bbox",
+          "match_score": 0.5,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "gdt",
+          "vlm_dim": {
+            "symbol": "position",
+            "tolerance": 0.005,
+            "unit": "in",
+            "datums": [
+              "A",
+              "B"
+            ],
+            "feature_control_frame_location": "BOUNDARY",
+            "id": "G002"
+          },
+          "value_mm": null,
+          "kind": "position",
+          "tolerance_class": "ground",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "bbox",
+          "match_score": 0.5,
+          "needs_finishing": true,
+          "needs_inspection": true
+        },
+        {
+          "source": "thread",
+          "vlm_dim": {
+            "spec": ".190-32 UNF-2B",
+            "label": null,
+            "count": null,
+            "depth_mm": 4.828,
+            "is_blind": null,
+            "quantity": 2,
+            "id": "T001"
+          },
+          "value_mm": null,
+          "kind": "thread",
+          "tolerance_class": "standard",
+          "matched_feature_index": null,
+          "matched_face_ids": [],
+          "match_kind": "unmatched",
+          "match_score": 0.0,
+          "needs_finishing": true,
+          "needs_inspection": false
+        }
+      ],
+      "needs_finishing_pass": true,
+      "inspection_time_min": 5.0,
+      "cost": {
+        "raw_material_usd": 0.0,
+        "setup_usd": 39.2917,
+        "machining_usd_by_process": {},
+        "machining_total_usd": 0.0,
+        "deburr_usd": 1.1667,
+        "inspection_usd": 0.2292,
+        "total_usd": 40.6875,
+        "cost_source": "legacy"
+      }
+    }
+  ],
+  "processes_per_component": [
+    []
+  ],
+  "category_decisions": [
+    {
+      "component_index": 0,
+      "component_name": "TC2-2062556_04-0022-26609",
+      "afr_part_type": "cnc_lathe_milling",
+      "bom_part_type": null,
+      "reconciled_part_type": "cnc_lathe_milling",
+      "changed": false,
+      "reason": "afr_only_no_bom",
+      "confidence": 0.441,
+      "ocr_part_type": null,
+      "material": "PEEK"
+    }
+  ],
+  "cost": {
+    "total_usd": 40.69,
+    "breakdown_by_component": [
+      {
+        "component_index": 0,
+        "component_name": "",
+        "total_usd": 40.6875,
+        "raw_material_usd": 0.0,
+        "setup_usd": 0.0,
+        "machining_total_usd": 0.0,
+        "machining_usd_by_process": {},
+        "deburr_usd": 0.0,
+        "inspection_usd": 0.0,
+        "overhead_usd": 0.0,
+        "finishing_usd": 0.0,
+        "cost": {
+          "raw_material_usd": 0.0,
+          "setup_usd": 39.2917,
+          "machining_usd_by_process": {},
+          "machining_total_usd": 0.0,
+          "deburr_usd": 1.1667,
+          "inspection_usd": 0.2292,
+          "total_usd": 40.6875,
+          "cost_source": "legacy"
+        }
+      }
+    ],
+    "currency": "USD",
+    "batch_size": 1
+  },
+  "cycle_time": {
+    "total_minutes": 0.0,
+    "breakdown_by_component": [
+      {
+        "component_index": 0,
+        "total_minutes": 0
+      }
+    ]
+  },
+  "cam": {
+    "ok": true,
+    "analysis_id": "08eab017-8e41-4eee-837a-27538aae4c7b",
+    "runs_dir": "E:\\data\\server\\runs\\08eab017-8e41-4eee-837a-27538aae4c7b",
+    "by_component": [
+      {
+        "component_index": 0,
+        "component_name": "TC2-2062556_04-0022-26609",
+        "ok": true,
+        "outputs": [],
+        "error": null,
+        "per_op_error_count": 0
+      }
+    ],
+    "total_files": 0,
+    "elapsed_seconds": 0.0,
+    "error": null
+  }
+}
