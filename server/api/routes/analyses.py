@@ -1,12 +1,17 @@
 """History / detail endpoints for prior analyses.
 
-Backed by the per-analysis JSON files written by the orchestrator via
-:mod:`server.engines.agentic.writeback`. Two file kinds live in
-``KNOWLEDGE_BASE/_research/notes/``:
+Backed by the per-analysis JSON files written under
+``KNOWLEDGE_BASE/_research/notes/`` by:
 
-  * ``<id>.json``        — compact diagnostic note (always written).
+  * the orchestrator       — full ``results`` envelope (engine-neutral);
+  * each engine's writeback — compact diagnostic note (engine-specific).
+
+Two file kinds:
+
+  * ``<id>.json``        — compact diagnostic note (one per analysis).
   * ``<id>_full.json``   — full orchestrator ``results`` envelope
-    (written immediately before the ``final_answer`` SSE frame).
+    (written immediately before the ``final_answer`` SSE frame, via
+    :mod:`server.core.writeback`).
 
 Endpoints:
   * ``GET    /v1/analyses``         — paginated list (newest first).
@@ -20,7 +25,7 @@ Design notes:
     history table can show file name + total minutes; older analyses
     that only have a compact note still list, just with fewer fields.
   * **Path-traversal safe** — IDs are validated against the same regex
-    that ``writeback._safe_id`` uses on the write path.
+    that the writeback layer uses on the write path.
 """
 from __future__ import annotations
 
@@ -31,7 +36,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
 
-from ...engines.agentic.writeback import _ANALYSIS_ID_RE, _NOTES_DIR
+from ...core.writeback import _ANALYSIS_ID_RE, _NOTES_DIR
 
 logger = logging.getLogger("cncserver.api.analyses")
 
@@ -84,13 +89,19 @@ def _coerce_float(value: object) -> float | None:
 
 
 def _sum_total_minutes(components: list) -> float | None:
-    """Sum run+setup minutes across components; None if nothing usable."""
+    """Sum run+setup minutes across components; None if nothing usable.
+
+    Reads from whichever planner meta dict the engine attached
+    (``agentic`` or ``rag``) so the history list works regardless of
+    which engine ran.
+    """
     minutes = 0.0
     saw_value = False
     for comp in components or []:
-        agentic = (comp or {}).get("agentic") or {}
-        run = _coerce_float(agentic.get("total_run_min_per_part"))
-        setup = _coerce_float(agentic.get("setup_min_per_lot"))
+        comp = comp or {}
+        meta = comp.get("agentic") or comp.get("rag") or {}
+        run = _coerce_float(meta.get("total_run_min_per_part"))
+        setup = _coerce_float(meta.get("setup_min_per_lot"))
         if run is not None:
             minutes += run
             saw_value = True

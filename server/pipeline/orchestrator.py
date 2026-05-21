@@ -37,8 +37,7 @@ from ..core.http import download_bytes
 from ..core.schemas import AssemblyData, DrawingExtraction, ProcessPlan
 from ..core.settings import get_settings
 from ..core.tracing import finalize_trace, record_step, start_trace
-from ..engines.agentic import dispatch as engine_plan_processes
-from ..engines.agentic.writeback import write_full_result
+from ..core.writeback import write_full_result
 from ..engines.cam import run as engine_generate_gcode
 from ..engines.extraction_2d import run as engine_extract_2d
 from ..engines.extraction_3d import run as engine_recognize_3d
@@ -50,6 +49,37 @@ from ..infra.persistence import (
 )
 
 logger = logging.getLogger("cncserver.pipeline")
+
+
+# ---------------------------------------------------------------------------
+# Engine dispatch resolution
+# ---------------------------------------------------------------------------
+
+# Supported planner engines. The orchestrator never imports these at module
+# load time — each engine package is opaque until a request actually asks
+# for it. That's what keeps ``server/engines/<name>/`` deletable: removing
+# the agentic engine must not stop the RAG engine from serving requests,
+# and vice versa.
+_SUPPORTED_ENGINES = ("agentic", "rag")
+
+
+def _resolve_engine_dispatch(engine_name: str):
+    """Lazy-import the planner ``dispatch`` for ``engine_name``.
+
+    Raises :class:`ValueError` if the name is unknown or the engine
+    package fails to import — the caller (orchestrator) surfaces this as
+    an ``error`` SSE frame so the request doesn't 500.
+    """
+    name = (engine_name or "").strip().lower()
+    if name == "agentic":
+        from ..engines.agentic import dispatch as engine_plan_processes  # noqa: PLC0415
+        return engine_plan_processes
+    if name == "rag":
+        from ..engines.rag import dispatch as engine_plan_processes  # noqa: PLC0415
+        return engine_plan_processes
+    raise ValueError(
+        f"unknown engine {name!r}; supported: {', '.join(_SUPPORTED_ENGINES)}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +98,8 @@ async def run_pipeline(
     batch_size: int = 1,
     supabase_client: Any = None,
     forced_assembly_part_type: str | None = None,
+    engine: str | None = None,
+    model: str | None = None,
 ) -> AsyncGenerator[tuple[str, dict], None]:
     """Run the three-engine SSE pipeline.
 
@@ -88,11 +120,18 @@ async def run_pipeline(
     t0 = time.monotonic()
     settings = get_settings()
 
+    # Resolve which planner engine handles Phase 2 for this request.
+    # Per-request override wins; otherwise fall back to the env default.
+    engine_name = (engine or settings.engine.default or "agentic").strip().lower()
+    # Default model for Engine 3 when the caller doesn't specify one.
+    resolved_model = (model or settings.llm.openrouter_default_model or "").strip() or None
+
     logger.info(
         "=" * 80 + "\n"
-        "PIPELINE START analysis_id=%s file=%s batch=%d user=%s\n"
+        "PIPELINE START analysis_id=%s file=%s batch=%d user=%s engine=%s model=%s\n"
         + "=" * 80,
         analysis_id, file_name, batch_size, user_id or "-",
+        engine_name, resolved_model or "<vllm-default>",
     )
 
     trace = start_trace(
@@ -100,21 +139,43 @@ async def run_pipeline(
         file_name=file_name,
         user_id=user_id,
         batch_size=batch_size,
-        extra={"approach": "modular_monolith"},
+        extra={
+            "approach": "modular_monolith",
+            "engine":   engine_name,
+            "model":    resolved_model or "<vllm-default>",
+        },
     )
     record_step(trace, "pipeline_start", {
         "analysis_id": analysis_id,
         "file_name":   file_name,
         "batch_size":  batch_size,
         "user_id":     user_id or "",
+        "engine":      engine_name,
+        "model":       resolved_model or "",
         "step_url":    (step_url or "")[:200],
         "drawing_url": (drawing_url or "")[:200],
     })
 
     yield ("status", {
         "title":   "Starting analysis",
-        "message": "3-engine pipeline: 2D VLM + 3D Feature Recognition + Process Planning",
+        "message": (
+            f"3-engine pipeline: 2D VLM + 3D Feature Recognition + "
+            f"Process Planning ({engine_name})"
+        ),
     })
+
+    # Resolve the planner dispatch up-front so an unknown engine name fails
+    # the request before we burn time on Phase 0 downloads.
+    try:
+        engine_plan_processes = _resolve_engine_dispatch(engine_name)
+    except (ValueError, ImportError) as exc:
+        logger.error("PIPELINE: engine resolution failed: %s", exc)
+        yield ("error", {"message": f"Engine '{engine_name}' unavailable: {exc}"})
+        finalize_trace(trace, status="error", error=str(exc),
+                       elapsed_seconds=time.monotonic() - t0)
+        yield ("done", {"total_minutes": 0, "total_usd": 0,
+                        "elapsed_seconds": round(time.monotonic() - t0, 1)})
+        return
 
     # Reserve the analyses row up-front so the dashboard can show the
     # in-flight run. Best-effort; pipeline keeps going if it fails.
@@ -318,6 +379,7 @@ async def run_pipeline(
         on_event=on_event_cb,
         forced_assembly_part_type=forced_assembly_part_type,
         analysis_id=analysis_id,
+        model=resolved_model,
     ))
 
     async for ev in bridge.drain_until([engine3_task]):
@@ -385,11 +447,33 @@ async def run_pipeline(
         3,
     )
     total_usd     = float(cost_result.get("total_usd") or 0.0)
+    total_usd_per_lot = round(total_usd * max(batch_size, 1), 4)
 
     components_dump = [
         c if isinstance(c, dict) else c.model_dump(mode="json")
         for c in components
     ]
+
+    # Roll up per-component confidence + evidence into an assembly-level
+    # band. Use the WORST (max ±%) confidence as the headline so the UI
+    # doesn't paint over weak components, and concatenate evidence
+    # tokens (de-duplicated) so a reviewer can audit grounding.
+    confidence_bands: list[float] = []
+    evidence_tokens: list[str] = []
+    for c in components_dump:
+        for engine_block in (c.get("agentic") or {}, c.get("rag") or {}):
+            band = engine_block.get("confidence_band_pct")
+            try:
+                if band is not None:
+                    confidence_bands.append(float(band))
+            except (TypeError, ValueError):
+                pass
+            for tok in engine_block.get("evidence") or []:
+                if isinstance(tok, str) and tok not in evidence_tokens:
+                    evidence_tokens.append(tok)
+    rollup_confidence_band_pct = (
+        round(max(confidence_bands), 1) if confidence_bands else None
+    )
     processes_dump = [
         [r if isinstance(r, dict) else r.model_dump(mode="json") for r in rows]
         for rows in processes_per_component
@@ -402,6 +486,7 @@ async def run_pipeline(
     results = {
         "analysis_id":     analysis_id,
         "approach":        "modular_monolith",
+        "engine":          engine_name,
         "batch_size":      batch_size,
         "assembly_name":   assembly_data.assembly_name or file_name,
         "file_name":       file_name,
@@ -422,6 +507,13 @@ async def run_pipeline(
         "processes_per_component": processes_dump,
         "category_decisions": decisions_dump,
         "cost":               cost_result,
+        "cost_summary": {
+            "total_usd_per_piece":     round(total_usd, 4),
+            "total_usd_per_lot":       total_usd_per_lot,
+            "batch_size":              batch_size,
+            "confidence_band_pct":     rollup_confidence_band_pct,
+            "evidence":                evidence_tokens,
+        },
         "cycle_time": {
             "total_minutes": total_minutes,
             "breakdown_by_component": [

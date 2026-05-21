@@ -38,9 +38,18 @@ async def dispatch(
     on_event: OnEvent = None,
     forced_assembly_part_type: str | None = None,
     analysis_id: str | None = None,
+    model: str | None = None,
 ) -> ProcessPlan:
-    """Run the LLM coordinator and persist the session note."""
-    logger.info("agentic.dispatch: analysis_id=%s", analysis_id or "-")
+    """Run the LLM coordinator and persist the session note.
+
+    ``model`` selects the per-request LLM (e.g.
+    ``"anthropic/claude-sonnet-4.5"`` for OpenRouter, ``None`` for the
+    server default).
+    """
+    logger.info(
+        "agentic.dispatch: analysis_id=%s model=%s",
+        analysis_id or "-", model or "<default>",
+    )
     await safe_emit(on_event, "status", {
         "title":   "Process Planner",
         "message": "Agentic engine (LLM coordinator)",
@@ -55,6 +64,7 @@ async def dispatch(
         on_event=on_event,
         forced_assembly_part_type=forced_assembly_part_type,
         analysis_id=analysis_id,
+        model=model,
     )
     if analysis_id:
         try:

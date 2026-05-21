@@ -34,6 +34,11 @@ from ...core.events import OnEvent, safe_emit
 from ...core.schemas import AssemblyData, DrawingExtraction, ProcessPlan
 from ..process_mapping.bom_mapper import map_bom_to_components
 from ..process_mapping.category_reconciler import reconcile_part_categories
+from ..process_mapping.component_classifier import (
+    classify_components,
+    detect_top_assembly,
+    synthesize_assembly_top_component,
+)
 from ..process_mapping.cost_engine import compute_cost, fetch_shop_catalog
 from ..process_mapping.dim_tagger import tag_all_components
 from .agent import run_component_agent
@@ -58,9 +63,16 @@ def _f(value: Any, default: float = 0.0) -> float:
 
 
 def _index_by_op_sequence(items: list[dict]) -> dict[int, dict]:
-    """Bucket per-op entries by their ``op_sequence`` for fast lookup."""
+    """Bucket per-op entries by their ``op_sequence`` for fast lookup.
+
+    Defensive against malformed LLM output: string fragments, ``None``,
+    or other non-dict entries mixed into the list are silently skipped
+    so a single bad entry can't poison the entire projection.
+    """
     out: dict[int, dict] = {}
     for item in items or []:
+        if not isinstance(item, dict):
+            continue
         seq = item.get("op_sequence")
         try:
             out[int(seq)] = item
@@ -80,7 +92,7 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
         an operation. Stashed on the component for downstream FreeCAD
         Path generation (carries diameter_mm, flute_no, feeds/speeds).
     """
-    operations = agent_out.get("operations") or []
+    operations = [o for o in (agent_out.get("operations") or []) if isinstance(o, dict)]
     tools_by_seq = _index_by_op_sequence(agent_out.get("tools_per_operation") or [])
     params_by_seq = _index_by_op_sequence(agent_out.get("parameters_per_operation") or [])
     machine_id = agent_out.get("chosen_machine_id") or default_machine_id
@@ -98,7 +110,13 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
         feature_ids = list(op.get("feature_ids") or [])
         setup_min = _f(op.get("setup_min_per_lot"))
         params_block = params_by_seq.get(seq, {})
-        op_cycle_min = _f(params_block.get("op_cycle_time_min"))
+        # Non-CNC ops (admin/assy/insp/pack/vendor) don't have feeds/speeds, so
+        # the agent declares run_min_per_part directly on the op. CNC ops still
+        # derive their cycle time from parameters_per_operation when available.
+        explicit_run_min = _f(op.get("run_min_per_part"))
+        op_cycle_min = _f(params_block.get("op_cycle_time_min")) or explicit_run_min
+        labor_role = _labor_role_for_op_code(op_code)
+        fixed_hrs_per_lot = _f(op.get("fixed_hrs_per_lot"))
 
         # operation_type: prefer the agent's explicit answer, then the
         # parameter-block echo, falling back to the op_code suffix.
@@ -108,8 +126,14 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
             or _operation_type_for_op_code(op_code)
         )
 
-        tool_entries = (tools_by_seq.get(seq, {}).get("tools") or [])
-        param_entries = (params_block.get("tools") or [])
+        tool_entries = [
+            t for t in (tools_by_seq.get(seq, {}).get("tools") or [])
+            if isinstance(t, dict)
+        ]
+        param_entries = [
+            p for p in (params_block.get("tools") or [])
+            if isinstance(p, dict)
+        ]
         param_by_tool_id = {
             (p.get("tool_id") or i): p for i, p in enumerate(param_entries)
         }
@@ -145,6 +169,7 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
             manufacturing_processes.append({
                 "process_type": _process_type_for_op_code(op_code),
                 "category": _category_for_op_code(op_code),
+                "labor_role": labor_role,
                 "sequence_order": seq,
                 "operation_count": 1,
                 "driven_by_features": list(tool.get("feature_ids") or feature_ids),
@@ -165,16 +190,48 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
                 "would_need_to_buy": bool(tool.get("would_need_to_buy")),
             })
 
+        # Non-CNC ops have no tools but still need a cost-engine row. Emit a
+        # single placeholder manufacturing_process so the projection isn't
+        # discarded.
+        if not tool_entries and explicit_run_min > 0:
+            manufacturing_processes.append({
+                "process_type": _process_type_for_op_code(op_code),
+                "category": _category_for_op_code(op_code),
+                "labor_role": labor_role,
+                "sequence_order": seq,
+                "operation_count": 1,
+                "driven_by_features": feature_ids,
+                "notes": op.get("notes") or description,
+                "operation_type": op_type,
+                "cycle_time_minutes": explicit_run_min,
+                "setup_min_per_lot": setup_min,
+                "fixed_hrs_per_lot": fixed_hrs_per_lot or None,
+                "machine_id": machine_id,
+                "tool_id": None,
+                "tool_type": None,
+                "tool_dimensions": None,
+                "tool_diameter_mm": None,
+                "spindle_speed_rpm": None,
+                "feed_rate_mm_min": None,
+                "stepover_mm": None,
+                "stepdown_mm": None,
+                "flute_count": None,
+                "tool_name": None,
+                "would_need_to_buy": False,
+            })
+
         routing_rows.append({
             "sequence": seq,
             "op_code": op_code,
             "description": description,
             "process_type": _process_type_for_op_code(op_code),
             "category": _category_for_op_code(op_code),
+            "labor_role": labor_role,
             "operation_type": op_type,
             "setup_min_per_lot": setup_min,
             "run_min_per_part": op_cycle_min,
             "cycle_time_min": op_cycle_min,
+            "fixed_hrs_per_lot": fixed_hrs_per_lot or None,
             "machine_id": machine_id,
             "machine_name": None,
             "tool_ids": tool_ids,
@@ -189,30 +246,94 @@ def _build_routing_rows(agent_out: dict, default_machine_id: str | None) -> tupl
 
 
 _OP_CODE_PROCESS_TYPE: dict[str, str] = {
-    "CNCM_ROUGH": "cnc_milling",
-    "CNCM_FINISH": "cnc_milling",
-    "CNCM_DRILL": "cnc_milling",
-    "CNCM_TAP": "cnc_milling",
-    "CNCM_CHAMFER": "cnc_milling",
-    "CNCT_FACE": "cnc_turning",
-    "CNCT_TURN": "cnc_turning",
-    "CNCT_PARTOFF": "cnc_turning",
-    "CNCT_THREAD": "cnc_turning",
-    "DEBUR": "deburring",
-    "INSPECT": "inspection",
+    # CNC milling
+    "CNCM_ROUGH":            "cnc_milling",
+    "CNCM_FINISH":           "cnc_milling",
+    "CNCM_DRILL":            "cnc_milling",
+    "CNCM_TAP":              "cnc_milling",
+    "CNCM_CHAMFER":          "cnc_milling",
+    "CNCM_PROFILE_ENGRAVE":  "cnc_milling",
+    "CNCM_PROFILE_HOLES":    "cnc_milling",
+    # CNC turning
+    "CNCT_FACE":             "cnc_turning",
+    "CNCT_TURN":             "cnc_turning",
+    "CNCT_PARTOFF":          "cnc_turning",
+    "CNCT_THREAD":           "cnc_turning",
+    # Bench / secondary
+    "DEBUR":                 "deburring",
+    "INSPECT":               "inspection",
+    "INSP_COMPONENT":        "inspection",
+    "INSP_FINAL_FIXED_LOT":  "inspection",
+    # Admin (planning, paperwork, kitting, staging)
+    "ADMIN_PLANNING":        "admin",
+    "ADMIN_PRINT":           "admin",
+    "ADMIN_MAT_PICK":        "admin",
+    "ADMIN_STAGING":         "admin",
+    # Assembly / weld / pack
+    "ASSY_HARDWARE_INSTALL": "assembly",
+    "ASSY_SOLVENT_BOND":     "assembly",
+    "ASSY_WELD_PVC":         "welding",
+    "ASSY_WELD_METAL":       "welding",
+    "PACK_CLEAN":            "packaging",
+    "OUTSIDE_VENDOR":        "outside_vendor",
 }
+
 _OP_CODE_CATEGORY: dict[str, str] = {
-    "CNCM_ROUGH": "machining",
-    "CNCM_FINISH": "machining",
-    "CNCM_DRILL": "machining",
-    "CNCM_TAP": "machining",
-    "CNCM_CHAMFER": "machining",
-    "CNCT_FACE": "machining",
-    "CNCT_TURN": "machining",
-    "CNCT_PARTOFF": "machining",
-    "CNCT_THREAD": "machining",
-    "DEBUR": "deburring",
-    "INSPECT": "inspection",
+    "CNCM_ROUGH":            "machining",
+    "CNCM_FINISH":           "machining",
+    "CNCM_DRILL":            "machining",
+    "CNCM_TAP":              "machining",
+    "CNCM_CHAMFER":          "machining",
+    "CNCM_PROFILE_ENGRAVE":  "machining",
+    "CNCM_PROFILE_HOLES":    "machining",
+    "CNCT_FACE":             "machining",
+    "CNCT_TURN":             "machining",
+    "CNCT_PARTOFF":          "machining",
+    "CNCT_THREAD":           "machining",
+    "DEBUR":                 "deburring",
+    "INSPECT":               "inspection",
+    "INSP_COMPONENT":        "inspection",
+    "INSP_FINAL_FIXED_LOT":  "inspection",
+    "ADMIN_PLANNING":        "admin",
+    "ADMIN_PRINT":           "admin",
+    "ADMIN_MAT_PICK":        "admin",
+    "ADMIN_STAGING":         "admin",
+    "ASSY_HARDWARE_INSTALL": "assembly",
+    "ASSY_SOLVENT_BOND":     "assembly",
+    "ASSY_WELD_PVC":         "welding",
+    "ASSY_WELD_METAL":       "welding",
+    "PACK_CLEAN":            "packaging",
+    "OUTSIDE_VENDOR":        "outside_vendor",
+}
+
+# Op-code → labor role for the cost engine's _ROLE_RATE lookup.
+# The cost engine charges (run_min/60) × rate to whichever role wins.
+_OP_CODE_LABOR_ROLE: dict[str, str] = {
+    "CNCM_ROUGH":            "machinist",
+    "CNCM_FINISH":           "machinist",
+    "CNCM_DRILL":            "machinist",
+    "CNCM_TAP":              "machinist",
+    "CNCM_CHAMFER":          "machinist",
+    "CNCM_PROFILE_ENGRAVE":  "machinist",
+    "CNCM_PROFILE_HOLES":    "machinist",
+    "CNCT_FACE":             "machinist",
+    "CNCT_TURN":             "machinist",
+    "CNCT_PARTOFF":          "machinist",
+    "CNCT_THREAD":           "machinist",
+    "DEBUR":                 "deburrer",
+    "INSPECT":               "inspector",
+    "INSP_COMPONENT":        "inspector",
+    "INSP_FINAL_FIXED_LOT":  "inspector",
+    "ADMIN_PLANNING":        "programmer",       # planner / writeup; closest to programmer
+    "ADMIN_PRINT":           "setup_technician",
+    "ADMIN_MAT_PICK":        "setup_technician",
+    "ADMIN_STAGING":         "setup_technician",
+    "ASSY_HARDWARE_INSTALL": "assembler",
+    "ASSY_SOLVENT_BOND":     "assembler",
+    "ASSY_WELD_PVC":         "welder",
+    "ASSY_WELD_METAL":       "welder",
+    "PACK_CLEAN":            "assembler",
+    "OUTSIDE_VENDOR":        "outside_vendor",   # cost engine treats this as pass-through
 }
 
 # Op-code → Roughing / Finishing / None. The agent SHOULD set
@@ -223,15 +344,6 @@ _OP_CODE_OPERATION_TYPE: dict[str, str | None] = {
     "CNCM_FINISH":  "Finishing",
     "CNCT_ROUGH":   "Roughing",
     "CNCT_FINISH":  "Finishing",
-    "CNCM_DRILL":   None,
-    "CNCM_TAP":     None,
-    "CNCM_CHAMFER": None,
-    "CNCT_FACE":    None,
-    "CNCT_TURN":    None,
-    "CNCT_PARTOFF": None,
-    "CNCT_THREAD": None,
-    "DEBUR":        None,
-    "INSPECT":      None,
 }
 
 
@@ -241,6 +353,11 @@ def _process_type_for_op_code(op_code: str) -> str:
 
 def _category_for_op_code(op_code: str) -> str:
     return _OP_CODE_CATEGORY.get((op_code or "").upper(), "machining")
+
+
+def _labor_role_for_op_code(op_code: str) -> str:
+    """Map op_code → cost-engine labor role. Defaults to machinist."""
+    return _OP_CODE_LABOR_ROLE.get((op_code or "").upper(), "machinist")
 
 
 def _operation_type_for_op_code(op_code: str) -> str | None:
@@ -290,6 +407,82 @@ def _coerce_tool_dimensions(tool_block: dict) -> dict[str, float] | None:
 # Per-component agent runner with "no fallback" failure handling
 # ---------------------------------------------------------------------------
 
+def _passthrough_component(
+    comp_idx: int, component: dict,
+) -> tuple[dict, list[dict], list[dict], dict | None]:
+    """Short-circuit return for components the agent should NOT plan.
+
+    ``hardware`` — purchased part; cost engine charges BOM ``unit_price``
+    (or :data:`_HARDWARE_FALLBACK_PRICES_USD`). No routing rows; no
+    agent invocation.
+
+    ``outside_vendor`` — heat-treat, plating, etc. Emits a single
+    ``OUTSIDE_VENDOR`` routing row with zero machining minutes; cost
+    engine treats it as a pass-through line (Phase 6 wires in the actual
+    vendor pricing from BOM / shop catalog).
+
+    Returns the same ``(component, routing_rows, mp, error_event)`` shape
+    as :func:`_run_one_component` so callers don't branch.
+    """
+    role = component.get("component_role") or ""
+    updated = dict(component)
+    updated["agentic"] = {
+        "skipped": True,
+        "skip_reason": f"component_role={role}",
+        "rationale": (
+            f"Component classified as {role!r} — agent skipped per "
+            "component_classifier; pass-through routing only."
+        ),
+    }
+    if role == "outside_vendor":
+        # One placeholder op so the cost engine knows to bill the vendor
+        # pass-through. Phase 6 will refine vendor pricing.
+        row = {
+            "sequence": 10,
+            "op_code": "OUTSIDE_VENDOR",
+            "description": "Outside-vendor pass-through",
+            "process_type": "outside_vendor",
+            "category": "outside_vendor",
+            "labor_role": "outside_vendor",
+            "operation_type": None,
+            "setup_min_per_lot": 0.0,
+            "run_min_per_part": 0.0,
+            "cycle_time_min": 0.0,
+            "fixed_hrs_per_lot": None,
+            "machine_id": None,
+            "machine_name": None,
+            "tool_ids": [],
+            "tool_type": None,
+            "tool_dimensions": None,
+            "feature_ids": [],
+            "notes": component.get("component_role_reason"),
+        }
+        manufacturing_processes = [{
+            "process_type": "outside_vendor",
+            "category": "outside_vendor",
+            "labor_role": "outside_vendor",
+            "sequence_order": 10,
+            "operation_count": 1,
+            "driven_by_features": [],
+            "notes": component.get("component_role_reason"),
+            "operation_type": None,
+            "cycle_time_minutes": 0.0,
+            "machine_id": None, "tool_id": None, "tool_type": None,
+            "tool_dimensions": None, "tool_diameter_mm": None,
+            "spindle_speed_rpm": None, "feed_rate_mm_min": None,
+            "stepover_mm": None, "stepdown_mm": None, "flute_count": None,
+            "tool_name": None, "would_need_to_buy": False,
+        }]
+        updated["manufacturing_processes"] = manufacturing_processes
+        return updated, [row], manufacturing_processes, None
+
+    # Hardware path — cost engine already short-circuits on
+    # part_type == "hardware" (or component_role == "hardware" once Phase 6
+    # broadens the check). No routing rows; no processes.
+    updated["manufacturing_processes"] = []
+    return updated, [], [], None
+
+
 async def _run_one_component(
     comp_idx: int,
     component: dict,
@@ -299,6 +492,7 @@ async def _run_one_component(
     batch_size: int,
     on_event: OnEvent,
     workspace: AnalysisWorkspace,
+    model: str | None = None,
 ) -> tuple[dict, list[dict], list[dict], dict | None]:
     """Run one component through the agent. Returns ``(component,
     routing_rows, manufacturing_processes, error_event)``.
@@ -307,6 +501,16 @@ async def _run_one_component(
     error (caller emits it). Per the locked decision "Agent only, no
     fallback" we do NOT failover to a rule-based worker.
     """
+    # Classifier-driven short-circuit: hardware and outside-vendor parts
+    # skip the LLM entirely.
+    role = (component.get("component_role") or "").lower()
+    if role in {"hardware", "outside_vendor"}:
+        logger.info(
+            "agentic: component %d (%s) — skipping agent (role=%s)",
+            comp_idx, component.get("name"), role,
+        )
+        return _passthrough_component(comp_idx, component)
+
     component_workspace = workspace.for_component(comp_idx)
     try:
         agent_out = await run_component_agent(
@@ -314,6 +518,7 @@ async def _run_one_component(
             catalog=catalog, batch_size=batch_size,
             on_event=on_event,
             workspace=component_workspace,
+            model=model,
         )
     except ToolLoopError as exc:
         logger.warning("agentic: component %d (%s) — agent failed: %s",
@@ -339,9 +544,22 @@ async def _run_one_component(
             },
         }
 
-    routing_rows, manufacturing_processes = _build_routing_rows(
-        agent_out, default_machine_id=agent_out.get("chosen_machine_id"),
-    )
+    # Projection must never lose the agent's findings. If a malformed
+    # entry sneaks past the dict-filters and raises here, log it but
+    # still decorate the component with what the agent produced so the
+    # cost engine and SSE surface see the real plan.
+    projection_error: str | None = None
+    try:
+        routing_rows, manufacturing_processes = _build_routing_rows(
+            agent_out, default_machine_id=agent_out.get("chosen_machine_id"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception(
+            "agentic: component %d (%s) — projection failed: %s",
+            comp_idx, component.get("name"), exc,
+        )
+        routing_rows, manufacturing_processes = [], []
+        projection_error = f"{exc.__class__.__name__}: {exc}"
 
     # Decorate the component with the agent's findings — passthrough
     # fields that the SSE final_answer surface picks up via Component's
@@ -349,18 +567,31 @@ async def _run_one_component(
     updated = dict(component)
     updated["agentic"] = {
         "machine_class":            agent_out.get("machine_class"),
-        "ranked_machines":          agent_out.get("ranked_machines"),
+        "ranked_machines":          agent_out.get("ranked_machines") or agent_out.get("top_machines"),
         "chosen_machine_id":        agent_out.get("chosen_machine_id"),
         "total_run_min_per_part":   agent_out.get("total_run_min_per_part"),
         "setup_min_per_lot":        agent_out.get("setup_min_per_lot"),
         "rationale":                agent_out.get("rationale"),
+        "evidence":                 agent_out.get("evidence") or [],
+        "confidence_band_pct":      _f(agent_out.get("confidence_band_pct")) or None,
         "iterations":               agent_out.get("iterations"),
         "tool_call_count":          agent_out.get("tool_call_count"),
         "resumed_from_workspace":   agent_out.get("resumed_from_workspace"),
         "workspace_files_at_start": agent_out.get("workspace_files_at_start"),
+        "projection_error":         projection_error,
     }
     updated["manufacturing_processes"] = manufacturing_processes
-    return updated, routing_rows, manufacturing_processes, None
+    error_event: dict | None = None
+    if projection_error:
+        error_event = {
+            "tool": f"agentic_component_{comp_idx}",
+            "result": {
+                "component":        component.get("name", f"Component_{comp_idx}"),
+                "warning":          "projection_partial_failure",
+                "projection_error": projection_error,
+            },
+        }
+    return updated, routing_rows, manufacturing_processes, error_event
 
 
 # ---------------------------------------------------------------------------
@@ -379,6 +610,7 @@ async def run(
     on_event: OnEvent = None,
     forced_assembly_part_type: str | None = None,
     analysis_id: str | None = None,
+    model: str | None = None,
 ) -> ProcessPlan:
     """Run the agentic Engine 3 over a drawing + assembly extraction.
 
@@ -391,6 +623,11 @@ async def run(
     once cost computation completes — so on a successful run nothing is
     left behind, and on a mid-run crash the directory survives so a
     later retry can rehydrate state via ``workspace_list`` / ``workspace_read``.
+
+    ``model`` is the per-request LLM slug used by every component agent.
+    ``None`` falls back to the server default (typically
+    ``openrouter_default_model``). See
+    :func:`server.infra.llm._select_provider` for the routing rules.
     """
     t0 = time.monotonic()
 
@@ -520,6 +757,51 @@ async def run(
             "tool": "tag_dimensions_to_features", "result": tag_summary,
         })
 
+        # ── Component role classification ──────────────────────────────────
+        # Stamps `component_role` ∈ {machining, sub_item_sheet, hardware,
+        # outside_vendor} on every component so the dispatch loop below
+        # knows which ones to send through the agent and which to
+        # short-circuit. Also detects multi-item weldments and synthesises
+        # an `assembly_top` placeholder so the agent emits ADMIN / ASSY /
+        # WELD / INSP_FINAL / PACK ops for the assembly itself.
+        await safe_emit(on_event, "tool_call", {
+            "tool": "classify_components", "iteration": 1,
+            "label": "Classify Component Roles (machining / hardware / vendor / sheet)",
+        })
+        try:
+            role_decisions = classify_components(components, drawing_dict)
+        except Exception as exc:
+            logger.warning("agentic: component classification failed: %s", exc)
+            role_decisions = []
+        try:
+            if detect_top_assembly(drawing_dict, components):
+                synth = synthesize_assembly_top_component(
+                    components, drawing_dict,
+                    next_component_index=len(components),
+                )
+                components.append(synth)
+                logger.info(
+                    "agentic: synthesised assembly_top component idx=%d (welding=%s bonding=%s)",
+                    synth["component_index"],
+                    synth.get("assembly_hint", {}).get("welding_required"),
+                    synth.get("assembly_hint", {}).get("bonding_required"),
+                )
+                role_decisions.append({
+                    "component_index": synth["component_index"],
+                    "name":            synth["name"],
+                    "role":            "assembly_top",
+                    "reason":          "synthesized_for_multi_item_weldment",
+                })
+        except Exception as exc:
+            logger.warning("agentic: assembly_top synthesis failed: %s", exc)
+        await safe_emit(on_event, "tool_result", {
+            "tool": "classify_components",
+            "result": {
+                "total_components": len(components),
+                "decisions": role_decisions,
+            },
+        })
+
         # ── Per-component agent (parallel) ─────────────────────────────────
         await safe_emit(on_event, "status", {
             "title":   f"Agentic planner — {len(components)} component(s)",
@@ -532,6 +814,7 @@ async def run(
                 i, comp, drawing_dict,
                 catalog=catalog, batch_size=batch_size, on_event=on_event,
                 workspace=workspace,
+                model=model,
             ))
             for i, comp in enumerate(components)
         ]

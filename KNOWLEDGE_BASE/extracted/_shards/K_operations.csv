@@ -1,0 +1,88 @@
+part_number,op,machine,feature,operation_type,seq_index,run_min_pc_est,run_min_pc_act,nc_est_min,nc_calib_k,n_tools,notes
+0022-26609,10,CNCV FAN V,,vmc,1,8.00,,,,,setup_hr=1.00; unit=Min/Part; desc=CNCV FAN V
+0022-26609,20,CNCV FAN M,,vmc,2,4.00,,,,,setup_hr=0.50; unit=Min/Part; desc=CNCV FAN M
+0022-26609,800,DEBUR,,deburr,3,2.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0022-26609,997,INSPECTLAB,,inspect,4,1.00,,,,,setup_hr=0.20; unit=Min/Part; desc=Final Inspection
+0022-26609,AMAT,FRONTKEN,,post_process,5,0.00,,,,,setup_hr=0.00; unit=Min/Part; desc=AMAT Clean 0250-70351 T2 (sub-vendor)
+0023-26807,10,CNCTM TAK,,lathe_mill,1,49.00,,,,,setup_hr=1.00; unit=Min/Part; desc=Profile ID (turn-mill)
+0023-26807,20,CNCTM TAK,,lathe_mill,2,14.00,,,,,setup_hr=1.00; unit=Min/Part; desc=Turn slot
+0023-26807,30,CNCTM TAK,,lathe_mill,3,5.00,,,,,setup_hr=0.75; unit=Min/Part; desc=Facing
+0023-26807,800,DEBUR,,deburr,4,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0023-26807,40,CNCV FAN M,,vmc,5,9.00,,,,,setup_hr=0.30; unit=Min/Part; desc=Mill Pocket
+0023-26807,810,DEBUR,,deburr,6,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0023-26807,997,INSPECTLAB,,inspect,7,,,,,,setup_hr=0.20; unit=FixedHrs; desc=Final Inspection (FixedHrs)
+0023-26807,AMAT,ASSY3,,assy,8,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=AMAT Clean & Pack
+0023-12036,10,CNCL TAK,,lathe,1,2.00,,,,,"setup_hr=1.00; unit=Min/Part; desc=Turn OD, Hole"
+0023-12036,800,DEBUR,,deburr,2,2.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0023-12036,997,INSPECTLAB,,inspect,3,,,,,,setup_hr=0.10; unit=FixedHrs; desc=Final Inspection (0.20 hr fixed)
+0023-12036,AMAT,FRONTKEN,,post_process,4,0.00,,,,,setup_hr=0.00; unit=Min/Part; desc=AMAT Clean 0250-70351 (sub-vendor)
+0042-93726,09,EXXACT1616,,router,1,1.50,,,,,setup_hr=0.50; unit=Min/Part; desc=Cut Material (router blank-cut)
+0042-93726,800,DEBUR,,deburr,2,1.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0042-93726,10,CNCV FAN M,,vmc,3,5.00,,,,,"setup_hr=0.50; unit=Min/Part; desc=Drill, Counterbore"
+0042-93726,20,CNCV FAN M,,vmc,4,23.00,,,,,"setup_hr=0.50; unit=Min/Part; desc=Step, Chamfer"
+0042-93726,810,DEBUR,,deburr,5,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0042-93726,995,INSPECTIPQ,,inspect,6,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-process Inspection (0.25 hr fixed)
+0042-93726,820,ASSY1,,assy,7,8.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Install Speedsert (M4 Trisert hardware)
+0042-93726,999,INSPECTASY,,inspect,8,4.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Final Inspection
+0042-93726,AMAT,PKG CLN10K,,post_process,9,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=AMAT CLEAN PKG (cleanroom packaging)
+0042-83323,800,ASSY1,,assy,1,25.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Install Hardware (M3/M4/M5 inserts)
+0042-83323,998,INSPECT,,inspect,2,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Component Inspection
+0042-83323,BOND,ASSY,,assy,3,25.00,,,,,setup_hr=0.10; unit=Min/Part; desc=BONDING
+0042-83323,810,WELD,,assy,4,45.00,,,,,setup_hr=0.20; unit=Min/Part; desc=Welding (PVC weld)
+0042-83323,999,INSPECT,,inspect,5,,,,,,setup_hr=0.20; unit=FixedHrs; desc=Final Inspection (0.25 hr fixed)
+0042-83323,AMAT,ASSY3,,assy,6,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=AMAT Clean & Pack
+0042-46169,C1,CNCR EXACT,,router,1,12.00,,,,,setup_hr=0.30; unit=Min/Part; desc=Item 2 (router cut)
+0042-46169,C2,CNCR EXACT,,router,2,15.00,,,,,setup_hr=0.30; unit=Min/Part; desc=Item 1 - cut to size
+0042-46169,M1,CNCV FAN M,,vmc,3,4.00,,,,,setup_hr=0.50; unit=Min/Part; desc=2-side hole
+0042-46169,M2,CNCV FAN M,,vmc,4,2.00,,,,,setup_hr=0.50; unit=Min/Part; desc=1-side hole
+0042-46169,DEB,DEBUR,,deburr,5,10.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0042-46169,ASSY,ASSY1,,assy,6,20.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Bonding + Ultrasonic Insert install
+0042-46169,INSP,INSPECTLAB,,inspect,7,2.00,,,,,setup_hr=0.20; unit=Min/Part; desc=Inspection
+0042-46169,PKG,PKG CLN10K,,post_process,8,4.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Cleanroom pack
+0043-09967,10,CNCR EXACT,,router,1,10.00,,,,,setup_hr=0.30; unit=Min/Part; desc=Router cut / drill
+0043-09967,800,DEBUR,,deburr,2,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0043-09967,ASY2,ASSY2,,assy,3,15.00,,,,,setup_hr=0.20; unit=Min/Part; desc=Window assembly
+0043-09967,ASY1,ASSY1,,assy,4,4.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Captive screw install
+0043-09967,INSP,INSPECT,,inspect,5,2.00,,,,,setup_hr=0.20; unit=Min/Part; desc=Inspection
+0043-09967,PKG,PKG CLN10K,,post_process,6,6.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Cleanroom pack
+0042-88459,10,CNCV FAN V,,vmc,1,1.50,,,,,setup_hr=0.30; unit=Min/Part; desc=CNCV FAN V
+0042-88459,20,CNCV FAN V,,vmc,2,1.50,,,,,setup_hr=0.30; unit=Min/Part; desc=CNCV FAN V
+0042-88459,800,DEBUR,,deburr,3,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0042-88459,995,INSPECTIPQ,,inspect,4,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-process Inspection (0.10 hr fixed)
+0042-88459,ASSY,ASSY1,,assy,5,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Insert Hardware (M3 helicoil)
+0042-88459,999,INSPECTASY,,inspect,6,,,,,,setup_hr=0.10; unit=FixedHrs; desc=FQC-Assy (0.30 hr fixed)
+0042-88459,AMAT,FRONTKEN,,post_process,7,0.00,,,,,setup_hr=0.00; unit=Min/Part; desc=AMAT Clean 0250-70351 (sub-vendor)
+0042-58555,10,DNM 6700,,vmc,1,4.00,,,,,setup_hr=0.50; unit=Min/Part; desc=DNM 6700 (initial face)
+0042-58555,800,DEBUR,,deburr,2,1.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Remove Sharp Edges
+0042-58555,20,KTM HX400,,vmc,3,18.00,,,,,setup_hr=1.00; unit=Min/Part; desc=KTM HX400 (5-axis main machining)
+0042-58555,30,KTM HX400,,vmc,4,10.00,,,,,setup_hr=1.00; unit=Min/Part; desc=KTM HX400 (continued)
+0042-58555,40,KTM HX400,,vmc,5,4.00,,,,,setup_hr=1.00; unit=Min/Part; desc=KTM HX400 (finishing)
+0042-58555,820,DEBUR,,deburr,6,4.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Remove Sharp Edges
+0042-58555,995,INSPECTIPQ,,inspect,7,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-Process QA Inspection
+0042-58555,840,ASSY1,,assy,8,15.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Helicoil + Dowel Pin install
+0042-58555,999,INSPECTASY,,inspect,9,,,,,,setup_hr=0.10; unit=FixedHrs; desc=Final Inspection
+0042-58555,AMAT,PKG CLN10K,,post_process,10,2.00,,,,,setup_hr=0.10; unit=Min/Part; desc=AMAT Clean & Pack
+0042-51782,10,DNM 57004X,,vmc,1,10.00,,,,,setup_hr=0.50; unit=Min/Part; desc=DNM 5700-4X (op 1)
+0042-51782,20,DNM 57004X,,vmc,2,11.00,,,,,setup_hr=1.00; unit=Min/Part; desc=DNM 5700-4X (op 2)
+0042-51782,800,DEBUR,,deburr,3,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0042-51782,995,INSPECTIPQ,,inspect,4,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-process Inspection
+0042-51782,ASY,ASSY1,,assy,5,3.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Insert Hardware (M5 Helicoil)
+0042-51782,999,INSPECTASY,,inspect,6,,,,,,setup_hr=0.10; unit=FixedHrs; desc=FQC-Assy
+0042-51782,AMAT,FRONTKEN,,post_process,7,0.00,,,,,setup_hr=0.00; unit=Min/Part; desc=AMAT Clean 0250-70351
+0042-51782,OQC,INSPECTOQC,,inspect,8,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=FAIR-OQC outgoing-quality
+839-323453-001,10,KTM HX400,,vmc,1,150.00,,,,,"setup_hr=0.50; unit=Hrs/Part; desc=Roughing, Finishing (2.5 HRS/Part — 150 min/pc)"
+839-323453-001,20,KTM HX400,,vmc,2,51.00,,,,,setup_hr=0.50; unit=Min/Part; desc=Side Mill
+839-323453-001,800,DEBUR,,deburr,3,15.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Plastic Deburring
+839-323453-001,GSQA,INSPECT,,inspect,4,,,,,,setup_hr=0.10; unit=FixedHrs; desc=Critical GSQA Inspection
+839-323453-001,995,INSPECTIPQ,,inspect,5,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-Process QA Inspection
+839-323453-001,998,INSPECT,,inspect,6,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Charge Plate Checking
+839-323453-001,810,ASSY1,,assy,7,30.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Install Titanium Helicoils
+839-323453-001,999,INSPECTLAB,,inspect,8,,,,,,setup_hr=0.10; unit=FixedHrs; desc=FQC-Lab
+0041-28291,20,EXXACT1616,,router,1,48.00,,,,,"setup_hr=0.50; unit=Min/Part; desc=Fly, Step, Profile, Holes"
+0041-28291,810,DEBUR,,deburr,2,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0041-28291,30,EXXACT1616,,router,3,46.00,,,,,"setup_hr=0.50; unit=Min/Part; desc=Fly, Step, ++ Step, Chamfer"
+0041-28291,820,DEBUR,,deburr,4,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Deburr
+0041-28291,995,INSPECTIPQ,,inspect,5,,,,,,setup_hr=0.10; unit=FixedHrs; desc=In-process Inspection
+0041-28291,830,ASSY1,,assy,6,5.00,,,,,setup_hr=0.10; unit=Min/Part; desc=Assemble Quarter-Turn Inserts
+0041-28291,999,INSPECTASY,,inspect,7,10.00,,,,,setup_hr=0.30; unit=Min/Part; desc=Final Inspection
+0041-28291,AMAT,PKG CLN10K,,post_process,8,15.00,,,,,setup_hr=0.10; unit=Min/Part; desc=AMAT Clean & Pack

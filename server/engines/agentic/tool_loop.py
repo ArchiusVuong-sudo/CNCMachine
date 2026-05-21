@@ -149,6 +149,7 @@ async def run_tool_loop(
     max_iterations: int | None = None,
     label: str = "agent",
     chat_fn: ChatFn | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Drive a ReAct/JSON loop until the agent emits ``{"final": ...}``.
 
@@ -179,6 +180,11 @@ async def run_tool_loop(
     chat_fn:
         Injection seam for tests. Defaults to
         :func:`server.infra.llm.chat_messages`.
+    model:
+        Optional model slug forwarded to ``chat_fn``. ``None`` or
+        ``"vllm:<name>"`` routes to local vLLM; ``"<vendor>/<name>"``
+        routes to OpenRouter. See
+        :func:`server.infra.llm._select_provider`.
 
     Returns
     -------
@@ -202,6 +208,7 @@ async def run_tool_loop(
         try:
             resp = await chat(
                 messages,
+                model=model,
                 on_thinking=on_thinking,
                 temperature=0.0,
                 response_format={"type": "json_object"},

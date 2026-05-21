@@ -1,25 +1,41 @@
-"""Qwen3-VL streaming chat client (vLLM ``/v1/chat/completions``).
+"""LLM transport layer — vLLM (Qwen3-VL) + OpenRouter.
 
 Why this exists
 ---------------
-The vision/text LLM is the slowest, jankiest, most timeout-prone external
-dependency the pipeline has. We isolate every quirk of the integration
-here so the engines can focus on extraction logic:
+The pipeline talks to two distinct backends, and the integration quirks
+of each are isolated here so the engines stay focused on extraction
+logic:
 
-  * **Inactivity watchdog** — vLLM occasionally silently stalls. We cancel
-    the stream if no tokens arrive for ``vlm_inactivity_seconds`` (default
-    30 s) and fall back to JSON-extract-from-thinking.
-  * **Think-tag boundary handling** — Qwen3-VL with ``enable_thinking`` set
-    streams ``<think>...</think>`` then the answer; some configs stream
-    ``reasoning_content`` deltas instead. We accept both.
+  * **vLLM (Qwen3-VL)** — local OpenAI-compatible server. Used by
+    Engine 1 (vision drawing extraction) and as a fallback text backend.
+    Qwen-specific ``chat_template_kwargs`` + ``<think>...</think>``
+    parsing live here.
+  * **OpenRouter** — single OpenAI-compatible gateway in front of
+    Claude / GPT / Gemini / DeepSeek / Qwen. Used by Engine 3 (agentic
+    planner) as the default. Reasoning deltas arrive in three possible
+    shapes (``delta.reasoning`` / ``delta.reasoning_content`` /
+    ``delta.reasoning_details[*].text``); we accept all of them.
+
+Per-request routing happens via :func:`chat_messages`'s ``model``
+parameter:
+
+  * ``None`` or ``"vllm:<name>"`` → :class:`VLLMProvider`.
+  * Any other slug containing ``/`` (e.g. ``"anthropic/claude-sonnet-4.5"``)
+    → :class:`OpenRouterProvider`.
+
+Both providers share:
+
+  * **Inactivity watchdog** — cancels the stream if no tokens arrive for
+    ``inactivity_seconds`` and falls back to JSON-salvage-from-thinking.
   * **JSON salvage** — when the answer never escapes the thinking block,
     we scan the thinking for the best JSON object and use it.
-  * **Forwarded thinking chunks** — the orchestrator wants to surface raw
-    chain-of-thought as a separate SSE event type. The ``on_thinking``
+  * **Forwarded thinking chunks** — the orchestrator surfaces raw
+    chain-of-thought as a separate SSE event. The ``on_thinking``
     callback receives every reasoning delta as it arrives.
 
-This module is pure transport. Prompts live with the engine that calls it
-(``server.engines.extraction_2d.prompts``).
+This module is pure transport. Prompts live with the engine that calls
+it (``server.engines.extraction_2d.prompts``,
+``server.engines.agentic.prompts``).
 """
 from __future__ import annotations
 
@@ -27,7 +43,7 @@ import asyncio
 import json
 import logging
 import time
-from typing import Awaitable, Callable
+from typing import Awaitable, Callable, Protocol
 
 import httpx
 
@@ -40,6 +56,10 @@ OnThinking = Callable[[str], Awaitable[None]] | None
 # Hard caps so a runaway model can never blow the process.
 _MAX_CONTENT_CHARS  = 200_000
 _MAX_THINKING_CHARS = 80_000
+
+# Model-slug prefix that forces routing back to the local vLLM provider.
+# Anything else containing "/" is treated as an OpenRouter slug.
+_VLLM_PREFIX = "vllm:"
 
 
 # ---------------------------------------------------------------------------
@@ -604,98 +624,420 @@ async def text_chat(
 
 
 # ---------------------------------------------------------------------------
+# Provider abstraction
+# ---------------------------------------------------------------------------
+
+class LLMProvider(Protocol):
+    """Provider interface for multi-turn streaming chat.
+
+    Implementations return ``{"content": str, "thinking": str, "usage":
+    dict | None, "model": str | None}``. ``usage`` carries token /
+    cost telemetry when the backend reports it.
+    """
+
+    name: str
+
+    async def chat(
+        self,
+        messages: list[dict],
+        *,
+        model: str | None,
+        on_thinking: OnThinking,
+        temperature: float,
+        response_format: dict | None,
+        max_tokens: int | None,
+        enable_thinking: bool,
+        reasoning_effort: str | None,
+    ) -> dict: ...
+
+
+def _normalize_vllm_model(slug: str | None) -> str | None:
+    """Strip the ``vllm:`` routing prefix when present."""
+    if not slug:
+        return None
+    if slug.lower().startswith(_VLLM_PREFIX):
+        return slug[len(_VLLM_PREFIX):] or None
+    return slug
+
+
+class VLLMProvider:
+    """Local vLLM OpenAI-compatible backend (Qwen3-VL).
+
+    Owns the Qwen-specific chat-template kwargs and the legacy
+    ``<think>...</think>`` post-processing that newer providers don't
+    need.
+    """
+
+    name = "vllm"
+
+    async def chat(
+        self,
+        messages: list[dict],
+        *,
+        model: str | None,
+        on_thinking: OnThinking,
+        temperature: float,
+        response_format: dict | None,
+        max_tokens: int | None,
+        enable_thinking: bool,
+        reasoning_effort: str | None,  # accepted for parity; ignored on vLLM
+    ) -> dict:
+        settings = get_settings().llm
+        endpoint = f"{settings.base_url}/v1/chat/completions"
+        inactivity = settings.vlm_inactivity_seconds
+        resolved_model = _normalize_vllm_model(model) or settings.model
+
+        payload: dict = {
+            "model": resolved_model,
+            "messages": messages,
+            "stream":      True,
+            "temperature": temperature,
+            "max_tokens":  max_tokens or settings.text_max_tokens,
+            "chat_template_kwargs": {
+                "enable_thinking":         enable_thinking,
+                "thinking_budget_tokens":  settings.text_thinking_budget_tokens,
+            },
+            "skip_special_tokens": False,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+
+        full_content = ""
+        think_content = ""
+        usage: dict | None = None
+
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream("POST", endpoint, json=payload, timeout=None) as resp:
+                if resp.status_code != 200:
+                    body = await resp.aread()
+                    raise RuntimeError(
+                        f"LLM HTTP {resp.status_code}: "
+                        f"{body[:200].decode(errors='replace')}"
+                    )
+                buf = ""
+                aiter = resp.aiter_bytes().__aiter__()
+                while True:
+                    try:
+                        raw_bytes = await asyncio.wait_for(
+                            aiter.__anext__(), timeout=inactivity,
+                        )
+                    except (asyncio.TimeoutError, StopAsyncIteration):
+                        break
+                    buf += raw_bytes.decode("utf-8", errors="replace")
+                    lines = buf.split("\n")
+                    buf = lines.pop()
+                    for line in lines:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        raw = line[6:] if line.startswith("data: ") else line
+                        if raw == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(raw)
+                            if isinstance(chunk.get("usage"), dict):
+                                usage = chunk["usage"]
+                            delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+                            if delta.get("reasoning_content"):
+                                think_content += delta["reasoning_content"]
+                                if on_thinking:
+                                    await on_thinking(delta["reasoning_content"])
+                            if delta.get("content"):
+                                full_content += delta["content"]
+                            if (chunk.get("choices") or [{}])[0].get("finish_reason"):
+                                break
+                        except (json.JSONDecodeError, IndexError, KeyError):
+                            pass
+                    if len(full_content) > _MAX_CONTENT_CHARS:
+                        break
+                    if len(think_content) > _MAX_THINKING_CHARS:
+                        break
+
+        if full_content and not think_content and "</think>" in full_content:
+            idx = full_content.index("</think>")
+            think_content = full_content[:idx].lstrip("<think>").strip()
+            full_content = full_content[idx + 8:].strip()
+
+        if not full_content and think_content:
+            full_content = extract_json_from_thinking(think_content)
+
+        return {
+            "content":  full_content,
+            "thinking": think_content,
+            "usage":    usage,
+            "model":    resolved_model,
+        }
+
+
+class OpenRouterProvider:
+    """OpenRouter OpenAI-compatible gateway.
+
+    Differences from vLLM:
+
+      * Auth header ``Authorization: Bearer <key>`` is mandatory.
+      * Optional ``HTTP-Referer`` and ``X-Title`` headers identify the
+        app on the OpenRouter dashboard.
+      * Reasoning is requested via the unified ``reasoning: {effort: ...}``
+        param. OpenRouter normalises it to each upstream's native shape
+        (e.g. Claude ``thinking``, GPT-5 ``reasoning_effort``, Gemini
+        ``thinkingBudget``).
+      * Reasoning deltas may arrive as ``delta.reasoning`` (string),
+        ``delta.reasoning_content`` (string), or
+        ``delta.reasoning_details[*].text`` (list of objects). We accept
+        all three.
+      * ``response_format={"type": "json_object"}`` works across most
+        backends OpenRouter fronts; we pass it through unchanged.
+
+    No Qwen ``<think>...</think>`` parsing here — providers fronted by
+    OpenRouter emit clean ``delta.content`` only.
+    """
+
+    name = "openrouter"
+
+    async def chat(
+        self,
+        messages: list[dict],
+        *,
+        model: str | None,
+        on_thinking: OnThinking,
+        temperature: float,
+        response_format: dict | None,
+        max_tokens: int | None,
+        enable_thinking: bool,
+        reasoning_effort: str | None,
+    ) -> dict:
+        settings = get_settings().llm
+        if not settings.openrouter_api_key:
+            raise RuntimeError(
+                "OPENROUTER_API_KEY is not configured — cannot route to "
+                f"OpenRouter model {model!r}."
+            )
+        endpoint = f"{settings.openrouter_base_url}/chat/completions"
+        inactivity = settings.openrouter_inactivity_seconds
+        resolved_model = model or settings.openrouter_default_model
+
+        payload: dict = {
+            "model": resolved_model,
+            "messages": messages,
+            "stream":      True,
+            "temperature": temperature,
+            "max_tokens":  max_tokens or settings.openrouter_max_tokens,
+        }
+        if response_format:
+            payload["response_format"] = response_format
+        if enable_thinking:
+            effort = (reasoning_effort or settings.openrouter_default_reasoning_effort or "").strip().lower()
+            if effort in ("low", "medium", "high"):
+                payload["reasoning"] = {"effort": effort}
+
+        headers = {
+            "Authorization": f"Bearer {settings.openrouter_api_key}",
+            "Content-Type":  "application/json",
+        }
+        if settings.openrouter_http_referer:
+            headers["HTTP-Referer"] = settings.openrouter_http_referer
+        if settings.openrouter_app_title:
+            headers["X-Title"] = settings.openrouter_app_title
+
+        full_content = ""
+        think_content = ""
+        usage: dict | None = None
+        response_model: str | None = None
+
+        timeout = httpx.Timeout(settings.openrouter_request_timeout, connect=15.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream("POST", endpoint, headers=headers, json=payload) as resp:
+                if resp.status_code != 200:
+                    body = await resp.aread()
+                    raise RuntimeError(
+                        f"OpenRouter HTTP {resp.status_code}: "
+                        f"{body[:300].decode(errors='replace')}"
+                    )
+                buf = ""
+                aiter = resp.aiter_bytes().__aiter__()
+                while True:
+                    try:
+                        raw_bytes = await asyncio.wait_for(
+                            aiter.__anext__(), timeout=inactivity,
+                        )
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            "OpenRouter inactivity timeout after %gs (model=%s)",
+                            inactivity, resolved_model,
+                        )
+                        break
+                    except StopAsyncIteration:
+                        break
+
+                    buf += raw_bytes.decode("utf-8", errors="replace")
+                    lines = buf.split("\n")
+                    buf = lines.pop()
+                    for line in lines:
+                        line = line.strip()
+                        if not line or line.startswith(":"):
+                            # OpenRouter emits SSE keep-alive comments
+                            # ("` `: OPENROUTER PROCESSING`") that must
+                            # be ignored.
+                            continue
+                        raw = line[6:] if line.startswith("data: ") else line
+                        if raw == "[DONE]":
+                            break
+                        try:
+                            chunk = json.loads(raw)
+                        except (json.JSONDecodeError, ValueError):
+                            continue
+                        if isinstance(chunk.get("usage"), dict):
+                            usage = chunk["usage"]
+                        if isinstance(chunk.get("model"), str):
+                            response_model = chunk["model"]
+                        choices = chunk.get("choices") or []
+                        if not choices:
+                            continue
+                        delta = (choices[0] or {}).get("delta") or {}
+
+                        # Accept all three reasoning-delta shapes that
+                        # OpenRouter producers emit.
+                        reasoning_piece: str | None = None
+                        if isinstance(delta.get("reasoning"), str):
+                            reasoning_piece = delta["reasoning"]
+                        elif isinstance(delta.get("reasoning_content"), str):
+                            reasoning_piece = delta["reasoning_content"]
+                        else:
+                            details = delta.get("reasoning_details")
+                            if isinstance(details, list):
+                                pieces = []
+                                for d in details:
+                                    if isinstance(d, dict) and isinstance(d.get("text"), str):
+                                        pieces.append(d["text"])
+                                if pieces:
+                                    reasoning_piece = "".join(pieces)
+                        if reasoning_piece:
+                            think_content += reasoning_piece
+                            if on_thinking:
+                                await on_thinking(reasoning_piece)
+
+                        if isinstance(delta.get("content"), str):
+                            full_content += delta["content"]
+
+                        if (choices[0] or {}).get("finish_reason"):
+                            break
+
+                    if len(full_content) > _MAX_CONTENT_CHARS:
+                        logger.warning("OpenRouter content > %d chars — breaking", _MAX_CONTENT_CHARS)
+                        break
+                    if len(think_content) > _MAX_THINKING_CHARS:
+                        logger.warning("OpenRouter thinking > %d chars — breaking", _MAX_THINKING_CHARS)
+                        break
+
+        # Fallback: if the model wrapped its JSON answer in <think>...</think>
+        # (a few OSS models do) salvage it the same way as vLLM.
+        if not full_content and think_content:
+            logger.warning(
+                "OpenRouter content=0 thinking=%d — extracting JSON",
+                len(think_content),
+            )
+            full_content = extract_json_from_thinking(think_content)
+
+        return {
+            "content":  full_content,
+            "thinking": think_content,
+            "usage":    usage,
+            "model":    response_model or resolved_model,
+        }
+
+
+_VLLM_PROVIDER = VLLMProvider()
+_OPENROUTER_PROVIDER = OpenRouterProvider()
+
+
+def _select_provider(model: str | None) -> LLMProvider:
+    """Route a model slug to the right backend.
+
+    Rules:
+      * ``None`` → :class:`VLLMProvider` (legacy default).
+      * ``"vllm:<name>"`` → :class:`VLLMProvider` with ``<name>``.
+      * Any slug containing ``"/"`` → :class:`OpenRouterProvider`.
+      * Anything else → :class:`VLLMProvider` (treats bare names like
+        ``"Qwen/Qwen3-VL-32B-Instruct-FP8"`` correctly only when prefixed
+        with ``vllm:``; otherwise OpenRouter is preferred because the
+        slug shape matches its catalog).
+    """
+    if not model:
+        return _VLLM_PROVIDER
+    slug = model.strip()
+    if slug.lower().startswith(_VLLM_PREFIX):
+        return _VLLM_PROVIDER
+    if "/" in slug:
+        return _OPENROUTER_PROVIDER
+    return _VLLM_PROVIDER
+
+
+# ---------------------------------------------------------------------------
 # Multi-turn chat (used by the agentic engine's ReAct loop)
 # ---------------------------------------------------------------------------
 
 async def chat_messages(
     messages: list[dict],
     *,
+    model: str | None = None,
     on_thinking: OnThinking = None,
     temperature: float = 0.0,
     response_format: dict | None = None,
     max_tokens: int | None = None,
     enable_thinking: bool = True,
+    reasoning_effort: str | None = None,
 ) -> dict:
-    """Multi-turn streaming chat. Returns ``{"content": str, "thinking": str}``.
+    """Multi-turn streaming chat. Returns ``{"content", "thinking", "usage", "model"}``.
 
-    Mirrors :func:`text_chat` (same watchdog, same think-strip salvage) but
-    takes a pre-built message list so the agentic loop can carry tool
-    results forward as additional user turns. Pass
-    ``response_format={"type": "json_object"}`` to enable vLLM's JSON mode.
+    Routes to vLLM or OpenRouter based on ``model`` (see
+    :func:`_select_provider`). The agentic loop carries tool results
+    forward as additional user turns and asks for JSON mode via
+    ``response_format={"type": "json_object"}``.
+
+    Parameters
+    ----------
+    messages:
+        OpenAI-style chat messages.
+    model:
+        Optional model slug. ``None`` and ``"vllm:..."`` route to local
+        vLLM; ``"<vendor>/<name>"`` routes to OpenRouter.
+    on_thinking:
+        Callback for reasoning deltas; forwarded to the SSE bridge.
+    temperature:
+        Sampling temperature (0 for the deterministic agentic loop).
+    response_format:
+        Pass-through. ``{"type": "json_object"}`` forces JSON output.
+    max_tokens:
+        Per-provider max-tokens cap; falls back to settings defaults.
+    enable_thinking:
+        Toggle reasoning. On vLLM this drives Qwen's
+        ``chat_template_kwargs``; on OpenRouter this enables the unified
+        ``reasoning: {effort: ...}`` param.
+    reasoning_effort:
+        ``"low" | "medium" | "high"``. Only used by OpenRouter; ignored
+        by vLLM.
     """
-    settings = get_settings().llm
-    endpoint = f"{settings.base_url}/v1/chat/completions"
-    inactivity = settings.vlm_inactivity_seconds
+    provider = _select_provider(model)
+    return await provider.chat(
+        messages,
+        model=model,
+        on_thinking=on_thinking,
+        temperature=temperature,
+        response_format=response_format,
+        max_tokens=max_tokens,
+        enable_thinking=enable_thinking,
+        reasoning_effort=reasoning_effort,
+    )
 
-    payload: dict = {
-        "model": settings.model,
-        "messages": messages,
-        "stream":      True,
-        "temperature": temperature,
-        "max_tokens":  max_tokens or settings.text_max_tokens,
-        "chat_template_kwargs": {
-            "enable_thinking":         enable_thinking,
-            "thinking_budget_tokens":  settings.text_thinking_budget_tokens,
-        },
-        "skip_special_tokens": False,
-    }
-    if response_format:
-        payload["response_format"] = response_format
 
-    full_content = ""
-    think_content = ""
-
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream("POST", endpoint, json=payload, timeout=None) as resp:
-            if resp.status_code != 200:
-                body = await resp.aread()
-                raise RuntimeError(
-                    f"LLM HTTP {resp.status_code}: "
-                    f"{body[:200].decode(errors='replace')}"
-                )
-            buf = ""
-            aiter = resp.aiter_bytes().__aiter__()
-            while True:
-                try:
-                    raw_bytes = await asyncio.wait_for(
-                        aiter.__anext__(), timeout=inactivity,
-                    )
-                except (asyncio.TimeoutError, StopAsyncIteration):
-                    break
-                buf += raw_bytes.decode("utf-8", errors="replace")
-                lines = buf.split("\n")
-                buf = lines.pop()
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    raw = line[6:] if line.startswith("data: ") else line
-                    if raw == "[DONE]":
-                        break
-                    try:
-                        chunk = json.loads(raw)
-                        delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
-                        if delta.get("reasoning_content"):
-                            think_content += delta["reasoning_content"]
-                            if on_thinking:
-                                await on_thinking(delta["reasoning_content"])
-                        if delta.get("content"):
-                            full_content += delta["content"]
-                        if (chunk.get("choices") or [{}])[0].get("finish_reason"):
-                            break
-                    except (json.JSONDecodeError, IndexError, KeyError):
-                        pass
-                if len(full_content) > _MAX_CONTENT_CHARS:
-                    break
-                if len(think_content) > _MAX_THINKING_CHARS:
-                    break
-
-    if full_content and not think_content and "</think>" in full_content:
-        idx = full_content.index("</think>")
-        think_content = full_content[:idx].lstrip("<think>").strip()
-        full_content = full_content[idx + 8:].strip()
-
-    if not full_content and think_content:
-        full_content = extract_json_from_thinking(think_content)
-
-    return {"content": full_content, "thinking": think_content}
+__all__ = [
+    "chat_messages",
+    "vision_chat",
+    "text_chat",
+    "parse_model_json",
+    "extract_json_from_thinking",
+    "find_matching_brace",
+    "VLLMProvider",
+    "OpenRouterProvider",
+    "LLMProvider",
+]

@@ -348,20 +348,24 @@ async def compute_cost(
         catalog = await fetch_shop_catalog(supabase_client)
 
     labor = catalog["labor"]
-    machinist_rate   = labor.get("machinist",        _DEFAULT_RATES["machinist"])
-    programmer_rate  = labor.get("programmer",       _DEFAULT_RATES["programmer"])
-    deburrer_rate    = labor.get("deburrer",         _DEFAULT_RATES["deburrer"])
-    inspector_rate   = labor.get("inspector",        _DEFAULT_RATES["inspector"])
-    assembler_rate   = labor.get("assembler",        _DEFAULT_RATES["assembler"])
-    deburr_station   = labor.get("deburr_station",   _DEFAULT_RATES["deburr_station"])  # Bug D: now honours catalog
+    machinist_rate        = labor.get("machinist",        _DEFAULT_RATES["machinist"])
+    programmer_rate       = labor.get("programmer",       _DEFAULT_RATES["programmer"])
+    deburrer_rate         = labor.get("deburrer",         _DEFAULT_RATES["deburrer"])
+    inspector_rate        = labor.get("inspector",        _DEFAULT_RATES["inspector"])
+    assembler_rate        = labor.get("assembler",        _DEFAULT_RATES["assembler"])
+    welder_rate           = labor.get("welder",           _DEFAULT_RATES["welder"])
+    setup_technician_rate = labor.get("setup_technician", _DEFAULT_RATES["setup_technician"])
+    deburr_station        = labor.get("deburr_station",   _DEFAULT_RATES["deburr_station"])
 
-    # Map routing labor_role â†’ hourly rate (used only for routing-style processes).
+    # Map routing labor_role → hourly rate (used only for routing-style processes).
     _ROLE_RATE = {
-        "machinist":  machinist_rate,
-        "programmer": programmer_rate,
-        "deburrer":   deburrer_rate,
-        "inspector":  inspector_rate,
-        "assembler":  assembler_rate,
+        "machinist":        machinist_rate,
+        "programmer":       programmer_rate,
+        "deburrer":         deburrer_rate,
+        "inspector":        inspector_rate,
+        "assembler":        assembler_rate,
+        "welder":           welder_rate,
+        "setup_technician": setup_technician_rate,
     }
 
     blended = _effective_blended_rate(catalog)
@@ -411,7 +415,8 @@ async def compute_cost(
         gdt_count     = len(gdt_entries)
 
         part_type = (comp.get("part_type") or "").lower()
-        if part_type == "hardware":
+        comp_role = (comp.get("component_role") or "").lower()
+        if part_type == "hardware" or comp_role == "hardware":
             bom_price = _hardware_unit_price(comp)
             bom_qty   = max(int(comp.get("bom_qty") or 1), 1)
             hw_total  = round(bom_price * bom_qty, 4)
@@ -438,6 +443,35 @@ async def compute_cost(
             )
             continue
 
+        if comp_role == "outside_vendor":
+            # Pass-through line: vendor charge from BOM unit_price (already
+            # USD in the analogue KB). Fall back to 0 if no price.
+            vendor_price = _hardware_unit_price(comp)
+            vendor_qty   = max(int(comp.get("bom_qty") or 1), 1)
+            v_total = round(vendor_price * vendor_qty, 4)
+            cost_obj = {
+                "raw_material_usd":         0.0,
+                "setup_usd":                0.0,
+                "machining_usd_by_process": {"outside_vendor": v_total},
+                "machining_total_usd":      v_total,
+                "deburr_usd":               0.0,
+                "inspection_usd":           0.0,
+                "total_usd":                v_total,
+                "cost_source":              "outside_vendor_passthrough",
+            }
+            comp["cost"] = cost_obj
+            grand_total += v_total
+            breakdown_by_component.append({
+                "component_index": comp.get("component_index", comp_idx),
+                "total_usd":       v_total,
+                "cost":            cost_obj,
+            })
+            logger.info(
+                "cost_engine COMP[%d] %s OUTSIDE_VENDOR: $%.4f × %d = $%.2f",
+                comp_idx, comp.get("name", "?"), vendor_price, vendor_qty, v_total,
+            )
+            continue
+
         cost_per_stock = float(stock.get("cost_per_stock_usd") or 0.0)
         qty_per_stock  = max(int(stock.get("qty_per_stock") or 1), 1)
         raw_material_usd = cost_per_stock / qty_per_stock
@@ -457,8 +491,29 @@ async def compute_cost(
             for p in processes
         )
 
+        # Sum the per-op setup_min_per_lot and fixed_hrs_per_lot from the
+        # routing rows; both are lot-level, so they amortize by batch_size.
+        # In role-based mode setup is charged at setup_technician_rate
+        # (operator time at the machine) and fixed-hrs at inspector_rate
+        # (final-inspection block). In blended-rate mode both default to
+        # the blended rate so the assembly total stays consistent with the
+        # quote-shop pricing model.
+        setup_min_total = 0.0
+        fixed_hrs_total = 0.0
         if routing_style:
-            setup_usd = 0.0  # setup is amortised inside each routing row's cycle_time_min
+            for p in processes:
+                try:
+                    setup_min_total += float(p.get("setup_min_per_lot") or 0.0)
+                except (TypeError, ValueError):
+                    pass
+                try:
+                    fixed_hrs_total += float(p.get("fixed_hrs_per_lot") or 0.0)
+                except (TypeError, ValueError):
+                    pass
+            setup_rate = blended if blended > 0 else setup_technician_rate
+            fixed_rate = blended if blended > 0 else inspector_rate
+            setup_usd = ((setup_min_total / 60.0) * setup_rate) / batch_size
+            fixed_lot_usd = (fixed_hrs_total * fixed_rate) / batch_size
         else:
             setup_time_min = 5.0 + 2.0 * feature_count
             setup_usd = (
@@ -466,6 +521,7 @@ async def compute_cost(
                 * (machinist_rate + programmer_rate * 0.5)
                 / batch_size
             )
+            fixed_lot_usd = 0.0
 
         machining_by_process: dict[str, float] = {}
         machining_total = 0.0
@@ -473,9 +529,21 @@ async def compute_cost(
         for proc in processes:
             proc_type    = str(proc.get("process_type") or proc.get("category") or "cnc_milling")
             ct_min       = float(proc.get("cycle_time_min") or 0.0)
-            machine_id   = (proc.get("machine_ref") or {}).get("machine_id")
-            tool_id      = (proc.get("tooling_ref") or {}).get("tool_id")
-            role         = str(proc.get("labor_role") or "machinist").lower()
+            # Routing rows emit flat `machine_id` + `tool_ids` (list). Legacy
+            # process_mapping rows used nested `machine_ref` / `tooling_ref`.
+            # Read both shapes so the cost engine stays drop-in across the
+            # two upstream projections.
+            machine_id = (
+                proc.get("machine_id")
+                or (proc.get("machine_ref") or {}).get("machine_id")
+            )
+            tool_ids_list = proc.get("tool_ids") or []
+            tool_id = (
+                (tool_ids_list[0] if tool_ids_list else None)
+                or proc.get("tool_id")
+                or (proc.get("tooling_ref") or {}).get("tool_id")
+            )
+            role = str(proc.get("labor_role") or "machinist").lower()
 
             tool_cost    = _tool_amortised_cost(tool_id, ct_min, catalog)
 
@@ -487,12 +555,15 @@ async def compute_cost(
             else:
                 labor_rate   = _ROLE_RATE.get(role, machinist_rate)
                 machine_rate = _machine_rate_from_catalog(machine_id, catalog)
-                # Deburr and assembly/inspection rows aren't on a CNC, so skip the
-                # CNC machine rate; use the deburr-station rate for deburrers.
+                # Non-CNC roles aren't on a CNC. Deburr uses the deburr-station
+                # rate; assembly/inspection/admin/weld/packing are bench work.
                 if role == "deburrer":
                     machine_rate = deburr_station
-                elif role in ("inspector", "assembler"):
-                    machine_rate = 0.0  # bench work â€” no machine burden
+                elif role in (
+                    "inspector", "assembler", "welder",
+                    "setup_technician", "programmer",
+                ):
+                    machine_rate = 0.0  # bench work / desk work — no CNC burden
 
             labor_cost = (ct_min / 60.0) * labor_rate
             mach_cost  = (ct_min / 60.0) * machine_rate
@@ -515,8 +586,11 @@ async def compute_cost(
             )
 
         if routing_style:
+            # Routing rows already include DEBUR + INSP_COMPONENT cycle
+            # time in their machining_total; the inspection-lot block is
+            # the separate fixed_lot_usd line.
             deburr_usd = 0.0
-            inspection_usd = 0.0
+            inspection_usd = round(fixed_lot_usd, 4)
         else:
             deburr_time_min = 0.5 + 0.1 * feature_count
             deburr_usd = (deburr_time_min / 60.0) * (deburrer_rate + deburr_station)
@@ -538,6 +612,8 @@ async def compute_cost(
         cost_obj = {
             "raw_material_usd":         round(raw_material_usd,  4),
             "setup_usd":                round(setup_usd,          4),
+            "setup_min_per_lot":        round(setup_min_total, 2) if routing_style else None,
+            "fixed_hrs_per_lot":        round(fixed_hrs_total, 3) if routing_style else None,
             "machining_usd_by_process": {k: round(v, 4) for k, v in machining_by_process.items()},
             "machining_total_usd":      round(machining_total,   4),
             "deburr_usd":               round(deburr_usd,         4),

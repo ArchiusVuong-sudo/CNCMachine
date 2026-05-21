@@ -37,6 +37,9 @@
 **/*.log
 /server/runs/
 
+# === Auto-generated analysis output (session notes + full result dumps) ===
+/KNOWLEDGE_BASE/_research/notes/
+
 # === OS / editor ===
 **/.DS_Store
 **/Thumbs.db

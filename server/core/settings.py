@@ -47,8 +47,21 @@ class ServerSettings:
 
 @dataclass(frozen=True)
 class LLMSettings:
-    """Connection config for the vision/text LLM (Qwen3-VL via vLLM)."""
+    """Connection config for the vision/text LLM.
 
+    The pipeline now talks to two distinct LLM backends:
+
+      * **vLLM (Qwen3-VL)** — Engine 1 vision extraction. Always used.
+      * **OpenRouter** — Engine 3 agentic planner (default). Selected per
+        request through ``AnalyzeRequest.model`` or the server default
+        ``openrouter_default_model``.
+
+    The ``vllm:`` model prefix (or omitting ``model`` entirely) keeps a
+    request on vLLM. Any other slug (e.g. ``anthropic/claude-sonnet-4.5``)
+    routes to OpenRouter.
+    """
+
+    # ── vLLM (Qwen3-VL) ────────────────────────────────────────────────
     base_url: str = "http://localhost:11434"
     model: str = "Qwen/Qwen3-VL-32B-Instruct-FP8"
     vlm_inactivity_seconds: float = 30.0
@@ -56,6 +69,27 @@ class LLMSettings:
     vlm_max_tokens: int = 12288
     text_max_tokens: int = 6144
     text_thinking_budget_tokens: int = 1024
+
+    # ── OpenRouter ─────────────────────────────────────────────────────
+    openrouter_api_key: str | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_default_model: str = "anthropic/claude-sonnet-4.5"
+    openrouter_http_referer: str = "https://cncmachining.local"
+    openrouter_app_title: str = "CNC Quote Engine"
+    openrouter_inactivity_seconds: float = 90.0
+    openrouter_request_timeout: float = 300.0
+    openrouter_default_reasoning_effort: str = "medium"
+    openrouter_max_tokens: int = 8192
+    openrouter_allowed_models: tuple[str, ...] = (
+        "anthropic/claude-sonnet-4.5",
+        "anthropic/claude-opus-4.5",
+        "openai/gpt-5",
+        "openai/gpt-5-mini",
+        "google/gemini-2.5-pro",
+        "google/gemini-2.5-flash",
+        "deepseek/deepseek-v3.2",
+        "qwen/qwen3-max",
+    )
 
 
 @dataclass(frozen=True)
@@ -116,6 +150,34 @@ class AgenticSettings:
 
 
 @dataclass(frozen=True)
+class RagSettings:
+    """RAG-engine config: embeddings + retrieval tuning.
+
+    The RAG engine is a swap-in alternative to the agentic engine — one
+    LLM call per component, grounded by analogue parts retrieved from
+    pgvector. Set ``ENGINE_MODE=rag`` (see :class:`EngineSettings`) to
+    make it the default, or pass ``?engine=rag`` per request.
+    """
+
+    openai_api_key: str | None = None
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_embedding_model: str = "text-embedding-3-small"
+    rag_top_k: int = 5
+    rag_top_k_patterns: int = 3
+
+
+@dataclass(frozen=True)
+class EngineSettings:
+    """Engine-3 selection. Picks which planner backend runs per analysis.
+
+    Per-request override: clients may set ``?engine=agentic|rag`` or pass
+    ``engine`` in the JSON body. When absent, ``default`` applies.
+    """
+
+    default: str = "agentic"
+
+
+@dataclass(frozen=True)
 class Settings:
     server: ServerSettings
     llm: LLMSettings
@@ -123,7 +185,30 @@ class Settings:
     geometry: GeometrySettings
     process_mapping: ProcessMappingSettings
     agentic: AgenticSettings
+    rag: RagSettings
+    engine: EngineSettings
     repo_root: Path = _REPO_ROOT
+
+
+_DEFAULT_OPENROUTER_ALLOWED = (
+    "anthropic/claude-sonnet-4.5",
+    "anthropic/claude-opus-4.5",
+    "openai/gpt-5",
+    "openai/gpt-5-mini",
+    "google/gemini-2.5-pro",
+    "google/gemini-2.5-flash",
+    "deepseek/deepseek-v3.2",
+    "qwen/qwen3-max",
+)
+
+
+def _csv_tuple(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    """Parse a comma-separated env var into a stripped, non-empty tuple."""
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    items = tuple(s.strip() for s in raw.split(",") if s.strip())
+    return items or default
 
 
 def _llm_settings() -> LLMSettings:
@@ -143,6 +228,32 @@ def _llm_settings() -> LLMSettings:
         vlm_max_tokens=_int("VLM_MAX_TOKENS", 12288),
         text_max_tokens=_int("TEXT_LLM_MAX_TOKENS", 6144),
         text_thinking_budget_tokens=_int("TEXT_LLM_THINKING_BUDGET", 1024),
+        openrouter_api_key=os.environ.get("OPENROUTER_API_KEY") or None,
+        openrouter_base_url=(
+            os.environ.get("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
+        ).rstrip("/"),
+        openrouter_default_model=(
+            os.environ.get("OPENROUTER_DEFAULT_MODEL") or "anthropic/claude-sonnet-4.5"
+        ),
+        openrouter_http_referer=(
+            os.environ.get("OPENROUTER_HTTP_REFERER") or "https://cncmachining.local"
+        ),
+        openrouter_app_title=(
+            os.environ.get("OPENROUTER_APP_TITLE") or "CNC Quote Engine"
+        ),
+        openrouter_inactivity_seconds=float(
+            os.environ.get("OPENROUTER_INACTIVITY_SECONDS", "90")
+        ),
+        openrouter_request_timeout=float(
+            os.environ.get("OPENROUTER_REQUEST_TIMEOUT", "300")
+        ),
+        openrouter_default_reasoning_effort=(
+            os.environ.get("OPENROUTER_DEFAULT_REASONING_EFFORT") or "medium"
+        ),
+        openrouter_max_tokens=_int("OPENROUTER_MAX_TOKENS", 8192),
+        openrouter_allowed_models=_csv_tuple(
+            "OPENROUTER_ALLOWED_MODELS", _DEFAULT_OPENROUTER_ALLOWED,
+        ),
     )
 
 
@@ -182,6 +293,20 @@ def load_settings() -> Settings:
             max_parse_retries=_int("AGENTIC_MAX_PARSE_RETRIES", 3),
             max_tool_result_chars=_int("AGENTIC_MAX_TOOL_RESULT_CHARS", 16_000),
             temp_note_ttl_days=_int("AGENTIC_TEMP_TTL_DAYS", 15),
+        ),
+        rag=RagSettings(
+            openai_api_key=os.environ.get("OPENAI_API_KEY") or None,
+            openai_base_url=(
+                os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+            ).rstrip("/"),
+            openai_embedding_model=(
+                os.environ.get("OPENAI_EMBEDDING_MODEL") or "text-embedding-3-small"
+            ),
+            rag_top_k=_int("RAG_TOP_K", 5),
+            rag_top_k_patterns=_int("RAG_TOP_K_PATTERNS", 3),
+        ),
+        engine=EngineSettings(
+            default=(os.environ.get("ENGINE_MODE") or "agentic").strip().lower(),
         ),
     )
 

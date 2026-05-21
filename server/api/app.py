@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ..core.logging import configure_logging
 from ..core.settings import get_settings
-from .routes import analyses, analyze, catalog, feedback, generate_gcode, health
+from .routes import analyses, analyze, catalog, feedback, generate_gcode, health, models
 
 logger = logging.getLogger("cncserver.api.app")
 
@@ -43,6 +43,7 @@ def create_app() -> FastAPI:
     app.include_router(feedback.router)
     app.include_router(generate_gcode.router)
     app.include_router(health.router)
+    app.include_router(models.router)
 
     @app.on_event("startup")
     async def _log_startup() -> None:  # pragma: no cover

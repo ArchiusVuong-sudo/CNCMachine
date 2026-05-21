@@ -1,10 +1,12 @@
 # Parts Case Library — Analogue Index
 
-39 extracted parts. This is the entry point for the estimator's **"find analogues"**
-step (AGENT.md, `methodology/04`). Filter here → open the 2–3 closest
-`parts/<part>.md` → reuse their measured tools/params/time/cost, scaled by the
-differing governing dimension. Numbers are RM; Cost/EA shown is **Actual** (or
-Estimate where the job never ran — marked ✱). Regenerate after re-extraction
+51 extracted parts (39 original + 12 COFAB-quote). This is the entry point for
+the estimator's **"find analogues"** step (AGENT.md, `methodology/04`). Filter
+here → open the 2–3 closest `parts/<part>.md` → reuse their measured
+tools/params/time/cost, scaled by the differing governing dimension. Numbers
+in the **legacy library are RM** (Malaysian Ringgit, Cost/EA shown is **Actual**
+or **Estimate**✱). **COFAB-quote rows (marked ✦) are USD** — do not blend
+currencies; convert before mixing analogue costs. Regenerate after re-extraction
 (`_tools/merge_shards.py` then read `extracted/parts.csv`).
 
 ## How to pick an analogue (fallback ladder rung 1→2)
@@ -22,7 +24,8 @@ Estimate where the job never ran — marked ✱). Regenerate after re-extraction
    Always state the rung used.
 
 Legend: Stock = primary form · Qty = order qty · R/pc = run min/pc (machining) ·
-✱ = Estimate (no actuals; quoting data only) · loss = price<costAct.
+✱ = Estimate (no actuals; quoting data only) · loss = price<costAct ·
+**✦ = COFAB quote (USD, no actuals)** — Qty column lists pricing tiers; Cost/EA shown is unit price (USD).
 
 ## COMPLEX — PEEK
 | Part · rev | Stock (Ø/​LxWxT) | Qty | R/pc | Cost/EA | Price | Machines | Use as analogue for |
@@ -63,6 +66,9 @@ Legend: Stock = primary form · Qty = order qty · R/pc = run min/pc (machining)
 | 0022-26284 · 03 | SLAB 220×116×16 | 10 | 12.0 | 121.07 | 236.51 | CNCV FAN V (10-up vac) | Thin align jig plate, k≈1.7 multi-up |
 | 0022-42143 · 02 | SLAB 0.5″ sheet | 36 | 12.8 | 89.55 | 135.33 | Anderson+FAN V+Robodrill | Actuator cover, near-pair w/ -42142 |
 | 0022-49255 · 04 | PLATE 0.625″ | 72 | 12.0 | 90.13 | 212.62 | CNCR STRAT+CNCV FAN V | Small panel, router cut + VMC, 6-up |
+| ✦ 0022-26609 · 04 | ROD/SHT 0.75″ | 1/5/10/20 | 15.0 | $67→$32 | quote (USD) | CNCV FAN V + FAN M + FRONTKEN | PEEK insulator, 2-OP VMC + sub-vendor AMAT clean; small-qty |
+| ✦ 0023-12036 · 01 | ROD Ø5/8″ ×300 | 1/5/10/20 | 4.0 | $89→$35 | quote (USD) | CNCL TAK + FRONTKEN | **ESD-modified PEEK** spacer ring, lathe-only, sub-vendor clean |
+| ✦ 0042-88459 · 01 | BLANK 0.5″×300² | 1/5/10/20 | 9.0 | $121→$67 | quote (USD) | CNCV FAN V (2 OP) + ASSY (M3 helicoil) + FRONTKEN | **ESD PEEK** spacer #3 — 2-OP VMC + M3 helicoil + sub-vendor clean |
 
 ## SIMPLE — PP (NPP natural / WPP white)
 | Part · rev | Stock | Qty | R/pc | Cost/EA | Price | Machines | Use as analogue for |
@@ -79,6 +85,43 @@ Legend: Stock = primary form · Qty = order qty · R/pc = run min/pc (machining)
 | 839-A29596-001 · B | BLOCK 60×72×72 | 20 | 38.0 | 500.67 | 1060.72 | CNCV FAN M + 5-AXIS | Nozzle bracket, 2× NPT thread-mill |
 | 839-232763-002 · C | BLOCK+ROD+SHEET | 10 | varies | 747.95 | 1002.78 | DVF5000+CNCV MAK+CNCL | 3-item welded DO-probe housing, 50 % weld scrap |
 
+## COFAB-quote sections (USD, no actuals)
+
+All rows below are **COFAB quote sheets** — explicit `setup_hr + run_rate +
+pricing tier`, no per-job cost, no NC, no envelope geometry. R/pc is Σ
+`Min/Part` rates from the routing (excludes per-lot `FixedHrs` inspection).
+
+### COMPLEX — PVC (white / grey / FM-grades)
+| Part · rev | Stock | Qty (USD/ea) | R/pc | Unit USD (lowest tier) | Machines | Use as analogue for |
+|---|---|---|---|---|---|---|
+| ✦ 0023-26807 · 04 | ROD PVCWH Ø140×72 | 1/2/5/10/20 | 90.0 | $65.47 @20 | CNCTM TAK + CNCV FAN M | Large Ø140 PVC-white turn-mill, 3-op CNCTM (68 min) dominates |
+| ✦ 0042-93726 · 02 | SHT PVC 0.5″ FMNS15 | 1/5/10 | 52.5 | $33.96 @10 | EXXACT1616 + CNCV FAN M + ASSY1 | PVC sheet bracket, M4 Trisert SS inserts, 23-min OP20 step/chamfer |
+| ✦ 0042-83323 · 05 | SHT PVC 0.5″+0.375″ (multi) | 1 | 103.0 | $395.79 @1 | ASSY1 + ASSY (bond) + WELD + ASSY3 | **PVC WELDMENT** multi-item — bond+weld 70 min, top-assy only quote |
+| ✦ 0042-46169 · 01 | SHT PVC 1″+0.25″ bonded | 1/5/10/20 | 77.0 | $67.20 @20 | CNCR EXACT + CNCV FAN M + ASSY (bond+ultrasonic) | 2-thickness PVC bonded cover w/ M6 ultrasonic inserts |
+| ✦ 0041-28291 · 05 | SHT PVCGRY 1.5″ (custom blank) | 1/5/10/20/50 | 137.0 | $405.03 @50 | EXXACT1616 (2 OP) + Quarter-Turn assy | PVC-grey 1.5″ plate, 94-min router machining, Quarter-Turn fasteners |
+
+### SIMPLE — CPVC
+| Part · rev | Stock | Qty (USD/ea) | R/pc | Unit USD (lowest tier) | Machines | Use as analogue for |
+|---|---|---|---|---|---|---|
+| ✦ 0043-09967 · 02 | SHT CPVC 3 mm CLR FM4 | 1/5/10/20 | 50.0 | $54.89 @20 | CNCR EXACT + ASSY1/ASSY2 | Clear CPVC sight-window, captive screw assy, cleanroom pack |
+
+### COMPLEX — PET
+| Part · rev | Stock | Qty (USD/ea) | R/pc | Unit USD (lowest tier) | Machines | Use as analogue for |
+|---|---|---|---|---|---|---|
+| ✦ 0042-58555 · 02 | BLK PET-P 20×280×400 | 1/3/5/10 | 58.0 | $112.17 @10 | DNM 6700 + KTM HX400 (3 OP, 5-axis HMC) | Large PET-P wafer stand, 5-axis HMC, helicoil+dowel pin |
+
+### SIMPLE — PET
+| Part · rev | Stock | Qty (USD/ea) | R/pc | Unit USD (lowest tier) | Machines | Use as analogue for |
+|---|---|---|---|---|---|---|
+| ✦ 0042-51782 · 04 | BLANK PET-WHT 60×200×70 | 3/5/10/20 | 36.0 | $42.48 @20 | DNM 5700-4X (2 OP) + ASSY (M5 Helicoil) + FRONTKEN | PET-white bracket, CoC-checked, dual-pass 4-axis VMC |
+
+### COMPLEX — Customer-supplied blank (substrate ambiguous)
+| Part · rev | Stock | Qty (USD/ea) | R/pc | Unit USD (lowest tier) | Machines | Use as analogue for |
+|---|---|---|---|---|---|---|
+| ✦ 839-323453-001 · A01 | F115-00616-00 REVA (customer blank) | 1/5/10/20/50 | 201† | $1281.12 @50 | KTM HX400 (2.5 HR/Part OP10 + 51 min OP20) | Plating Cell rough base — **HIGHEST $$$ in library**; OP10 is 2.5 **HRS**/Part = 150 min/pc + OP20 51 min/pc. Substrate unclear (Ti hardware + "Plastic Deburring" OP)  |
+
+† 201 min/pc = 150 (OP10 Hrs/Part × 60) + 51 (OP20 Min/Part) machining; total Min/Part Σ = 116 from the routing table — see `parts/839-323453-001.md` for the units breakdown.
+
 ## Cross-cutting analogue notes
 - **Near-pairs / families** (reuse directly, scale by size): 0022-42142↔0022-42143
   (actuator); 713-142958↔713-142960 (Ichor guide-pin); 839-A29596↔839-219206
@@ -91,3 +134,21 @@ Legend: Stock = primary form · Qty = order qty · R/pc = run min/pc (machining)
   (DNM4X k≈1.3 on -2PC-), 713-323740-001 & 713-344410-010 (lathe k≈1.0).
 - **No usable NC** (use analytical/analogue): all `.MAC`/G95 lathe parts, 5-axis,
   0041-62474, 713-A42978-022, 839-219206-002, 839-A07950-001 (also no job cost).
+- **COFAB-quote pattern recognition** (added 2026-05-20):
+  - **Sub-vendor "AMAT Clean" (Frontken 0250-70351)** is a free-of-charge
+    routing step (rate 0) for PEEK parts → 0022-26609, 0023-12036, 0042-88459,
+    0042-51782. Recognize as "post-process clean by sub-vendor" not as work
+    done in-house.
+  - **"AMAT PKG / Cleanroom Pack"** (in-house at PKG CLN10K or ASSY3) costs 2–15 min/pc and
+    is distinct from sub-vendor clean. PEEK/ESD parts go to Frontken; PVC/PET
+    parts get in-house cleanroom packaging.
+  - **Routing pattern by material × class:**
+    - Simple PEEK rod → CNCL TAK / CNCV FAN V (1–2 ops) + AMAT clean.
+    - Complex PVC sheet → EXXACT1616 (router blank-cut) + CNCV FAN M (drill) + ASSY (insert install) + cleanroom pack.
+    - Complex PVC weldment → no machining on top-level; only ASSY (hardware) + bonding + welding; per-item routings sit underneath.
+    - Complex PET block → DNM 6700 + KTM HX400 (Kitamura 5-axis HMC) for the heavy material removal.
+  - **Unit semantics on COFAB sheets:** rate_unit must be checked per row.
+    `Min/Part` = sum into R/pc. `FixedHrs` = per-LOT inspection block
+    (amortize across qty). `Hrs/Part` = per-piece hours (×60 to convert). The
+    KTM HX400 OP10 on 839-323453-001 uses `Hrs/Part = 2.5` → 150 min/pc, a
+    common pitfall.

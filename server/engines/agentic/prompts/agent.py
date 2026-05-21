@@ -37,17 +37,39 @@ OUTPUT_SCHEMA: dict[str, Any] = {
         {
             "sequence": "10, 20, 30, ... (multiples of 10)",
             "op_code": (
+                # CNC milling (subtractive — features-driven)
                 "CNCM_ROUGH | CNCM_FINISH | CNCM_DRILL | CNCM_TAP | CNCM_CHAMFER | "
-                "CNCT_FACE | CNCT_TURN | CNCT_PARTOFF | CNCT_THREAD | DEBUR | INSPECT"
+                "CNCM_PROFILE_ENGRAVE | CNCM_PROFILE_HOLES | "
+                # CNC turning
+                "CNCT_FACE | CNCT_TURN | CNCT_PARTOFF | CNCT_THREAD | "
+                # Bench / secondary
+                "DEBUR | INSP_COMPONENT | INSP_FINAL_FIXED_LOT | "
+                # Admin (per-job overhead; runs once at quote-tier setup)
+                "ADMIN_PLANNING | ADMIN_PRINT | ADMIN_MAT_PICK | ADMIN_STAGING | "
+                # Assembly / weld / pack — for assembly_top components
+                "ASSY_HARDWARE_INSTALL | ASSY_SOLVENT_BOND | "
+                "ASSY_WELD_PVC | ASSY_WELD_METAL | "
+                "PACK_CLEAN | OUTSIDE_VENDOR"
             ),
             "operation_type": (
                 "Roughing | Finishing | null — only set for material-removal ops; "
-                "null for DRILL/TAP/DEBUR/INSPECT/CHAMFER/FACE/TURN/PARTOFF/THREAD"
+                "null for DRILL/TAP/DEBUR/INSPECT/CHAMFER/FACE/TURN/PARTOFF/THREAD/"
+                "ADMIN_*/ASSY_*/INSP_*/PACK_*/OUTSIDE_VENDOR"
             ),
             "description": "one short sentence",
             "feature_ids": ["<feature id from component.features>", "..."],
             "machine_class": "echoed from top-level machine_class",
             "setup_min_per_lot": "number — total lot-setup time amortized later",
+            "run_min_per_part": (
+                "number — per-piece run minutes for this op. REQUIRED for "
+                "non-CNC ops (admin/assy/insp/pack/vendor) because they don't "
+                "have feeds/speeds. For CNC ops, this can be 0 and will be "
+                "computed from tool cycle times in parameters_per_operation."
+            ),
+            "fixed_hrs_per_lot": (
+                "number — for INSP_FINAL_FIXED_LOT only: the lot-fixed hours "
+                "block amortized across qty. Leave null for everything else."
+            ),
             "notes": "optional",
         }
     ],
@@ -109,6 +131,21 @@ OUTPUT_SCHEMA: dict[str, Any] = {
         "2-4 sentences explaining the plan at a high level — machine choice, "
         "op strategy, and any caveats (e.g. plastic heat limits, tool length derate)"
     ),
+    "evidence": [
+        (
+            "Tokens grounding the plan. Use the grammar from AGENT.md: "
+            "kb:<path> | csv:<file>[#row=N] | catalog:<table>/<id> | "
+            "analogue:<part_number>. At least one analogue:<part_number> "
+            "token is required whenever you called kb_adopt_routing or "
+            "kb_find_analogues; one or more kb: tokens otherwise."
+        )
+    ],
+    "confidence_band_pct": (
+        "number 0..50 — your honest ±% band on the cycle time. Anchored to "
+        "an analogue with score ≥ 5 → 10-15. Anchored to a weaker analogue "
+        "(score 3-4) → 18-22. No analogue used (first-principles only) → "
+        "25-35. State the reason in `rationale`."
+    ),
 }
 
 
@@ -125,11 +162,13 @@ def _component_summary(component: dict) -> dict:
     for f in features:
         ft = (f or {}).get("type") or (f or {}).get("feature_type") or "unknown"
         feature_type_counts[ft] = feature_type_counts.get(ft, 0) + 1
-    return {
+    summary = {
         "component_index": component.get("component_index"),
         "name": component.get("name"),
         "part_type": component.get("part_type"),
         "bom_part_type": component.get("bom_part_type"),
+        "component_role": component.get("component_role"),
+        "component_role_reason": component.get("component_role_reason"),
         "orientation": component.get("orientation"),
         "instance_count": component.get("instance_count", 1),
         "volume_mm3": component.get("volume_mm3"),
@@ -138,6 +177,12 @@ def _component_summary(component: dict) -> dict:
         "feature_type_counts": feature_type_counts,
         "features": features,
     }
+    # Synthetic assembly_top components carry an assembly_hint block that
+    # tells the agent which sub-items / hardware to plan ADMIN + ASSY + WELD
+    # + INSP_FINAL + PACK ops around. Pass it through verbatim.
+    if component.get("assembly_hint"):
+        summary["assembly_hint"] = component["assembly_hint"]
+    return summary
 
 
 def build_agent_user_message(

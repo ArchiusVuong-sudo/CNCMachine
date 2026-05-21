@@ -24,7 +24,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from ...engines.agentic.writeback import write_feedback
+from ...core.writeback import write_feedback
 
 logger = logging.getLogger("cncserver.api.feedback")
 

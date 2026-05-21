@@ -97,6 +97,7 @@ async def run_component_agent(
     on_thinking: OnThinking = None,
     max_iterations: int | None = None,
     workspace: ComponentWorkspace | None = None,
+    model: str | None = None,
 ) -> dict[str, Any]:
     """Run the single-loop agent for one component.
 
@@ -119,6 +120,10 @@ async def run_component_agent(
         (which used to govern one phase but now governs the whole loop).
     workspace:
         Per-component on-disk scratch dir for checkpoint + resume.
+    model:
+        Optional LLM slug. ``None`` or ``"vllm:..."`` routes to local
+        vLLM; ``"<vendor>/<name>"`` routes to OpenRouter (default for
+        the agentic engine).
 
     Returns
     -------
@@ -169,6 +174,7 @@ async def run_component_agent(
         on_thinking=on_thinking,
         max_iterations=max_iterations,
         label=component_name,
+        model=model,
     )
 
     plan = dict(run["final"] or {})

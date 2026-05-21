@@ -8,13 +8,16 @@ them into a 3-stage SSE pipeline (`POST /v1/analyze-stream`).
 
 ```
 server/
-├── core/                       # Shared kernel
+├── core/                       # Shared kernel — no engine imports
 │   ├── schemas/                # Pydantic boundary contracts (drawing, assembly, plan, ...)
 │   ├── settings.py             # Dataclass settings resolved from env vars
 │   ├── logging.py              # Idempotent root-logger setup
 │   ├── events.py               # SSE event types + EventBridge queue
 │   ├── http.py                 # download_bytes() helper
-│   └── tracing.py              # Per-analysis JSON trace writer
+│   ├── tracing.py              # Per-analysis JSON trace writer
+│   └── writeback.py            # Engine-neutral filesystem writeback
+│                               #   (full-result dump + /v1/feedback persistence,
+│                               #    path-validated to _research/)
 │
 ├── engines/
 │   ├── extraction_2d/          # Engine 1 — VLM-driven drawing extraction
@@ -31,21 +34,37 @@ server/
 │   │   ├── welding.py          #   FreeCAD distToShape() contact detection
 │   │   └── engine.py           #   public `run(step_bytes) -> AssemblyData`
 │   │
-│   ├── process_mapping/        # Shared helpers reused by the agentic engine
+│   ├── process_mapping/        # Shared helpers reused by every planner engine
 │   │   ├── bom_mapper.py       #   drawing BOM ↔ 3D components (fuzzy match)
 │   │   ├── category_reconciler.py# OCR-declared vs AFR-detected part type
 │   │   ├── dim_tagger.py       #   drawing dims/GD&T/threads → AFR features
 │   │   └── cost_engine.py      #   labor + machine + tool → USD per component
 │   │
-│   └── agentic/                # Engine 3 — LLM coordinator (only planner; no fallback)
-│       ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan` + session-note writeback
+│   ├── agentic/                # Engine 3 (agentic) — LLM ReAct planner
+│   │   ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan` + session-note writeback
+│   │   ├── coordinator.py      #   assembly orchestration; per-component asyncio.gather
+│   │   ├── per_component_agent.py# Single-loop ReAct chain per component
+│   │   ├── tool_loop.py        #   ReAct/JSON-mode driver (40-iter cap, 3 parse retries)
+│   │   ├── writeback.py        #   Agentic-only session-note writer (path-validated)
+│   │   ├── prompts/            #   System prompt + per-phase user-message builders
+│   │   └── tools/              #   kb_read, kb_find_analogues, kb_query_csv,
+│   │                           #   catalog_lookup, compute_cycle_time
+│   │
+│   └── rag/                    # Engine 3 (rag) — one-shot LLM + pgvector retrieval
+│       ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan`
 │       ├── coordinator.py      #   assembly orchestration; per-component asyncio.gather
-│       ├── per_component_agent.py# Phase A→B→C→D chain per component
-│       ├── tool_loop.py        #   ReAct/JSON-mode driver (8-iter cap, 2 parse retries)
-│       ├── writeback.py        #   session-note + /v1/feedback persistence (path-validated)
-│       ├── prompts/            #   system prompt + 4 phase user-message builders
-│       └── tools/              #   kb_read, kb_find_analogues, kb_query_csv,
-│                               #   catalog_lookup, compute_cycle_time
+│       ├── planner.py          #   per-component RAG plan (retrieve → prompt → snap → project)
+│       ├── retriever.py        #   Supabase pgvector queries (rag_search_parts/_patterns)
+│       ├── embed.py            #   OpenAI text-embedding-3-small client
+│       ├── generator.py        #   single-shot JSON-mode LLM call (one retry)
+│       ├── tool_snap.py        #   map LLM-proposed tools → catalog by (type, diameter)
+│       ├── projection.py       #   plan dict → routing rows + manufacturing processes
+│       ├── prompts/            #   system + user prompt builders
+│       └── ingestion/          #   offline CLI: schema.sql + build_index.py
+│
+│   # Engines are deletable units: no cross-engine imports. Removing
+│   # `agentic/` leaves `rag/` working, and vice versa. The orchestrator
+│   # lazy-imports whichever engine the request asks for.
 │
 ├── infra/                      # Network/DB adapters
 │   ├── supabase.py             #   lazy client factory
