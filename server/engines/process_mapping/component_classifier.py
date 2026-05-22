@@ -55,8 +55,10 @@ _OUTSIDE_VENDOR_TOKENS: tuple[str, ...] = (
 )
 
 # Drawing-side indicators that the whole job is a multi-item assembly.
+# WLDMT is an Applied-Materials-style abbreviation of WELDMENT — common on
+# their drawings (e.g. "WLDMT, PLATING CELL, SCIM" on 839-323453).
 _ASSEMBLY_INDICATORS: tuple[str, ...] = (
-    "WLDMNT", "WELDMENT", "ASSY", "ASSEMBLY", "BONDED", "WELDED",
+    "WLDMNT", "WLDMT", "WELDMENT", "ASSY", "ASSEMBLY", "BONDED", "WELDED",
     "MULTI-ITEM", "WELD ASSY",
 )
 
@@ -85,15 +87,16 @@ def _material_text(comp: dict, vlm_extraction: dict) -> str:
 
 
 def _bom_description(comp: dict) -> str:
-    """Concatenate every BOM-side description we can find on the component."""
+    """Concatenate every component-side description token we can find.
+
+    Components don't carry a nested ``bom`` dict — after BOM mapping the
+    matched material / part_type get stamped flat on the component
+    itself, so we only need to look at the component's own descriptive
+    fields here.
+    """
     parts: list[str] = []
     for key in ("bom_description", "description", "name"):
         v = comp.get(key)
-        if v:
-            parts.append(str(v))
-    bom = comp.get("bom") or {}
-    for key in ("description", "item_description", "notes"):
-        v = bom.get(key) if isinstance(bom, dict) else None
         if v:
             parts.append(str(v))
     return " | ".join(parts).upper()
@@ -153,6 +156,25 @@ def classify_components(
     return decisions
 
 
+def _drawing_title_tokens(vlm_extraction: dict) -> str:
+    """Concatenate every field that might carry an assembly-name signal.
+
+    Engine 1's wire schema doesn't have ``part_name`` or top-level
+    ``title`` — the drawing's title lives in ``title_block.title`` and a
+    descriptive blurb in top-level ``description``. We also pull
+    ``title_block.description`` because some drawings use that slot.
+    """
+    tb = vlm_extraction.get("title_block") or {}
+    if not isinstance(tb, dict):
+        tb = {}
+    return " ".join([
+        str(vlm_extraction.get("part_number") or ""),
+        str(vlm_extraction.get("description") or ""),
+        str(tb.get("title") or ""),
+        str(tb.get("description") or ""),
+    ]).upper()
+
+
 def detect_top_assembly(vlm_extraction: dict, components: list[dict]) -> bool:
     """True if the drawing + component set indicates a multi-item weldment.
 
@@ -164,12 +186,7 @@ def detect_top_assembly(vlm_extraction: dict, components: list[dict]) -> bool:
     """
     weight = 0
 
-    title = " ".join([
-        str(vlm_extraction.get("part_name") or ""),
-        str(vlm_extraction.get("part_number") or ""),
-        str(vlm_extraction.get("title") or ""),
-        str(vlm_extraction.get("description") or ""),
-    ]).upper()
+    title = _drawing_title_tokens(vlm_extraction)
     for tok in _ASSEMBLY_INDICATORS:
         if tok in title:
             weight += 2
@@ -213,11 +230,7 @@ def synthesize_assembly_top_component(
       - hardware: list of insert / fastener types
       - bonding_required / welding_required: based on title tokens
     """
-    title_upper = " ".join([
-        str(vlm_extraction.get("part_name") or ""),
-        str(vlm_extraction.get("part_number") or ""),
-        str(vlm_extraction.get("title") or ""),
-    ]).upper()
+    title_upper = _drawing_title_tokens(vlm_extraction)
     welding = any(t in title_upper for t in ("WLDMNT", "WELDMENT", "WELD"))
     bonding = "BOND" in title_upper or welding  # weldments usually pre-bond
 
@@ -251,7 +264,7 @@ def synthesize_assembly_top_component(
         "component_role_reason": "synthesized_for_multi_item_weldment",
         "instance_count":   1,
         "bom_part_type":    "assembly",
-        "assembly_path":    "/" + (vlm_extraction.get("part_name") or "TOP"),
+        "assembly_path":    "/" + (vlm_extraction.get("part_number") or "TOP"),
         "bbox": {
             "length_mm": max_len, "width_mm": max_wid, "height_mm": max_hei,
         },

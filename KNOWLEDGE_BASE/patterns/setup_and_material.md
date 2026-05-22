@@ -56,21 +56,92 @@ Big-stock parts are simultaneously material-heavy **and** time-heavy → highest
 | Unit price RM | 187 [0..5143] | 829 [0..14206] |
 
 Rules of thumb for a NEW part once classified:
-- **Setup:** Simple ≈ 0.5 hr per CNC op (0.2–0.3 if a proven repeat); Complex ≈
-  1.5 hr/op; +0.1 hr each for DEBUR/INSPECT/ASSY/PKG. Sum → total_setup_hr,
-  amortize over qty: `setup_pc = Σ setup_hr × (rate_machine+labor) ÷ qty`.
-- **First-article risk:** never-run parts over-run setup 3–11× (new fixture/
-  engrave). Quote at estimate level but set the **upper** confidence bound high.
-- **Qty leverage:** low qty (≤10–20) makes setup/pc dominate; high qty (>100)
-  makes run-time/material dominate. State the qty sensitivity in the estimate.
-- **Class signal:** #ops, #tools/op (Complex 4-axis op ≈24–26 vs Simple ≈3–8),
-  multi-axis machine, helicoils, engraving, tight tol (±0.02–0.05), removal_cc,
-  multi-item/weld assembly → Complex. Drives setup, rate tier, and k choice.
+- **Setup is NOT modeled.** It is a fixed system constant (a flat
+  20 min/batch the pipeline applies automatically) and is **excluded**
+  from cost-accuracy scoring. Emit `setup_min_per_lot: 0` on every op;
+  whatever value is emitted is overwritten downstream. Do not size setup
+  by op weight, do not amortize a setup schedule. Spend the effort on
+  `run_min_per_part` instead — that is the only quantity scored.
+- **Class signal drives RUN time, not setup:** #ops, #tools/op (Complex
+  4-axis op ≈24–26 vs Simple ≈3–8), multi-axis machine, helicoils,
+  engraving, tight tol (±0.02–0.05), removal_cc, multi-item/weld assembly
+  → Complex. A Complex part's per-piece run time (median 52.5 min) is
+  ~4× a Simple part's (12.4 min) — use the class to pick the calibration
+  `k` and to sanity-check the run-time magnitude.
+- **Qty leverage (run/material):** low qty makes the (un-modeled) fixed
+  setup dominate cost; high qty makes run-time + material dominate. This
+  affects cost framing only — it does not change the run-min/part you
+  quote.
 
-## 5. Estimating a NEW part — material+setup checklist
+## 4a. Per-lot overhead rows — `ADMIN_*`, `INSP_FINAL_*`, `PACK_*`
+
+These customer routing-skeleton rows (`ADMIN_PLANNING`, `ADMIN_PRINT`,
+`ADMIN_MAT_PICK`, `ADMIN_STAGING`, `INSP_FINAL_FIXED_LOT`, `PACK_CLEAN`)
+carry **~0 run-min/part** and only ever carried *setup* time. Since setup
+is now a fixed system constant (§4) and is excluded from scoring, these
+rows **do not move the cost-accuracy score**. You may emit them for
+routing-skeleton completeness, but spend **zero** effort tuning their
+values — they are cosmetic for accuracy. Focus on the run-bearing
+families instead (MACHINING, DEBUR, ASSY, INSP_COMPONENT).
+
+## 4b. ADD-work floors that are silently dropped (one-directional under-bias)
+
+The agent's reasoned-from-CNC-path estimate systematically *drops* two
+non-CNC work bands that the customer always bills. These are
+**one-directional** (always under, never over), so adding them only
+helps the bias. They are floors, not multipliers — never scale an
+existing op, add the missing op.
+
+### 4b-i. Installed hardware → `ASSY_HARDWARE_INSTALL` is mandatory
+If **installed hardware** is present — helicoil, keensert, speedsert,
+trisert, threaded insert, press / PEM insert, standoff, dowel pin,
+captive screw, vendor-installed fitting — the shop must physically
+install it. That work is **never** captured by the milling/drill/tap
+path; it is its own routing op.
+
+> **Where to see it:** the drawing `bom` field is often empty, but the
+> `material` / stock-description string usually lists the hardware after a
+> `+` — e.g. `"PET-P 20MM... + 1084-4EN060 Helicoil + Dowel Pins"`,
+> `"... + 4007JS16-16SS Trisert"`, `"... + Captive Screw M5x0.8"`. Parse
+> the material string for these tokens; do not assume "no BOM ⇒ no
+> hardware".
+
+- Emit `ASSY_HARDWARE_INSTALL` (family ASSY). It is **REQUIRED** whenever
+  hardware is present — it may **not** be marked `MISSING`.
+- Run-time floor: **≈2–4 min per installed hardware piece**, with a
+  **6 min/lot minimum**. (Helicoil tang break + gauge ≈3 min; press
+  insert ≈2 min; dowel ream-and-press ≈4 min.) Count pieces from the BOM
+  qty-per-assembly, not unique part lines. (Setup is not modeled — §4.)
+- This is a one-directional run-time under-bias observed across the eval
+  corpus — multiple hardware-bearing parts dropped ASSY entirely and
+  under-quoted their run time as a result.
+
+### 4b-ii. Under-scoped weldment / multi-item assembly floor
+The 3D model sometimes contains **only the primary solid** ("item 1")
+while the drawing BOM lists many fabricated sub-items. Pricing only the
+modeled solids then drops the bulk of the fab + inspection + joining
+work. Detect and floor it:
+
+- **Trigger (either):** the drawing title contains `WLDMT` / `WELDMENT`
+  / `ASSEMBLY` / `ASSY`; **or** the BOM lists **≥4 fabricated stock-form
+  sub-items** (PLATE / SHEET / TUBE / ROD / BAR / MESH / ANGLE / PIPE).
+- **Under-scope guard (must also hold):** the count of **modeled
+  components/solids** in the 3D model is **fewer** than the count of BOM
+  fabricated sub-items. If the model already has one solid per fab item,
+  it is fully scoped — do **not** apply the floor (avoids over-billing
+  fully-modeled weldments).
+- **Floor when under-scoped:** bill **each** fabricated sub-item its own
+  band — milling/cut-to-size run-time, a multi-stage inspection touch,
+  hardware install scaled by its insert count, and the weld/bond op that
+  joins it. Anchor each band to the nearest single-item analogue rather
+  than to the (under-sized) modeled-solid volume.
+
+## 5. Estimating a NEW part — material + run checklist
 1. Stock form+size from drawing/feature-rec → volume → Material/pc via §2 (anchor
    on same family+form analogue's $/volume). 2. + Hardware/pc from BOM.
-3. Classify Simple/Complex (§4 signals) → setup hr → amortize over qty.
+3. Classify Simple/Complex (§4 signals) → pick the cycle-time `k` and
+   sanity-check run-min/part magnitude (Simple ~12 / Complex ~52 min/pc).
+   Setup is the fixed system constant — not modeled, not amortized.
 4. Combine with machine-hour cost (`machine_rates_and_cost.md`) and cycle time
    (`cycle_time_model.md`). 5. Compare Cost/EA to nearest `parts/INDEX.md` analogue
    (~25 % agreement expected); report ladder rung + ±band + quote-vs-truth.

@@ -63,3 +63,35 @@ From `jobcost.csv` setup_hr by op & class:
 ## 5. Output per op (contract)
 `op · machine(class,rate) · Run_min_pc = (NC÷N ×k | analogue | analytical) ·
 Setup_hr/qty · ladder rung · ±band`. Roll to part via `machine_rates_and_cost.md`.
+
+## 6. Empirical per-feature cut-time priors — KB Data.xlsx (PEEK / PP)
+Source: customer setup-sheet / NC export, 10 parts, 333 op-rows
+(`xls:E:\data\KB Data.xlsx`; distilled by `.kbdata_extract/distill_priors.py`).
+None of these 10 parts are in any eval/holdout set. **Material scope: PEEK and
+Polypropylene only** — do NOT apply to PVC / PET / CPVC (use an analogue there).
+
+### 6a. k corroboration (independent of §1)
+`k = actual Run_min_pc ÷ Σ per-seq cut-time`, milling classes only:
+
+| Machine class            | PEEK k median | IQR        | n |
+|--------------------------|---------------|------------|---|
+| vmc_3_axis_well_behaved  | 1.17          | 1.06–1.18  | 5 |
+| vmc_3_axis               | 1.33          | 1.04–1.45  | 5 |
+| vmc_4_axis               | 1.27          | 1.02–1.53  | 2 |
+
+Agrees with §1 (1.11 / 1.27 / 1.10). Treat as confirmation, not replacement.
+Turn-mill / lathe samples here gave k 0.30 / 2.44 / 5.27 → reaffirms §2: NC is
+unreliable on those classes, prefer an analogue.
+
+### 6b. Cut-rate anchor (raw NC minutes, before k) — LINE TOOLS ONLY
+Ground `nc_minutes_raw` for a PEEK/PP feature when no measured analogue exists:
+`raw_min ≈ rate × (cut_len_mm / 100)`.
+
+| Material | end_mill | drill | chamfer | _(min per 100 mm cut length)_ |
+|----------|----------|-------|---------|-------------------------------|
+| PEEK     | 3.6      | 0.87  | 5.5     | |
+| PP       | 5.9      | 1.4   | —       | |
+
+Does NOT hold for face / radius / ball mills (area coverage, not path-length
+bound) — scale a measured analogue for those. Per-pass spread is wide
+(geometry-driven), so this is an order-of-magnitude anchor, not a point value.

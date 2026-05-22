@@ -493,6 +493,9 @@ async def _run_one_component(
     on_event: OnEvent,
     workspace: AnalysisWorkspace,
     model: str | None = None,
+    assembly_top_present: bool = False,
+    is_only_planned_component: bool = True,
+    holdout_part_number: str | None = None,
 ) -> tuple[dict, list[dict], list[dict], dict | None]:
     """Run one component through the agent. Returns ``(component,
     routing_rows, manufacturing_processes, error_event)``.
@@ -519,6 +522,9 @@ async def _run_one_component(
             on_event=on_event,
             workspace=component_workspace,
             model=model,
+            assembly_top_present=assembly_top_present,
+            is_only_planned_component=is_only_planned_component,
+            holdout_part_number=holdout_part_number,
         )
     except ToolLoopError as exc:
         logger.warning("agentic: component %d (%s) — agent failed: %s",
@@ -611,6 +617,7 @@ async def run(
     forced_assembly_part_type: str | None = None,
     analysis_id: str | None = None,
     model: str | None = None,
+    holdout_part_number: str | None = None,
 ) -> ProcessPlan:
     """Run the agentic Engine 3 over a drawing + assembly extraction.
 
@@ -808,6 +815,29 @@ async def run(
             "message": "Single-loop agent running per component in parallel…",
         })
 
+        # Pre-compute dispatch flags shared across every per-component agent
+        # call. Used by the prompt's "Assembly-scope ops" rule to make sure
+        # ADMIN_* / PACK_CLEAN / INSP_FINAL_FIXED_LOT / ASSY_* are emitted
+        # exactly once for the whole job instead of duplicated across
+        # sub-components.
+        assembly_top_present = any(
+            (c.get("component_role") or "").lower() == "assembly_top"
+            for c in components
+        )
+        planned_indices = [
+            i for i, c in enumerate(components)
+            if (c.get("component_role") or "").lower()
+            not in {"hardware", "outside_vendor"}
+        ]
+        is_only_planned_component = len(planned_indices) == 1
+
+        if holdout_part_number:
+            logger.info(
+                "agentic: HOLDOUT MODE — filtering KB entries for part_number=%r "
+                "from kb_read / kb_find_analogues / kb_query_csv / kb_adopt_routing",
+                holdout_part_number,
+            )
+
         t_workers = time.monotonic()
         comp_tasks = [
             asyncio.create_task(_run_one_component(
@@ -815,6 +845,9 @@ async def run(
                 catalog=catalog, batch_size=batch_size, on_event=on_event,
                 workspace=workspace,
                 model=model,
+                assembly_top_present=assembly_top_present,
+                is_only_planned_component=is_only_planned_component,
+                holdout_part_number=holdout_part_number,
             ))
             for i, comp in enumerate(components)
         ]

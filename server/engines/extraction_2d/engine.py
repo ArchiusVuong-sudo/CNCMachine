@@ -26,6 +26,42 @@ from .rasterizer import file_to_base64_pages
 logger = logging.getLogger("cncserver.engines.extraction_2d")
 
 
+# U+FFFD REPLACEMENT CHARACTER shows up when a glyph from the drawing (often
+# ™ / ° / Ø) couldn't be decoded. Carrying it forward poisons string
+# comparisons in the agent ("PEEK, Semitron� ESD 480" vs catalog "PEEK,
+# Semitron ESD 480"), so drop it at the engine boundary.
+def _strip_replacement(s: Any) -> Any:
+    if isinstance(s, str) and "�" in s:
+        return s.replace("�", "").strip()
+    return s
+
+
+def _backfill_material_from_bom(material: str, bom_rows: list[dict]) -> str:
+    """If top-level material is empty, fall back to the only non-hardware BOM
+    line's material. Stays silent when ambiguous (multiple candidates with
+    different materials) so we don't fabricate a wrong top-level material on a
+    multi-item assembly — Engine 3 will read per-component material instead.
+    """
+    if material and material.strip():
+        return material
+    candidates: list[str] = []
+    for row in bom_rows or []:
+        if not isinstance(row, dict):
+            continue
+        pt = str(row.get("part_type") or "").lower()
+        if pt == "hardware":
+            continue
+        m = row.get("materials_inferred") or row.get("material")
+        if isinstance(m, str) and m.strip():
+            candidates.append(_strip_replacement(m).strip())
+    if not candidates:
+        return material or ""
+    unique = sorted(set(candidates))
+    if len(unique) == 1:
+        return unique[0]
+    return material or ""
+
+
 async def run(
     drawing_bytes: bytes,
     *,
@@ -125,19 +161,33 @@ async def run(
     revision    = ""
     description = ""
     if isinstance(tb, dict):
-        part_number = tb.get("part_number") or ""
-        revision    = tb.get("revision") or ""
-        description = tb.get("description") or tb.get("title") or ""
+        part_number = _strip_replacement(tb.get("part_number") or "")
+        revision    = _strip_replacement(tb.get("revision") or "")
+        description = _strip_replacement(tb.get("description") or tb.get("title") or "")
+
+    bom_items_raw = merged.get("bom") or []
+    bom_items = [
+        {k: _strip_replacement(v) for k, v in row.items()}
+        if isinstance(row, dict) else row
+        for row in bom_items_raw
+    ]
+    raw_material = _strip_replacement(merged.get("material") or "")
+    material = _backfill_material_from_bom(raw_material, bom_items)
+    if material != raw_material:
+        logger.info(
+            "engine_2d: top-level material was empty — backfilled from BOM → %r",
+            material,
+        )
 
     extraction = DrawingExtraction(
         part_number    = part_number,
         revision       = revision,
         description    = description,
-        material       = merged.get("material") or "",
-        surface_finish = merged.get("surface_finish") or None,
+        material       = material,
+        surface_finish = _strip_replacement(merged.get("surface_finish")) or None,
         dimension_unit = unit,
         title_block    = tb if isinstance(tb, dict) and tb else None,
-        bom_items      = merged.get("bom") or [],
+        bom_items      = bom_items,
         drawing_notes  = merged.get("notes") or [],
         dimensions     = merged.get("dimensions") or [],
         gdt_callouts   = merged.get("gdt") or [],

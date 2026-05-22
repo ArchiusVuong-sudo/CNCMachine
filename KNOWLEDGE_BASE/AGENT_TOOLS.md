@@ -43,7 +43,7 @@ Common paths:
 - `patterns/cutting_parameters.md` — feed/RPM bands by material & tool.
 - `patterns/tool_selection.md` — feature → tool-family rules.
 - `patterns/setup_and_material.md` — setup-hour medians, stock rules.
-- `reference/machines.md` — burden tiers per machine class.
+- `reference/machines.md` — `a4_machines` catalog columns + work_center→k bridge + rate semantics.
 - `reference/operations_and_sequencing.md` — op-order rules.
 
 ---
@@ -117,14 +117,26 @@ machines/tools/materials).
 
 **Tables**: `machines` | `tools` | `materials` | `labor`.
 
+**`machines` columns you can filter on** (from `a4_machines`; see
+`reference/machines.md` for the full table + rate semantics):
+- `machine_type` — **primary selector**: `router`, `3_axis_mill`, `4_axis_mill`,
+  `5_axis_mill`, `mill_turn`, `lathe`.
+- `capability` — `3-axis` / `4-axis` / `5-axis`.
+- `work_center` — shop-cell code (`DNM 5700 (4axis)`, `CNCV FAN V (Vacuum)`, …);
+  **maps to the cycle-time `k` class** via `reference/machines.md`.
+- `manufacturer`, `model`, `work_x_mm`, `work_y_mm`, `max_spindle_rpm`,
+  `tool_holder`, `hourly_rate_usd` (machine OH; labor is added separately).
+
 **When**:
-- Phase A — list shop's actual machines of the chosen class.
+- Phase A — list shop's actual machines of the chosen class (`machine_type` /
+  `capability`), then read the picked row's `work_center` for its `k`.
 - Phase C — list shop's tools in a Ø band before deciding "would_need_to_buy".
-- Phase D — check max RPM / feed of the chosen machine.
+- Phase D — read `max_spindle_rpm` of the chosen machine to clamp speeds.
 
 **Args**:
 - `table` — one of the four above.
-- `filters` — same syntax as `kb_query_csv`.
+- `filters` — same syntax as `kb_query_csv` (`{col: value}` exact, or
+  `{col: {eq|contains|min|max: …}}`). Unknown columns simply match nothing.
 - `limit` — default 25.
 
 **Returns**: `{table, filters, rows, count, total_matched, total_in_catalog}`.
@@ -132,7 +144,14 @@ machines/tools/materials).
 **Examples**:
 ```json
 {"tool": "catalog_lookup",
- "args": {"table": "machines", "filters": {"class": "vmc_3_axis"}}}
+ "args": {"table": "machines", "filters": {"machine_type": "4_axis_mill"}}}
+
+{"tool": "catalog_lookup",
+ "args": {"table": "machines",
+          "filters": {"capability": "5-axis", "work_x_mm": {"min": 500}}}}
+
+{"tool": "catalog_lookup",
+ "args": {"table": "machines", "filters": {"work_center": {"contains": "DNM 5700"}}}}
 
 {"tool": "catalog_lookup",
  "args": {"table": "tools",

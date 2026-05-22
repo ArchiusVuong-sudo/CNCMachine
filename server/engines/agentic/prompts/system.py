@@ -6,12 +6,15 @@ Composition order (top to bottom of the message):
      it must eventually return.
   2. Operating manual — lazy-loaded from ``KNOWLEDGE_BASE/AGENT.md`` so
      ops can edit the manual without restarting the server.
-  3. Tool-use protocol — the one-JSON-per-turn contract the model must
+  3. Learned memory — lazy-loaded from ``KNOWLEDGE_BASE/MEMORY.md``, the
+     agent's own auto-maintained heuristics layer (written via the
+     ``memory_update`` tool). Refreshed in-process by ``invalidate_cache``.
+  4. Tool-use protocol — the one-JSON-per-turn contract the model must
      follow on every assistant message.
-  4. Workspace contract — how to checkpoint and how to detect resume.
-  5. Hard rules — non-negotiable engineering constraints (Tool Type
+  5. Workspace contract — how to checkpoint and how to detect resume.
+  6. Hard rules — non-negotiable engineering constraints (Tool Type
      vocab, plastics flute counts, lathe/5-axis caveats, etc.).
-  6. Tool catalog — compact markdown summary of the tools spec list.
+  7. Tool catalog — compact markdown summary of the tools spec list.
 
 The unified user message (:mod:`server.engines.agentic.prompts.agent`)
 carries the per-component inputs and the output schema; the system
@@ -30,12 +33,18 @@ logger = logging.getLogger("cncserver.engines.agentic.prompts.system")
 # system.py → prompts → agentic → engines → server → data
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _AGENT_MD = (_REPO_ROOT / "KNOWLEDGE_BASE" / "AGENT.md").resolve()
+_MEMORY_MD = (_REPO_ROOT / "KNOWLEDGE_BASE" / "MEMORY.md").resolve()
 
 _AGENT_MD_STUB = (
     "# AGENT.md (stub — file not found)\n\n"
     "Plan CNC machining for one part: pick a machine, plan operations "
     "covering every feature, select tools, set feeds/speeds, and report a "
     "calibrated per-piece cycle time."
+)
+
+_MEMORY_MD_STUB = (
+    "# MEMORY.md (stub — file not found)\n\n"
+    "No learned heuristics recorded yet."
 )
 
 _cache: dict[str, str] = {}
@@ -53,6 +62,25 @@ def _load_agent_md() -> str:
             logger.warning("AGENT.md not loadable (%s) — using stub", exc)
             text = _AGENT_MD_STUB
         _cache["agent_md"] = text
+        return text
+
+
+def _load_memory_md() -> str:
+    """Lazy-load MEMORY.md (agent-maintained heuristics); cached.
+
+    The cache is dropped by :func:`invalidate_cache`, which the
+    ``memory_update`` tool calls after every successful append, so a
+    long-lived process picks up its own writes on the next prompt build.
+    """
+    with _cache_lock:
+        if "memory_md" in _cache:
+            return _cache["memory_md"]
+        try:
+            text = _MEMORY_MD.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.warning("MEMORY.md not loadable (%s) — using stub", exc)
+            text = _MEMORY_MD_STUB
+        _cache["memory_md"] = text
         return text
 
 
@@ -107,8 +135,8 @@ Suggested mental order — not enforced, just a sensible default:
   5. Choose tools per CNC operation.
   6. Set cutting parameters per tool, then call `compute_cycle_time` per tool.
   7. For non-CNC ops, set `run_min_per_part` directly (no feeds/speeds).
-  8. Sum to `total_run_min_per_part`, finalize per-op `setup_min_per_lot`,
-     emit `final`.
+  8. Sum to `total_run_min_per_part` (set `setup_min_per_lot: 0` — setup is
+     a fixed system constant, not modeled), then emit `final`.
 
 You may revisit earlier steps if a later step exposes a contradiction.
 
@@ -184,20 +212,31 @@ These are non-negotiable. Violations are rejected downstream.
 - **Sequence numbers** use multiples of 10 (10, 20, 30, …) so the
   operator can insert ops without renumbering.
 
-- **Stock form → machine class** (apply BEFORE the catalog ranking):
-    * `component_role == "sub_item_sheet"` (plastic sheet, min-dim ≤ 25.4 mm,
-      material in PVC / Acetal / HDPE / UHMW / PC / PMMA family)  → **router**.
-    * Bounding-box aspect ratio max_dim / mid_dim ≥ 4 AND material is a turning
-      family (steel rod, brass rod, aluminum rod, plastic rod) → **lathe** or
-      **turn_mill** when there are also cross-axis features (transverse holes,
-      flats).
+- **Stock form → machine class** (apply BEFORE the catalog ranking).
+  Compute the bbox aspect ratio first, then take the FIRST branch that matches:
+
+    ```
+    dims = sorted([length_mm, width_mm, height_mm], reverse=True)
+    aspect = dims[0] / max(dims[1], 0.01)
+    ```
+
     * `component_role == "assembly_top"` → no machine; planner emits
       ADMIN / ASSY / WELD / INSP / PACK ops only. Set
       `machine_class = "router"` as a placeholder if a schema value is required,
       and leave `chosen_machine_id` null.
-    * Otherwise → **vmc_3_axis** baseline, escalate to `vmc_4_axis` /
-      `vmc_5_axis` only when features demand multi-side access (undercuts,
-      orthogonal hole families, contoured 3D surfaces).
+    * `component_role == "sub_item_sheet"` (plastic sheet, min-dim ≤ 25.4 mm,
+      material in PVC / Acetal / HDPE / UHMW / PC / PMMA family)  → **router**.
+    * `aspect ≥ 4` AND material is a turning family (steel rod, brass rod,
+      aluminum rod, **plastic rod incl. PEEK / PVC / HDPE / UHMW / Acetal**)
+      → **lathe**, or **turn_mill** when there are also cross-axis features
+      (transverse holes, flats, milled keyways). Do NOT pick a VMC class
+      for a rod just because it has a few holes — those are turn_mill
+      live-tool ops. State the computed aspect ratio explicitly in `rationale`.
+    * `aspect 2-4` → **vmc_3_axis** baseline.
+    * `aspect < 2` AND features distributed on ≥ 3 sides (undercuts,
+      orthogonal hole families, contoured 3D surfaces) → **vmc_4_axis** /
+      **vmc_5_axis**.
+    * Otherwise → **vmc_3_axis**.
   After picking the class, THEN call `catalog_lookup` to rank the top 3
   actual shop machines within that class.
 
@@ -206,17 +245,49 @@ These are non-negotiable. Violations are rejected downstream.
   TAP, DEBUR, INSPECT, PARTOFF, CHAMFER, FACE, TURN, THREAD,
   ADMIN_*, ASSY_*, INSP_*, PACK_*, OUTSIDE_VENDOR.
 
-- **`setup_min_per_lot`** is **per-op**, not per-component. See
-  `patterns/setup_and_material.md`. Apply these per-op heuristics:
-    * CNC milling/turning on Simple parts:  **30 min/op** (0.5 hr setup)
-    * CNC milling/turning on Complex parts: **90 min/op** (1.5 hr setup)
-    * DEBUR / INSP_COMPONENT / ASSY_* / PACK_CLEAN: **6 min/op** (0.1 hr)
-    * INSP_FINAL_FIXED_LOT, ADMIN_PRINT / ADMIN_MAT_PICK / ADMIN_STAGING:
-      6-12 min/op (0.10-0.20 hr).
-    * ADMIN_PLANNING: **30 min/op** (0.50 hr planning block per assembly).
-    * OUTSIDE_VENDOR: 0 (the vendor's lead time is not our setup).
-  These are per-operation setup blocks; they SUM into per-lot setup
-  amortization across qty. They are NOT per-piece run time.
+- **`setup_min_per_lot`** — **Do NOT model setup time.** Setup is a fixed
+  per-lot constant the system applies automatically (a flat 20 min/batch),
+  and it is **excluded** from cost-accuracy scoring. Emit
+  `setup_min_per_lot: 0` on **every** op and spend **zero** reasoning on
+  it. Whatever you put here is overwritten downstream.
+
+  Put **all** of your effort into `run_min_per_part` — the per-piece run
+  time. That is the only quantity that is costed and scored. Be precise
+  about the machining time per feature: material removed, hole/thread
+  counts, finishing passes, and realistic feeds/speeds. Under-quoting a
+  complex part's run time or over-quoting a simple part's run time is the
+  dominant error to avoid.
+
+- **Assembly-scope ops are emitted exactly ONCE per assembly**, never
+  duplicated across sub-components. The following op_codes are
+  assembly-scope and have ONE owner per job:
+
+    `ADMIN_PLANNING`, `ADMIN_PRINT`, `ADMIN_MAT_PICK`, `ADMIN_STAGING`,
+    `PACK_CLEAN`, `INSP_FINAL_FIXED_LOT`,
+    `ASSY_HARDWARE_INSTALL`, `ASSY_SOLVENT_BOND`,
+    `ASSY_WELD_PVC`, `ASSY_WELD_METAL`.
+
+  Owner rules (the per-component user message carries the dispatch flags
+  `is_only_planned_component` and `assembly_top_present` — read them):
+
+    * If `assembly_top_present == true` AND your `component_role ==
+      "assembly_top"`  →  YOU are the owner; emit every applicable
+      assembly-scope op above.
+    * If `assembly_top_present == true` AND your `component_role !=
+      "assembly_top"`  →  you are a sub-component; **DO NOT emit ANY of
+      the assembly-scope op_codes**. Stay focused on your per-component
+      machining + DEBUR + INSP_COMPONENT routing only.
+    * If `assembly_top_present == false` AND `is_only_planned_component
+      == true`  →  YOU are the owner (single-part job); emit
+      ADMIN_PLANNING + ADMIN_MAT_PICK + (optional) ADMIN_PRINT, plus
+      PACK_CLEAN and INSP_FINAL_FIXED_LOT.
+    * If `assembly_top_present == false` AND `is_only_planned_component
+      == false`  →  multi-component job with no synthesized assembly_top.
+      Only the agent for `component_index == 0` is the owner; everyone
+      else stays silent on assembly-scope ops.
+
+  Per-component `INSP_COMPONENT` is NOT in this list — it inspects
+  *this part* and remains every component's responsibility.
 
 - **`run_min_per_part`** — for non-CNC ops (admin, assembly, weld, pack,
   inspection, vendor) the agent MUST emit `run_min_per_part` directly,
@@ -224,8 +295,9 @@ These are non-negotiable. Violations are rejected downstream.
   in `parts/<pn>.md` whenever one is found.
 
 - **`fixed_hrs_per_lot`** — set ONLY on INSP_FINAL_FIXED_LOT (final-
-  inspection lot block). Customer quote sheets list this as `FixedHrs`
-  (e.g. 0.25 hr fixed). Leave null everywhere else.
+  inspection lot block). Customer quote sheets list this as `FixedHrs`.
+  A typical final-inspection block is ~**0.25 hr** (15 min). Leave null
+  on every op except INSP_FINAL_FIXED_LOT.
 
 - **Tool Type vocabulary** — exact strings, match case, no synonyms:
   `End Mill`, `Chamfer Mill`, `Ball Mill`, `Face Mill`, `Drill`,
@@ -284,10 +356,12 @@ def _format_tool_catalog(specs: list[dict]) -> str:
 def build_system_prompt() -> str:
     """Compose the agent's system message. Cached internally."""
     agent_md = _load_agent_md()
+    memory_md = _load_memory_md()
     tool_catalog = _format_tool_catalog(ALL_TOOL_SPECS)
     sections = [
         _ROLE_AND_OBJECTIVE.strip(),
         "# Operating manual (from KNOWLEDGE_BASE/AGENT.md)\n\n" + agent_md.strip(),
+        "# Learned memory (from KNOWLEDGE_BASE/MEMORY.md)\n\n" + memory_md.strip(),
         _TOOL_PROTOCOL.strip(),
         _WORKSPACE_CONTRACT.strip(),
         _HARD_RULES.strip(),
@@ -297,7 +371,12 @@ def build_system_prompt() -> str:
 
 
 def invalidate_cache() -> None:
-    """Drop the cached AGENT.md (used by ``/v1/feedback`` after a KB write)."""
+    """Drop the cached AGENT.md + MEMORY.md.
+
+    Called by ``/v1/feedback`` after a KB write and by the
+    ``memory_update`` tool after it appends a learned lesson, so the next
+    prompt build re-reads the updated files.
+    """
     with _cache_lock:
         _cache.clear()
 

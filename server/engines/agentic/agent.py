@@ -23,10 +23,11 @@ from .prompts import build_agent_user_message, build_system_prompt
 from .tool_loop import ToolLoopError, run_tool_loop
 from .tools import (
     compute_cycle_time,
-    kb_find_analogues,
-    kb_query_csv,
-    kb_read,
+    kb_adopt_routing,
     make_catalog_lookup,
+    make_holdout_aware_adopt_routing,
+    make_holdout_aware_kb_tools,
+    make_memory_tools,
     make_workspace_tools,
 )
 from .workspace import ComponentWorkspace
@@ -70,19 +71,29 @@ def _pick_default_machine(plan: dict) -> str | None:
 def _build_tools(
     catalog: dict | None,
     workspace: ComponentWorkspace | None,
+    holdout_part_number: str | None = None,
 ) -> dict[str, Callable[..., Any]]:
     """Wire the per-analysis catalog + per-component workspace into the tool set.
 
     The dict's keys MUST match the ``"name"`` fields in
     :data:`server.engines.agentic.tools.ALL_TOOL_SPECS` — that's the
     contract the agent learns about in the system prompt.
+
+    When ``holdout_part_number`` is set (eval mode), the KB-reading tools
+    refuse to surface the in-flight part's own page / row so the agent
+    can't find its answer key in the analogue corpus. Memory writes
+    (``memory_update``) are likewise frozen in holdout mode so the agent
+    can't mutate its own prompt-loaded memory mid-measurement. Production
+    runs pass ``None`` and get the plain, live tools.
     """
+    kb_tools = make_holdout_aware_kb_tools(holdout_part_number)
+    adopt_routing = make_holdout_aware_adopt_routing(holdout_part_number)
     return {
-        "kb_read": kb_read,
-        "kb_find_analogues": kb_find_analogues,
-        "kb_query_csv": kb_query_csv,
+        **kb_tools,
+        "kb_adopt_routing": adopt_routing,
         "catalog_lookup": make_catalog_lookup(catalog or {}),
         "compute_cycle_time": compute_cycle_time,
+        **make_memory_tools(holdout_part_number),
         **make_workspace_tools(workspace),
     }
 
@@ -98,6 +109,9 @@ async def run_component_agent(
     max_iterations: int | None = None,
     workspace: ComponentWorkspace | None = None,
     model: str | None = None,
+    assembly_top_present: bool = False,
+    is_only_planned_component: bool = True,
+    holdout_part_number: str | None = None,
 ) -> dict[str, Any]:
     """Run the single-loop agent for one component.
 
@@ -135,7 +149,14 @@ async def run_component_agent(
     component_index = component.get("component_index")
     component_name = component.get("name") or f"component_{component_index}"
     system_prompt = build_system_prompt()
-    tools = _build_tools(catalog, workspace)
+    tools = _build_tools(catalog, workspace, holdout_part_number=holdout_part_number)
+    if holdout_part_number:
+        logger.info(
+            "agent: component %s — HOLDOUT mode (part_number=%s "
+            "filtered from kb_read / kb_find_analogues / kb_query_csv / "
+            "kb_adopt_routing)",
+            component_name, holdout_part_number,
+        )
 
     # Resume hint: enumerate any pre-existing workspace files so the
     # prompt can ask the agent to rehydrate before doing anything else.
@@ -156,6 +177,8 @@ async def run_component_agent(
         drawing, component,
         batch_size=batch_size,
         workspace_files=workspace_files,
+        assembly_top_present=assembly_top_present,
+        is_only_planned_component=is_only_planned_component,
     )
 
     await safe_emit(on_event, "status", {

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from .citation import citation_hint_for_kb
-from .kb import KB_ROOT, _safe_kb_path
+from .kb import KB_ROOT, _safe_kb_path, normalize_part_id
 
 logger = logging.getLogger("cncserver.engines.agentic.tools.analogue")
 
@@ -267,6 +267,36 @@ def kb_adopt_routing(part_number: str, role: str | None = None) -> dict[str, Any
             citation_hint_for_kb(f"parts/{part_number}.md"),
         ],
     }
+
+
+def make_holdout_aware_adopt_routing(
+    holdout_part_number: str | None,
+):
+    """Holdout-filtered version of :func:`kb_adopt_routing`.
+
+    Refuses to adopt the in-flight test fixture's own routing so the eval
+    harness can measure pattern generalization rather than the agent
+    finding its own answer key in the analogue corpus.
+    """
+    holdout = normalize_part_id(holdout_part_number or "")
+    if not holdout:
+        return kb_adopt_routing
+
+    def _holdout_kb_adopt_routing(
+        part_number: str, role: str | None = None,
+    ) -> dict[str, Any]:
+        if normalize_part_id(part_number) == holdout:
+            return {
+                "error": (
+                    f"holdout: part_number={part_number!r} maps to the "
+                    f"in-flight test fixture {holdout!r} — refusing to "
+                    f"adopt the answer key. Pick a different analogue."
+                ),
+                "holdout_part_number": holdout,
+            }
+        return kb_adopt_routing(part_number, role)
+
+    return _holdout_kb_adopt_routing
 
 
 ANALOGUE_TOOL_SPECS: list[dict] = [

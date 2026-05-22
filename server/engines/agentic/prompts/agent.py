@@ -59,7 +59,7 @@ OUTPUT_SCHEMA: dict[str, Any] = {
             "description": "one short sentence",
             "feature_ids": ["<feature id from component.features>", "..."],
             "machine_class": "echoed from top-level machine_class",
-            "setup_min_per_lot": "number — total lot-setup time amortized later",
+            "setup_min_per_lot": "0 — setup is a fixed system constant; do not model it",
             "run_min_per_part": (
                 "number — per-piece run minutes for this op. REQUIRED for "
                 "non-CNC ops (admin/assy/insp/pack/vendor) because they don't "
@@ -126,10 +126,20 @@ OUTPUT_SCHEMA: dict[str, Any] = {
         }
     ],
     "total_run_min_per_part": "number — sum of all op_cycle_time_min",
-    "setup_min_per_lot": "number — total lot-setup across all operations",
+    "setup_min_per_lot": "0 — fixed system constant; not modeled by the agent",
     "rationale": (
         "2-4 sentences explaining the plan at a high level — machine choice, "
         "op strategy, and any caveats (e.g. plastic heat limits, tool length derate)"
+    ),
+    "family_coverage": (
+        "object mapping each of {PLANNING, PRINT, MATPICK, MACHINING, DEBUR, "
+        "ASSY, INSP, PACK} to either a comma-separated list of operation "
+        "sequence numbers covering that family, or the string \"MISSING\". "
+        "Required — see Pre-submission op-family checklist in the user message."
+    ),
+    "family_coverage_reasons": (
+        "object — for each family marked MISSING above, a one-line reason. "
+        "Omit for families that are covered."
     ),
     "evidence": [
         (
@@ -191,6 +201,8 @@ def build_agent_user_message(
     *,
     batch_size: int = 1,
     workspace_files: list[str] | None = None,
+    assembly_top_present: bool = False,
+    is_only_planned_component: bool = True,
 ) -> str:
     """Build the per-component user message.
 
@@ -208,11 +220,28 @@ def build_agent_user_message(
         non-empty, the prompt flags it as a resume scenario so the
         agent's first move is to read the checkpoints rather than start
         from scratch.
+    assembly_top_present:
+        True when the coordinator has synthesized an ``assembly_top``
+        component. Combined with ``is_only_planned_component`` and
+        ``component_role`` this tells the agent whether it owns the
+        assembly-scope ops (ADMIN_*, PACK_CLEAN, INSP_FINAL_FIXED_LOT,
+        ASSY_*) or must stay silent on them. See the "Assembly-scope
+        ops" rule in the system prompt.
+    is_only_planned_component:
+        True when exactly ONE component in this job goes through the
+        agent (others were short-circuited as hardware/outside_vendor
+        and no assembly_top was synthesized). Lets the lone machining
+        component own ADMIN_PLANNING + PACK_CLEAN without duplication.
     """
     inputs = {
         "material": drawing.get("material"),
         "part_number": drawing.get("part_number"),
         "qty_per_lot": batch_size,
+        "dispatch": {
+            "assembly_top_present":       bool(assembly_top_present),
+            "is_only_planned_component":  bool(is_only_planned_component),
+            "component_role":             component.get("component_role"),
+        },
         "component": _component_summary(component),
     }
 
@@ -259,6 +288,64 @@ shape. The value of `final` MUST conform to this schema:
 Every feature in `inputs.component.features` MUST appear in at least one
 operation's `feature_ids`. Every tool in `tools_per_operation` MUST be
 echoed in `parameters_per_operation` with its feeds/speeds set.
+
+## Pre-submission op-family checklist
+
+Before you emit `final`, walk this 8-family checklist. For each family,
+either point to the `sequence` number(s) you emit for it, or — only if
+truly inapplicable — set `family_coverage[<family>] = "MISSING"` AND
+write a one-line reason in `family_coverage_reasons[<family>]`. A
+`MISSING` entry is allowed, but must be justified; silent omissions are
+the most common v3 failure mode.
+
+The 8 families (customer shop convention — see
+`KNOWLEDGE_BASE/patterns/setup_and_material.md` §4a):
+
+  1. **PLANNING**  → `ADMIN_PLANNING`
+  2. **PRINT**     → `ADMIN_PRINT`
+  3. **MATPICK**   → `ADMIN_MAT_PICK`
+  4. **MACHINING** → any `CNCM_*` / `CNCT_*` op (or `OUTSIDE_VENDOR` for
+                     waterjet / laser / outside processes)
+  5. **DEBUR**     → `DEBUR`
+  6. **ASSY**      → any `ASSY_*` op (hardware install / bonding / weld).
+                     If the BOM or `material` string lists installed
+                     hardware (insert, helicoil, dowel pin, captive screw,
+                     PEM/press insert, standoff), emit
+                     `ASSY_HARDWARE_INSTALL` with run ≈2–4 min per piece
+                     (minimum 6).
+  7. **INSP**      → `INSP_COMPONENT` (inspect this part) and
+                     `INSP_FINAL_FIXED_LOT` (always — the lot final-
+                     inspection block, owned by the assembly_top owner).
+  8. **PACK**      → `PACK_CLEAN`
+
+Default expectation: every shipped part touches every family. Common
+genuine `MISSING` cases (acceptable justifications):
+- PLANNING / PRINT / MATPICK / STAGING / INSP_FINAL / PACK on a
+  sub-component when `assembly_top_present == true` and your
+  `component_role != "assembly_top"` (assembly-scope ops are owned by
+  the assembly_top owner — see the assembly-scope-ops rule).
+- ASSY on a singleton with **zero** BOM hardware and no inserts/dowels.
+  (If ANY installed hardware is present, ASSY is required — not MISSING.)
+- DEBUR on a bought-stock part with no machined edges (rare).
+
+**Run-time reminder (before `final`):** `setup_min_per_lot` is a fixed
+system constant — set it to 0 and do not reason about it. Spend your
+effort on `run_min_per_part`: the per-feature machining time plus the
+non-CNC run (admin, assembly, weld, inspection, pack). Anchor it to a
+measured analogue whenever one is available.
+
+Emit the checklist as two top-level fields next to `rationale`:
+
+```json
+"family_coverage": {{
+  "PLANNING": "10", "PRINT": "20", "MATPICK": "30",
+  "MACHINING": "40,50", "DEBUR": "60",
+  "ASSY": "MISSING", "INSP": "70", "PACK": "80"
+}},
+"family_coverage_reasons": {{
+  "ASSY": "Singleton PEEK spacer, BOM has no hardware"
+}}
+```
 
 Begin now.
 """

@@ -1,0 +1,571 @@
+-- 002_a4_machines_enrich.sql
+-- Enrich a4_machines from Database_Machine.xlsx (30 machines, 2026-05-22).
+-- Adds native columns (work_center / capability / tool_holder / tool_collet
+-- + 5 rate columns) and fills manufacturer + specs + rates per row.
+-- hourly_rate_usd is set to machine_burden (machine-only OH; cost engine
+-- adds labor on top). The 5 raw rates are also kept in their own columns.
+-- Idempotent. Apply: psql "$DATABASE_URL" -f infra/migrations/002_a4_machines_enrich.sql
+-- (or paste into the Supabase SQL editor).
+
+BEGIN;
+
+-- 1. Native columns for the rich machine attributes (idempotent). ----------
+ALTER TABLE public.a4_machines
+    ADD COLUMN IF NOT EXISTS work_center text,
+    ADD COLUMN IF NOT EXISTS capability text,
+    ADD COLUMN IF NOT EXISTS tool_holder text,
+    ADD COLUMN IF NOT EXISTS tool_collet text,
+    ADD COLUMN IF NOT EXISTS setup_labor_rate numeric,
+    ADD COLUMN IF NOT EXISTS run_labor_rate numeric,
+    ADD COLUMN IF NOT EXISTS labor_burden numeric,
+    ADD COLUMN IF NOT EXISTS machine_burden numeric,
+    ADD COLUMN IF NOT EXISTS ga_burden numeric;
+
+COMMENT ON COLUMN public.a4_machines.work_center IS 'Shop work-center code; bridges to KB cycle_time_model.md machine classes (e.g. CNCV FAN V, DNM 5700).';
+COMMENT ON COLUMN public.a4_machines.capability IS '3-axis / 4-axis / 5-axis (null for lathes).';
+COMMENT ON COLUMN public.a4_machines.machine_burden IS 'Machine-hour overhead USD/hr; mirrored into hourly_rate_usd.';
+COMMENT ON COLUMN public.a4_machines.ga_burden IS 'Fully-loaded G&A burden USD/hr (sell-rate reference).';
+
+-- 2. Per-row enrichment, keyed by exact id (whitespace-safe). --------------
+UPDATE public.a4_machines SET
+    manufacturer = 'Anderson',
+    work_center = 'ROUT EX 5X',
+    capability = '5-axis',
+    tool_holder = 'HSK63F',
+    tool_collet = '0Z,ER',
+    work_x_mm = 1600,
+    work_y_mm = 1600,
+    max_spindle_rpm = 22000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 60,
+    ga_burden = 97,
+    hourly_rate_usd = 60,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '5d47c034-2863-4305-bcff-1b2b6e95bc87';  -- Anderson Axxiom 1616
+UPDATE public.a4_machines SET
+    manufacturer = 'Anderson',
+    work_center = 'CNCR EXXACT 1616',
+    capability = '3-axis',
+    tool_holder = 'HSK63F',
+    tool_collet = '0Z,ER',
+    work_x_mm = 1600,
+    work_y_mm = 1600,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 60,
+    ga_burden = 97,
+    hourly_rate_usd = 60,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'd2179989-9006-46c0-bff1-cb140736d8b5';  -- Anderson Exxact Plus 1616/TC
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'LYNX21LYSB',
+    capability = '4-axis',
+    tool_holder = '8inch',
+    tool_collet = '65mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 4500,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 52,
+    ga_burden = 74,
+    hourly_rate_usd = 52,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '873f0d51-e8c4-4c82-86a4-54641eb65096';  -- Doosan LYNX 2100LSYB
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'LYNX 2600SYB',
+    capability = '4-axis',
+    tool_holder = '10inch',
+    tool_collet = '81mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 3500,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 52,
+    ga_burden = 104,
+    hourly_rate_usd = 52,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '963dce57-6053-461a-9cd9-e328e3e5680e';  -- Doosan LYNX 2600LSYB
+UPDATE public.a4_machines SET
+    manufacturer = 'Makino',
+    work_center = 'CNC HMC',
+    capability = '4-axis',
+    tool_holder = 'HSKA63',
+    tool_collet = 'ER',
+    work_x_mm = 400,
+    work_y_mm = 400,
+    max_spindle_rpm = 20000,
+    setup_labor_rate = 25,
+    run_labor_rate = 25,
+    labor_burden = 30,
+    machine_burden = 70,
+    ga_burden = 128,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '97d3d56a-94e0-4e5e-a364-3aafd41b4822';  -- Makino a51nx
+UPDATE public.a4_machines SET
+    manufacturer = 'Fanuc',
+    work_center = 'CNCV FAN V (Vacuum)',
+    capability = '3-axis',
+    tool_holder = 'BT30',
+    tool_collet = 'ER',
+    work_x_mm = 850,
+    work_y_mm = 410,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 33,
+    ga_burden = 66,
+    hourly_rate_usd = 33,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'e061a421-4958-40db-9e80-7d1b4b71f2da';  -- Fanuc Robodrill M A-D21Lib
+UPDATE public.a4_machines SET
+    manufacturer = 'Fanuc',
+    work_center = 'CNCV FAN M (Vise)',
+    capability = '3-axis',
+    tool_holder = 'BT30',
+    tool_collet = 'ER',
+    work_x_mm = 650,
+    work_y_mm = 400,
+    max_spindle_rpm = 10000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 33,
+    ga_burden = 66,
+    hourly_rate_usd = 33,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'bd4f091f-df4b-42a3-ba96-679d0ea64ab3';  -- Fanuc Robodrill M D21MiA
+UPDATE public.a4_machines SET
+    manufacturer = 'Fanuc',
+    work_center = 'CNCV FAN Y (HRVA)',
+    capability = '5-axis',
+    tool_holder = 'BT30',
+    tool_collet = 'ER',
+    work_x_mm = 850,
+    work_y_mm = 500,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 33,
+    ga_burden = 66,
+    hourly_rate_usd = 33,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '6acb0da4-fa05-4483-b790-8477807f5bad';  -- Fanuc Robodrill D28LiBADVPlus
+UPDATE public.a4_machines SET
+    manufacturer = 'Fanuc',
+    work_center = 'CNCV FAN 4X',
+    capability = '4-axis',
+    tool_holder = 'BT30',
+    tool_collet = 'ER',
+    work_x_mm = 850,
+    work_y_mm = 410,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 65,
+    ga_burden = 68,
+    hourly_rate_usd = 65,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '384e110f-9fc8-4aaf-a3c1-085d0b61bc90';  -- Fanuc Robodrill 4-Axis T21iFLb
+UPDATE public.a4_machines SET
+    manufacturer = 'Fanuc',
+    work_center = 'CNCV FAN V (Vacuum)',
+    capability = '3-axis',
+    tool_holder = 'BT30',
+    tool_collet = 'ER',
+    work_x_mm = 850,
+    work_y_mm = 410,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 33,
+    ga_burden = 66,
+    hourly_rate_usd = 33,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'ea557cbe-06b1-4e8f-9b88-641c62f3e2c7';  -- Fanuc Robodrill L T21iFLb
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'DNM4500 (3Axis)',
+    capability = '3-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 800,
+    work_y_mm = 450,
+    max_spindle_rpm = 12000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 65,
+    ga_burden = 68,
+    hourly_rate_usd = 65,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'f0477736-f36f-4b66-bb79-07b4075aca1f';  -- Doosan DNM4500
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'DNM 5700 (4axis)',
+    capability = '4-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1370,
+    work_y_mm = 570,
+    max_spindle_rpm = 12000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 65,
+    ga_burden = 68,
+    hourly_rate_usd = 65,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '0daf1123-d293-413d-91ec-00695bd30002';  -- Doosan DNM5700
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'DNM 6700 (Vacuum)',
+    capability = '3-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1500,
+    work_y_mm = 670,
+    max_spindle_rpm = 12000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 58,
+    ga_burden = 75,
+    hourly_rate_usd = 58,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '7d5043bc-bc82-4dc8-8f38-653138bf972f';  -- Doosan DNM6700
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'DVF 5000 (5axis)',
+    capability = '5-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 500,
+    work_y_mm = 500,
+    max_spindle_rpm = 18000,
+    setup_labor_rate = 30,
+    run_labor_rate = 30,
+    labor_burden = 36,
+    machine_burden = 70,
+    ga_burden = 168,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '56fd6722-260b-48be-a725-82692c93c166';  -- Doosan DVF5000
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'DVF6500 (5axis)',
+    capability = '5-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1270,
+    work_y_mm = 670,
+    max_spindle_rpm = 18000,
+    setup_labor_rate = 30,
+    run_labor_rate = 30,
+    labor_burden = 36,
+    machine_burden = 70,
+    ga_burden = 168,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '38219499-7ee0-4313-86a5-17d256eb4f45';  -- Doosan DNM6500
+UPDATE public.a4_machines SET
+    manufacturer = 'Anderson',
+    work_center = 'CNCR EXXACT',
+    capability = '3-axis',
+    tool_holder = 'HSK63F',
+    tool_collet = '0Z,ER',
+    work_x_mm = 3700,
+    work_y_mm = 1600,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 60,
+    ga_burden = 97,
+    hourly_rate_usd = 60,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '646a6ac4-3823-4076-b3bf-e82a2755a455';  -- Anderson EXXACT PLUS/RANROB
+UPDATE public.a4_machines SET
+    manufacturer = 'Anderson',
+    work_center = 'CNCR EXXACT',
+    capability = '3-axis',
+    tool_holder = 'HSK63F',
+    tool_collet = '0Z,ER',
+    work_x_mm = 3700,
+    work_y_mm = 1600,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 60,
+    ga_burden = 97,
+    hourly_rate_usd = 60,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '23c03c4a-1107-4d17-ba26-af245553e2c1';  -- Anderson EXXACT PLUS/TC
+UPDATE public.a4_machines SET
+    manufacturer = 'KITAMURA',
+    work_center = 'KITAMURA',
+    capability = '4-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 400,
+    work_y_mm = 400,
+    max_spindle_rpm = 15000,
+    setup_labor_rate = 40,
+    run_labor_rate = 40,
+    labor_burden = 48,
+    machine_burden = 200,
+    ga_burden = 212,
+    hourly_rate_usd = 200,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'd0f90380-653a-4ef0-9f91-28ba69a3251c';  -- KITAMURA HX400iG/500 (With 8 Round Pallet)
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'LYNX26Y',
+    capability = '4-axis',
+    tool_holder = '10inch',
+    tool_collet = '81mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 3500,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 52,
+    ga_burden = 74,
+    hourly_rate_usd = 52,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'af026fb0-319e-4084-be22-94352540d4f7';  -- Doosan LYNX 2600Y
+UPDATE public.a4_machines SET
+    manufacturer = 'Takisawa',
+    work_center = 'CNCL TAK',
+    capability = NULL,
+    tool_holder = '8inch',
+    tool_collet = '52mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 4000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 27,
+    ga_burden = 62,
+    hourly_rate_usd = 27,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '45fc9bd1-f4b9-40a4-9848-fdc95f82ebbb';  -- Takisawa NEX 108
+UPDATE public.a4_machines SET
+    manufacturer = 'Takisawa',
+    work_center = 'CNCTM TAK',
+    capability = '4-axis',
+    tool_holder = '8inch',
+    tool_collet = '52mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 4000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 52,
+    ga_burden = 74,
+    hourly_rate_usd = 52,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '7bb72726-c653-47cb-9a36-bcc96e284637';  -- Takisawa NEX-108Y
+UPDATE public.a4_machines SET
+    manufacturer = 'Takisawa',
+    work_center = 'CNCTM TAK',
+    capability = '4-axis',
+    tool_holder = '10inch',
+    tool_collet = '77mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 3500,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 52,
+    ga_burden = 74,
+    hourly_rate_usd = 52,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '080cd877-8032-4dfa-a42a-0f6b143b61cb';  -- Takisawa-NEX-110Y
+UPDATE public.a4_machines SET
+    manufacturer = 'Doosan',
+    work_center = 'NHP 5000 (Hmc)',
+    capability = '4-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 500,
+    work_y_mm = 500,
+    max_spindle_rpm = 15000,
+    setup_labor_rate = 25,
+    run_labor_rate = 25,
+    labor_burden = 30,
+    machine_burden = 70,
+    ga_burden = 141,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '9778f184-d0a9-4e66-ac78-7f590db653ea';  -- Doosan NHP5000
+UPDATE public.a4_machines SET
+    manufacturer = 'Makino',
+    work_center = 'CNCV MAK (Vise)',
+    capability = '3-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1170,
+    work_y_mm = 510,
+    max_spindle_rpm = 12000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 65,
+    ga_burden = 34,
+    hourly_rate_usd = 65,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '85ebce4b-62a1-400e-bca2-771922d19615';  -- Makino PS95
+UPDATE public.a4_machines SET
+    manufacturer = 'Nakamura-Tome',
+    work_center = 'CNCL NAK',
+    capability = NULL,
+    tool_holder = '8inch',
+    tool_collet = '80mm',
+    work_x_mm = NULL,
+    work_y_mm = NULL,
+    max_spindle_rpm = 3500,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 27,
+    ga_burden = 62,
+    hourly_rate_usd = 27,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '655bee83-9942-45e3-a0b9-1abd6f7a0679';  -- Nakamura-Tome SC-300
+UPDATE public.a4_machines SET
+    manufacturer = 'Anderson',
+    work_center = 'CNCR STRAT',
+    capability = '3-axis',
+    tool_holder = 'HSK63F',
+    tool_collet = '0Z,ER',
+    work_x_mm = 2700,
+    work_y_mm = 1600,
+    max_spindle_rpm = 24000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 60,
+    ga_burden = 97,
+    hourly_rate_usd = 60,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'ddc00ddd-09cc-4d7b-87d3-429b71281baa';  -- Anderson Exxact Router Stratos
+UPDATE public.a4_machines SET
+    manufacturer = 'HAAS',
+    work_center = 'CNC 5-AXIS',
+    capability = '5-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 500,
+    work_y_mm = 500,
+    max_spindle_rpm = 12000,
+    setup_labor_rate = 30,
+    run_labor_rate = 30,
+    labor_burden = 36,
+    machine_burden = 70,
+    ga_burden = 168,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = 'dfc3b75a-1e7a-4e3c-8e9a-e2d72eea967c';  -- HAAS UMC -750
+UPDATE public.a4_machines SET
+    manufacturer = 'HAAS',
+    work_center = 'CNC 5-AXIS',
+    capability = '5-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 500,
+    work_y_mm = 500,
+    max_spindle_rpm = 15000,
+    setup_labor_rate = 30,
+    run_labor_rate = 30,
+    labor_burden = 36,
+    machine_burden = 70,
+    ga_burden = 168,
+    hourly_rate_usd = 70,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '59bcfbe2-0073-474a-9e6d-46142cebcf4a';  -- HAAS UMC -750 -SS
+UPDATE public.a4_machines SET
+    manufacturer = 'HAAS',
+    work_center = 'HAAS VF4X',
+    capability = '4-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1321,
+    work_y_mm = 457,
+    max_spindle_rpm = 10000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 65,
+    ga_burden = 68,
+    hourly_rate_usd = 65,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '650e91d1-a1a5-48d8-9bfd-b719d0d4b56c';  -- HAAS VF-4-SE
+UPDATE public.a4_machines SET
+    manufacturer = 'HAAS',
+    work_center = 'CNC HAAS L',
+    capability = '3-axis',
+    tool_holder = 'BT40',
+    tool_collet = 'ER',
+    work_x_mm = 1626,
+    work_y_mm = 711,
+    max_spindle_rpm = 15000,
+    setup_labor_rate = 20,
+    run_labor_rate = 20,
+    labor_burden = 24,
+    machine_burden = 58,
+    ga_burden = 97,
+    hourly_rate_usd = 58,
+    notes = 'specs+rates from Database_Machine.xlsx (2026-05-22)',
+    updated_at = now()
+  WHERE id = '0c9504aa-cdfa-41f4-88ed-7830652f6120';  -- HAAS VF-6SS
+
+COMMIT;

@@ -3,25 +3,36 @@ cost_engine.py Per-component CNC cost calculation backed by Supabase.
 
 Catalog tables queried (single shared catalog, no per-user scoping):
     a4_labor_rates    : id, role_name, hourly_rate_usd, is_active
-    a4_machines       : id, machine_name, machine_type,
+    a4_machines       : id, machine_name, model, manufacturer, machine_type,
+                        capability, work_center, tool_holder, tool_collet,
+                        work_x_mm, work_y_mm, work_z_mm,
                         max_spindle_rpm, max_feed_mm_per_min, max_rapid_mm_per_min,
-                        tool_change_time_sec, hourly_rate_usd, is_active
+                        tool_change_time_sec, hourly_rate_usd (= machine_burden),
+                        setup_labor_rate, run_labor_rate, labor_burden,
+                        machine_burden, ga_burden, is_active
+                        (rate-card cols + work_center→k bridge: see
+                         KNOWLEDGE_BASE/reference/machines.md)
     a4_tooling        : id, tool_name, tool_type, diameter_mm, tool_dimensions,
                         recommended_rpm_min/max, recommended_feed_min/max_mm_per_min,
                         max_depth_of_cut_mm, tool_life_minutes, cost_usd, is_active
     a4_material_stock : id, material_name, material_form, length/width/height/diameter/...
                         cost_per_stock_usd, machinability_rating, recommended_sfm, ...
 
-Cost formula per component:
+Cost formula per component (machine-side rates sourced from the component's
+a4_machines row: setup_labor_rate / run_labor_rate / machine_burden):
   raw_material_usd     = stock.cost_per_stock_usd / stock.qty_per_stock
-  setup_time_min       = 5.0 + 2.0 * feature_count
-  setup_usd            = (setup_time_min/60) * (machinist + programmer*0.5) / batch_size
-  machining_usd_*      = per process: (cycle_time/60) * (machinist + machine_rate) + tool_amortisation
-  deburr_time_min      = 0.5 + 0.1 * feature_count
-  deburr_usd           = (deburr_time_min/60) * (deburrer + deburr_station_rate)
-  inspection_time_min  = 0.25 if gdt_count <= 3 else 1.0 + 0.1 * gdt_count
+  setup_time_min       = 20.0   (fixed per LOT for the whole assembly, charged
+                                 once; not agent-estimated, not per-component;
+                                 excluded from cost-accuracy scoring)
+  setup_usd            = (setup_time_min/60) * setup_labor_rate / batch_size
+  machining_usd_*      = per process: (cycle_time/60) * (run_labor_rate + machine_burden) + tool_amortisation
+  deburr_time_min      = FreeCAD deburr cycle time   (fallback 0.5 + 0.1*feature_count)
+  deburr_usd           = (deburr_time_min/60) * (run_labor_rate + machine_burden)
+  inspection_time_min  = 0.16 + 0.1 * gdt_count
   inspection_usd       = (inspection_time_min/60) * inspector
   total_usd            = sum of all above
+A4_BLENDED_RATE_USD_PER_HR (or an empty machine catalog) overrides every row
+with a single flat labor+machine rate.
 
 Public API:
     async def compute_cost(components, processes_per_component,
@@ -43,6 +54,14 @@ logger = logging.getLogger("cncserver.engines.process_mapping.cost_engine")
 
 
 _DEFAULT_BLENDED_RATE_USD_PER_HR = 30.0  # quote-shop rate when no machine catalog
+
+# Setup is a FIXED system constant — a flat 20 min per production lot (batch),
+# applied ONCE to the whole assembly, NOT estimated by the agent and NOT scaled
+# per component. The customer's ground-truth setup is a whole-job figure we
+# deliberately do not try to match, so setup is excluded from cost-accuracy
+# scoring. The agent emits setup_min_per_lot: 0 on every op; this constant is
+# what actually lands on the cost line.
+_FIXED_LOT_SETUP_MIN = 20.0
 
 
 def _blended_rate_usd_per_hr() -> float:
@@ -284,13 +303,37 @@ def _pick_stock(comp: dict, catalog: dict) -> dict | None:
 # Per-row accessors (memory lookup against pre-fetched catalog)
 # ---------------------------------------------------------------------------
 
-def _machine_rate_from_catalog(machine_id: str | None, catalog: dict) -> float:
-    if not machine_id:
-        return _DEFAULT_RATES["machine"]
-    row = catalog["machines"].get(machine_id)
-    if not row:
-        return _DEFAULT_RATES["machine"]
-    return float(row.get("hourly_rate_usd") or _DEFAULT_RATES["machine"])
+def _machine_rates(machine_id: str | None, catalog: dict) -> dict[str, float]:
+    """Resolve the rate-card triple for a machine from its a4_machines row.
+
+    Returns ``{"setup_labor", "run_labor", "machine_burden"}`` in USD/hr.
+    Each field falls back independently to a _DEFAULT_RATES constant when the
+    machine row is absent or the rate-card column is NULL (e.g. before
+    migration 002 populated them), so the engine degrades gracefully.
+    ``machine_burden`` also accepts the legacy ``hourly_rate_usd`` alias.
+    """
+    row = (catalog.get("machines") or {}).get(machine_id) if machine_id else None
+    row = row or {}
+
+    def _num(*keys: str) -> float | None:
+        for key in keys:
+            v = row.get(key)
+            if v is None:
+                continue
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    setup_labor = _num("setup_labor_rate")
+    run_labor   = _num("run_labor_rate")
+    burden      = _num("machine_burden", "hourly_rate_usd")
+    return {
+        "setup_labor":    setup_labor if setup_labor is not None else _DEFAULT_RATES["setup_technician"],
+        "run_labor":      run_labor   if run_labor   is not None else _DEFAULT_RATES["machinist"],
+        "machine_burden": burden      if burden      is not None else _DEFAULT_RATES["machine"],
+    }
 
 
 def _tool_amortised_cost(tool_id: str | None, cycle_time_min: float, catalog: dict) -> float:
@@ -396,6 +439,12 @@ async def compute_cost(
     breakdown_by_component: list[dict] = []
     grand_total = 0.0
 
+    # The flat per-lot setup (20 min) is charged ONCE for the whole assembly,
+    # on the first machined component that has routing rows. Every other
+    # component gets 0 setup. This keeps total assembly setup = 20 min/batch
+    # rather than 20 × component_count.
+    _lot_setup_charged = False
+
     for comp_idx, comp in enumerate(components):
         processes = (
             processes_per_component[comp_idx]
@@ -486,42 +535,52 @@ async def compute_cost(
         )
 
 
+        # Resolve the component's machine rate-card once. Primary machine =
+        # the first routing row that names one; per-process machining can
+        # still override with its own machine_id in the loop below.
+        primary_machine_id = next(
+            (
+                p.get("machine_id") or (p.get("machine_ref") or {}).get("machine_id")
+                for p in processes
+                if p.get("machine_id") or (p.get("machine_ref") or {}).get("machine_id")
+            ),
+            None,
+        )
+        comp_rates = _machine_rates(primary_machine_id, catalog)
+
         routing_style = any(
             p.get("labor_role") is not None or p.get("setup_min_per_lot") is not None
             for p in processes
         )
 
-        # Sum the per-op setup_min_per_lot and fixed_hrs_per_lot from the
-        # routing rows; both are lot-level, so they amortize by batch_size.
-        # In role-based mode setup is charged at setup_technician_rate
-        # (operator time at the machine) and fixed-hrs at inspector_rate
-        # (final-inspection block). In blended-rate mode both default to
-        # the blended rate so the assembly total stays consistent with the
-        # quote-shop pricing model.
-        setup_min_total = 0.0
+        # Setup is a FIXED system constant (_FIXED_LOT_SETUP_MIN, 20 min/lot)
+        # applied ONCE to the whole assembly — not summed from the agent's
+        # per-op setup_min_per_lot (which is now always 0) and not multiplied
+        # by component count. The first machined component with routing rows
+        # carries the lot setup; all others carry 0. fixed_hrs_per_lot
+        # (inspection lot hours) is still summed from the routing rows and
+        # amortized by batch_size; it is a separate, run-side quantity.
+        # Setup is charged at the machine's unified setup_labor_rate
+        # (a4_machines), collapsing to the blended rate in blended-rate mode.
         fixed_hrs_total = 0.0
+        setup_rate = blended if blended > 0 else comp_rates["setup_labor"]
         if routing_style:
             for p in processes:
-                try:
-                    setup_min_total += float(p.get("setup_min_per_lot") or 0.0)
-                except (TypeError, ValueError):
-                    pass
                 try:
                     fixed_hrs_total += float(p.get("fixed_hrs_per_lot") or 0.0)
                 except (TypeError, ValueError):
                     pass
-            setup_rate = blended if blended > 0 else setup_technician_rate
             fixed_rate = blended if blended > 0 else inspector_rate
-            setup_usd = ((setup_min_total / 60.0) * setup_rate) / batch_size
             fixed_lot_usd = (fixed_hrs_total * fixed_rate) / batch_size
         else:
-            setup_time_min = 5.0 + 2.0 * feature_count
-            setup_usd = (
-                (setup_time_min / 60.0)
-                * (machinist_rate + programmer_rate * 0.5)
-                / batch_size
-            )
             fixed_lot_usd = 0.0
+
+        if processes and not _lot_setup_charged:
+            setup_min_total = _FIXED_LOT_SETUP_MIN
+            _lot_setup_charged = True
+        else:
+            setup_min_total = 0.0
+        setup_usd = ((setup_min_total / 60.0) * setup_rate) / batch_size
 
         machining_by_process: dict[str, float] = {}
         machining_total = 0.0
@@ -552,18 +611,20 @@ async def compute_cost(
                 # Tool amortisation still applies on top (actual consumable cost).
                 labor_rate   = blended
                 machine_rate = 0.0
-            else:
+            elif role in (
+                "inspector", "assembler", "welder",
+                "setup_technician", "programmer",
+            ):
+                # Bench / desk work — not on a CNC: role labor only, no burden.
                 labor_rate   = _ROLE_RATE.get(role, machinist_rate)
-                machine_rate = _machine_rate_from_catalog(machine_id, catalog)
-                # Non-CNC roles aren't on a CNC. Deburr uses the deburr-station
-                # rate; assembly/inspection/admin/weld/packing are bench work.
-                if role == "deburrer":
-                    machine_rate = deburr_station
-                elif role in (
-                    "inspector", "assembler", "welder",
-                    "setup_technician", "programmer",
-                ):
-                    machine_rate = 0.0  # bench work / desk work — no CNC burden
+                machine_rate = 0.0
+            else:
+                # Machining (and machine-side deburr) bill the machine's unified
+                # run_labor_rate + machine_burden. Per-op machine_id wins, else
+                # the component's primary machine.
+                proc_rates   = _machine_rates(machine_id, catalog) if machine_id else comp_rates
+                labor_rate   = proc_rates["run_labor"]
+                machine_rate = proc_rates["machine_burden"]
 
             labor_cost = (ct_min / 60.0) * labor_rate
             mach_cost  = (ct_min / 60.0) * machine_rate
@@ -592,13 +653,28 @@ async def compute_cost(
             deburr_usd = 0.0
             inspection_usd = round(fixed_lot_usd, 4)
         else:
-            deburr_time_min = 0.5 + 0.1 * feature_count
-            deburr_usd = (deburr_time_min / 60.0) * (deburrer_rate + deburr_station)
-            inspection_time_min = (
-                0.25 if gdt_count <= 3
-                else 1.0 + 0.1 * gdt_count
+            # Deburr cycle time from FreeCAD when available (comp-level),
+            # else the feature-count heuristic. Billed at run_labor +
+            # machine_burden (deburr runs at the machine).
+            deburr_time_min = None
+            for _k in ("deburr_cycle_time_min", "deburr_time_min"):
+                _v = comp.get(_k)
+                if _v is not None:
+                    try:
+                        deburr_time_min = float(_v)
+                        break
+                    except (TypeError, ValueError):
+                        pass
+            if deburr_time_min is None:
+                deburr_time_min = 0.5 + 0.1 * feature_count
+            deburr_rate = (
+                blended if blended > 0
+                else comp_rates["run_labor"] + comp_rates["machine_burden"]
             )
-            inspection_usd = (inspection_time_min / 60.0) * inspector_rate
+            deburr_usd = (deburr_time_min / 60.0) * deburr_rate
+            inspection_time_min = 0.16 + 0.1 * gdt_count
+            insp_rate = blended if blended > 0 else inspector_rate
+            inspection_usd = (inspection_time_min / 60.0) * insp_rate
 
         total_usd = (
             raw_material_usd

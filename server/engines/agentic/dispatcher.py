@@ -39,16 +39,29 @@ async def dispatch(
     forced_assembly_part_type: str | None = None,
     analysis_id: str | None = None,
     model: str | None = None,
+    holdout_part_number: str | None = None,
 ) -> ProcessPlan:
     """Run the LLM coordinator and persist the session note.
 
     ``model`` selects the per-request LLM (e.g.
     ``"anthropic/claude-sonnet-4.5"`` for OpenRouter, ``None`` for the
     server default).
+
+    ``holdout_part_number`` enables eval-mode KB filtering: the
+    agent's kb_read / kb_find_analogues / kb_query_csv / kb_adopt_routing
+    tools refuse to surface the in-flight part's own KB row or page.
+    If not passed, falls back to ``A4_EVAL_HOLDOUT_PART_NUMBER`` env var
+    (so the test harness can opt into holdout without touching every
+    call site). Production runs leave both unset.
     """
+    import os
+    effective_holdout = holdout_part_number or os.environ.get(
+        "A4_EVAL_HOLDOUT_PART_NUMBER"
+    ) or None
     logger.info(
-        "agentic.dispatch: analysis_id=%s model=%s",
+        "agentic.dispatch: analysis_id=%s model=%s holdout=%s",
         analysis_id or "-", model or "<default>",
+        effective_holdout or "-",
     )
     await safe_emit(on_event, "status", {
         "title":   "Process Planner",
@@ -65,6 +78,7 @@ async def dispatch(
         forced_assembly_part_type=forced_assembly_part_type,
         analysis_id=analysis_id,
         model=model,
+        holdout_part_number=effective_holdout,
     )
     if analysis_id:
         try:

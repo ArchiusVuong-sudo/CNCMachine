@@ -73,7 +73,7 @@ class LLMSettings:
     # ── OpenRouter ─────────────────────────────────────────────────────
     openrouter_api_key: str | None = None
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
-    openrouter_default_model: str = "anthropic/claude-sonnet-4.5"
+    openrouter_default_model: str = "anthropic/claude-opus-4.7"
     openrouter_http_referer: str = "https://cncmachining.local"
     openrouter_app_title: str = "CNC Quote Engine"
     openrouter_inactivity_seconds: float = 90.0
@@ -81,8 +81,9 @@ class LLMSettings:
     openrouter_default_reasoning_effort: str = "medium"
     openrouter_max_tokens: int = 8192
     openrouter_allowed_models: tuple[str, ...] = (
-        "anthropic/claude-sonnet-4.5",
-        "anthropic/claude-opus-4.5",
+        "anthropic/claude-opus-4.7",
+        "anthropic/claude-opus-4.7-fast",
+        "anthropic/claude-sonnet-4.6",
         "openai/gpt-5",
         "openai/gpt-5-mini",
         "google/gemini-2.5-pro",
@@ -191,8 +192,9 @@ class Settings:
 
 
 _DEFAULT_OPENROUTER_ALLOWED = (
-    "anthropic/claude-sonnet-4.5",
-    "anthropic/claude-opus-4.5",
+    "anthropic/claude-opus-4.7",
+    "anthropic/claude-opus-4.7-fast",
+    "anthropic/claude-sonnet-4.6",
     "openai/gpt-5",
     "openai/gpt-5-mini",
     "google/gemini-2.5-pro",
@@ -233,7 +235,7 @@ def _llm_settings() -> LLMSettings:
             os.environ.get("OPENROUTER_BASE_URL") or "https://openrouter.ai/api/v1"
         ).rstrip("/"),
         openrouter_default_model=(
-            os.environ.get("OPENROUTER_DEFAULT_MODEL") or "anthropic/claude-sonnet-4.5"
+            os.environ.get("OPENROUTER_DEFAULT_MODEL") or "anthropic/claude-opus-4.7"
         ),
         openrouter_http_referer=(
             os.environ.get("OPENROUTER_HTTP_REFERER") or "https://cncmachining.local"

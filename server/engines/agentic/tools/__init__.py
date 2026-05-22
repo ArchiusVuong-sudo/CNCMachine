@@ -24,10 +24,22 @@ and the per-component workspace tools are bound there via factories.
 """
 from __future__ import annotations
 
-from .analogue import ANALOGUE_TOOL_SPECS, kb_adopt_routing
+from .analogue import (
+    ANALOGUE_TOOL_SPECS,
+    kb_adopt_routing,
+    make_holdout_aware_adopt_routing,
+)
 from .catalog import CATALOG_TOOL_SPECS, make_catalog_lookup
 from .compute import COMPUTE_TOOL_SPECS, compute_cycle_time
-from .kb import KB_TOOL_SPECS, kb_find_analogues, kb_query_csv, kb_read
+from .kb import (
+    KB_TOOL_SPECS,
+    kb_find_analogues,
+    kb_query_csv,
+    kb_read,
+    make_holdout_aware_kb_tools,
+    normalize_part_id,
+)
+from .memory import MEMORY_TOOL_SPECS, make_memory_tools
 from .workspace_tool import WORKSPACE_TOOL_SPECS, make_workspace_tools
 
 ALL_TOOL_SPECS: list[dict] = [
@@ -35,6 +47,7 @@ ALL_TOOL_SPECS: list[dict] = [
     *ANALOGUE_TOOL_SPECS,
     *CATALOG_TOOL_SPECS,
     *COMPUTE_TOOL_SPECS,
+    *MEMORY_TOOL_SPECS,
     *WORKSPACE_TOOL_SPECS,
 ]
 
@@ -43,13 +56,18 @@ __all__ = [
     "kb_find_analogues",
     "kb_query_csv",
     "kb_adopt_routing",
+    "make_holdout_aware_kb_tools",
+    "make_holdout_aware_adopt_routing",
+    "normalize_part_id",
     "make_catalog_lookup",
     "compute_cycle_time",
+    "make_memory_tools",
     "make_workspace_tools",
     "ALL_TOOL_SPECS",
     "KB_TOOL_SPECS",
     "ANALOGUE_TOOL_SPECS",
     "CATALOG_TOOL_SPECS",
     "COMPUTE_TOOL_SPECS",
+    "MEMORY_TOOL_SPECS",
     "WORKSPACE_TOOL_SPECS",
 ]

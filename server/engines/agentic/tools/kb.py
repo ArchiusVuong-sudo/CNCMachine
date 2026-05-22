@@ -30,6 +30,25 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 KB_ROOT = (_REPO_ROOT / "KNOWLEDGE_BASE").resolve()
 
 
+def normalize_part_id(raw: str) -> str:
+    """Normalize a part_number for holdout comparison.
+
+    Strips a trailing dash-suffix (``-001``, ``-A01``, ``-XXX``) when the
+    base stem has at least 2 tokens, so ``"839-323453"``, ``"839-323453-001"``
+    and ``"839-323453-XXX"`` all collapse to the same stem ``"839-323453"``.
+    Returns lower-case.
+    """
+    s = (raw or "").strip().lower()
+    if not s:
+        return ""
+    parts = s.split("-")
+    if len(parts) >= 3:
+        tail = parts[-1]
+        if 1 <= len(tail) <= 4 and all(c.isalnum() for c in tail):
+            return "-".join(parts[:-1])
+    return s
+
+
 def _safe_kb_path(relative_path: str) -> Path | None:
     """Resolve ``relative_path`` under :data:`KB_ROOT` or return ``None``.
 
@@ -264,6 +283,123 @@ def kb_query_csv(file: str, filters: dict | None = None, limit: int = 50) -> dic
         "rows": rows,
         "count": len(rows),
         "citation_hint": citation_hint_for_csv(file),
+    }
+
+
+def make_holdout_aware_kb_tools(
+    holdout_part_number: str | None,
+) -> dict[str, Any]:
+    """Return holdout-filtered versions of kb_read / kb_find_analogues /
+    kb_query_csv.
+
+    When ``holdout_part_number`` is set (typically by the eval harness via
+    ``A4_EVAL_HOLDOUT_PART_NUMBER`` or the agent dispatcher), the wrapped
+    tools refuse to return the in-flight part's own KB entries so the
+    evaluation actually measures generalization rather than recall on the
+    answer key.
+
+    Matching uses :func:`normalize_part_id` so ``"839-323453"`` and
+    ``"839-323453-001"`` are treated as the same part.
+
+    When ``holdout_part_number`` is empty / None, returns the plain tools
+    unchanged — production behavior.
+    """
+    holdout = normalize_part_id(holdout_part_number or "")
+    if not holdout:
+        return {
+            "kb_read": kb_read,
+            "kb_find_analogues": kb_find_analogues,
+            "kb_query_csv": kb_query_csv,
+        }
+
+    def _matches_holdout(pn: str) -> bool:
+        return normalize_part_id(pn) == holdout
+
+    def _path_targets_holdout(path: str) -> bool:
+        normalized = (path or "").replace("\\", "/").strip().lower()
+        for prefix in ("parts/", "parts/_shards/"):
+            if normalized.startswith(prefix):
+                tail = normalized[len(prefix):].rsplit("/", 1)[-1]
+                if tail.endswith(".md"):
+                    tail = tail[:-3]
+                if normalize_part_id(tail) == holdout:
+                    return True
+        return False
+
+    def _holdout_kb_read(path: str, max_chars: int = 24000) -> dict[str, Any]:
+        if _path_targets_holdout(path):
+            return {
+                "error": (
+                    f"holdout: {path!r} maps to in-flight test fixture "
+                    f"{holdout!r} — refusing to leak the answer key. "
+                    f"Use kb_find_analogues to discover OTHER analogues."
+                ),
+                "holdout_part_number": holdout,
+            }
+        return kb_read(path, max_chars)
+
+    def _holdout_kb_find_analogues(
+        part_type: str,
+        material: str,
+        n_features: int | None = None,
+        complexity: str | None = None,
+        top_k: int = 3,
+    ) -> dict[str, Any]:
+        bumped = max(1, int(top_k or 3))
+        # Over-fetch by a small margin so we can drop the holdout row and
+        # still return the caller's requested top_k.
+        raw = kb_find_analogues(part_type, material, n_features, complexity,
+                                top_k=bumped + 4)
+        if "error" in raw:
+            return raw
+        filtered: list[dict] = []
+        dropped = 0
+        for a in raw.get("analogues") or []:
+            if _matches_holdout(a.get("part_number") or ""):
+                dropped += 1
+                continue
+            filtered.append(a)
+            if len(filtered) >= bumped:
+                break
+        raw["analogues"] = filtered
+        if dropped:
+            raw["holdout_filtered"] = {
+                "holdout_part_number": holdout,
+                "dropped": dropped,
+            }
+        return raw
+
+    def _holdout_kb_query_csv(
+        file: str,
+        filters: dict | None = None,
+        limit: int = 50,
+    ) -> dict[str, Any]:
+        bumped = max(1, int(limit or 50))
+        raw = kb_query_csv(file, filters, bumped + 25)
+        if "error" in raw:
+            return raw
+        filtered: list[dict] = []
+        dropped = 0
+        for row in raw.get("rows") or []:
+            if _matches_holdout(row.get("part_number") or ""):
+                dropped += 1
+                continue
+            filtered.append(row)
+            if len(filtered) >= bumped:
+                break
+        raw["rows"] = filtered
+        raw["count"] = len(filtered)
+        if dropped:
+            raw["holdout_filtered"] = {
+                "holdout_part_number": holdout,
+                "dropped": dropped,
+            }
+        return raw
+
+    return {
+        "kb_read": _holdout_kb_read,
+        "kb_find_analogues": _holdout_kb_find_analogues,
+        "kb_query_csv": _holdout_kb_query_csv,
     }
 
 
