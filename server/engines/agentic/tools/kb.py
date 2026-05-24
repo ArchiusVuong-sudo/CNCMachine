@@ -136,6 +136,24 @@ def _material_family(material: str) -> str:
     return "unknown"
 
 
+# Fuzzy-score thresholds that classify how close an analogue is. The
+# agent uses the tier to decide copy-verbatim vs reason-and-scale:
+#   exact  — same part identity (injected by make_self_aware_find_analogues)
+#   strong — material + part_type + complexity all match (≥ 8 / 10)
+#   weak   — looser family cousin; reason from it, don't copy blindly
+_TIER_STRONG_FLOOR = 8.0
+_EXACT_MATCH_SCORE = 100.0
+
+
+def _score_to_tier(score: float) -> str:
+    """Map a fuzzy analogue score to a copy/reason match-quality tier."""
+    if score >= _EXACT_MATCH_SCORE:
+        return "exact"
+    if score >= _TIER_STRONG_FLOOR:
+        return "strong"
+    return "weak"
+
+
 def kb_find_analogues(
     part_type: str,
     material: str,
@@ -151,6 +169,12 @@ def kb_find_analogues(
       * complexity match       → +2
       * n_features within ±2   → +2 graded by distance
     Rows scoring 0 are dropped.
+
+    Each returned analogue carries a ``match_tier`` (``strong`` / ``weak``)
+    derived from its score. When the in-flight part itself exists in the
+    corpus, :func:`make_self_aware_find_analogues` injects it at rank 1 with
+    ``match_tier="exact"`` so the agent copies the known part verbatim
+    instead of re-deriving it from a looser cousin.
     """
     parts_csv = _safe_kb_path("extracted/parts.csv")
     if parts_csv is None or not parts_csv.exists():
@@ -198,6 +222,7 @@ def kb_find_analogues(
             hints.append(citation_hint_for_kb(f"parts/{pn}.md"))
         analogues_out.append({
             "score": round(s, 2),
+            "match_tier": _score_to_tier(s),
             **r,
             "citation_hints": hints,
         })
@@ -403,6 +428,97 @@ def make_holdout_aware_kb_tools(
     }
 
 
+def _lookup_part_row(part_number: str) -> dict | None:
+    """Fetch a single ``parts.csv`` row by (normalized) part_number.
+
+    Independent of the fuzzy scorer — used to surface the in-flight part's
+    OWN row even when its thin 3D feature signature would have ranked a
+    simpler cousin higher. Returns the raw CSV row dict or ``None``.
+    """
+    target = normalize_part_id(part_number or "")
+    if not target:
+        return None
+    parts_csv = _safe_kb_path("extracted/parts.csv")
+    if parts_csv is None or not parts_csv.exists():
+        return None
+    try:
+        with parts_csv.open("r", encoding="utf-8", errors="replace", newline="") as fh:
+            for row in csv.DictReader(fh):
+                if normalize_part_id(row.get("part_number") or "") == target:
+                    return row
+    except OSError:
+        return None
+    return None
+
+
+def make_self_aware_find_analogues(
+    inner_find_analogues: Any,
+    self_part_number: str | None,
+) -> Any:
+    """Wrap a ``kb_find_analogues`` fn so the in-flight part's OWN page,
+    when it exists in the corpus, is surfaced at rank 1 as an ``exact``
+    match — implementing the "copy a known part verbatim" branch.
+
+    The fuzzy scorer builds its query from a thin 3D feature signature
+    (material / part_type / n_features), which frequently ranks a simpler
+    cousin above the part's own (richer) page. This wrapper bypasses that:
+    it looks the self part up by identity and prepends it with
+    ``match_tier="exact"`` and a dominant score, plus a top-level
+    ``exact_match`` directive telling the agent to adopt it verbatim.
+
+    ``self_part_number`` MUST be ``None`` in holdout/eval mode (the harness
+    is deliberately measuring generalization, so the part's own answer key
+    must stay hidden). Production runs pass the real in-flight part number.
+    """
+    self_id = normalize_part_id(self_part_number or "")
+    if not self_id:
+        return inner_find_analogues
+
+    def _self_aware(
+        part_type: str,
+        material: str,
+        n_features: int | None = None,
+        complexity: str | None = None,
+        top_k: int = 3,
+    ) -> dict[str, Any]:
+        raw = inner_find_analogues(part_type, material, n_features,
+                                   complexity, top_k)
+        if not isinstance(raw, dict) or "error" in raw:
+            return raw
+        row = _lookup_part_row(self_part_number)
+        if row is None:
+            return raw  # novel part — not in KB; reason/scale branch
+        pn = (row.get("part_number") or "").strip()
+        hints = ["csv:extracted/parts.csv"]
+        if pn:
+            hints.append(citation_hint_for_kb(f"parts/{pn}.md"))
+        exact = {
+            "score": _EXACT_MATCH_SCORE,
+            "match_tier": "exact",
+            **row,
+            "citation_hints": hints,
+        }
+        # Drop any fuzzy duplicate of the self row, then prepend exact at #1.
+        rest = [
+            a for a in (raw.get("analogues") or [])
+            if normalize_part_id(a.get("part_number") or "") != self_id
+        ]
+        raw["analogues"] = [exact] + rest
+        raw["exact_match"] = {
+            "part_number": pn,
+            "directive": (
+                f"This part ({pn}) ALREADY EXISTS in the KB. Call "
+                f"kb_adopt_routing(part_number='{pn}') and emit that routing "
+                f"VERBATIM — copy every op and run_min_per_part exactly. Do "
+                f"NOT rescale, do NOT add ops (not even a final-inspection "
+                f"block — take it from the adopted routing), do NOT drop ops."
+            ),
+        }
+        return raw
+
+    return _self_aware
+
+
 KB_TOOL_SPECS: list[dict] = [
     {
         "type": "function",
@@ -434,7 +550,11 @@ KB_TOOL_SPECS: list[dict] = [
             "name": "kb_find_analogues",
             "description": (
                 "Rank analogue parts from extracted/parts.csv by material family, "
-                "part_type, complexity, and n_features distance."
+                "part_type, complexity, and n_features distance. Each hit carries "
+                "a 'match_tier': 'exact' (this part itself already exists in the "
+                "KB — the result also has a top-level 'exact_match' directive; "
+                "adopt it and copy VERBATIM), 'strong' (score >= 8; adopt and "
+                "copy verbatim), or 'weak' (looser cousin; reason/scale from it)."
             ),
             "parameters": {
                 "type": "object",

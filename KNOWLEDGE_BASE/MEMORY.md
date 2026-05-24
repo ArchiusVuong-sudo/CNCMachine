@@ -22,7 +22,10 @@
    cycle time from scratch (feeds × path) systematically *under*-estimates,
    because non-CNC work (admin, hardware install, bonding, weld, lot
    inspection, packing) gets dropped. Always pull a measured analogue or an
-   empirical prior (below) and scale it by the governing dim.
+   empirical prior (below). When you have a near-exact analogue (same
+   material + part_type, similar size), COPY its run-minutes VERBATIM — only
+   scale by the governing dim when the analogue differs materially in size.
+   Rescaling a near-exact match is the #1 source of cost error.
 2. **Do NOT model setup time.** Setup is a fixed system constant (a flat
    20 min/batch the pipeline applies automatically) and is **excluded**
    from cost-accuracy scoring. Emit `setup_min_per_lot: 0` on every op —
@@ -72,7 +75,8 @@ normalization):
 
 - **Turn-mill / lathe / 5-axis NC is unreliable** — observed implied k of
   0.30, 2.44, 5.27 on these classes. Do not trust a computed cycle time
-  here; price the op from a measured analogue scaled by Ø×L.
+  here; price the op from a measured analogue — copy its run verbatim when
+  near-exact, scale by Ø×L only when the analogue's size differs materially.
 - **Some "actual run" figures are lot totals, not per-piece** (one op showed
   k≈8.6). If a calibrated time is wildly above the cut-time estimate,
   suspect a multi-piece program (`-NPC-`) or a lot-vs-piece mixup and
@@ -94,18 +98,32 @@ normalization):
    anchor machining to the measured analogue, never below it.** Bottom-up
    cut-time on a few-feature turned/routed part lands ~50% low (face+turn+
    drill+partoff summed to 3–6 min when the real run is 15+). Pull the
-   closest measured analogue's machining run, scale by governing dim, and do
-   not submit a machining total below it.
-3. **Large fabricated / weldment assemblies: anchor whole-assembly run to a
-   measured assembly total scaled by piece-count — don't bottom-up sum every
-   sub-item's fab plus 3 min × every hardware piece.** Bottom-up summation
-   over-scopes large weldments (observed ~+90%). Cap per-piece hardware
-   contribution and trust the measured assembly analogue's total over the sum
-   of parts. (Caveat: do not over-correct — a multi-piece weldment whose
-   sub-items are genuinely machined still needs their machining counted;
-   collapsing them to one token op under-scopes ~−50%.)
+   closest measured analogue's machining run; copy it VERBATIM when the match
+   is near-exact, scale by governing dim only for a materially different size,
+   and never submit a machining total below the measured value.
+3. **A welded/bonded assembly_top MUST carry weld + assembly run-minutes —
+   zero is the failure mode.** The biggest miss observed on weldments is the
+   assembly_top emitting only ADMIN + PACK + INSP_FINAL and dropping the join
+   work entirely (a WLDMT scored −29% with zero weld/assembly ops). When
+   `assembly_hint.welding_required` is true, a weld op is mandatory. Anchor it:
+   `kb_adopt_routing` the closest measured weldment/assembly analogue FIRST and
+   copy its ASSY/WELD/INSP run-minutes (scaled by piece-count) rather than
+   re-deriving. Caveats on the anchor: (a) don't bottom-up sum every sub-item's
+   fab plus 3 min × every hardware piece — that over-scopes large weldments
+   (~+90%); trust the measured assembly total and cap per-piece hardware
+   contribution. (b) Don't over-correct the other way — a multi-piece weldment
+   whose sub-items are genuinely machined still needs their machining counted;
+   collapsing them to one token op under-scopes ~−50%.
 4. **Sanity-check the grand total before submitting.** The number scored is
    your full per-part run = Σ(run rows) + Σ(fixed_hrs_per_lot×60). Compare it
    to your chosen analogue's per-part run scaled by size; if it diverges
    >25%, find the offending row — usually a flat final-inspection block added
    on top (inflation) or bottom-up cut-time on a simple part (deflation).
+5. **Emit `MARK_PART` when the part is identified — the engine used to drop
+   marking entirely.** If the drawing or the adopted analogue routing shows
+   part-marking / serialize / ink-laser-rubber-stamp / silkscreen / vibro-peen,
+   emit `MARK_PART` (family MARKING) and copy the analogue's measured mark
+   run-minutes (`kb_adopt_routing` now tags these rows correctly), else floor
+   ~1–3 min/pc. Most parts have no marking → `MARKING = MISSING` is the common,
+   correct call; do not invent it. Keep it distinct from `CNCM_PROFILE_ENGRAVE`
+   (a CNC-milled engraved feature, which is MACHINING, not MARKING).

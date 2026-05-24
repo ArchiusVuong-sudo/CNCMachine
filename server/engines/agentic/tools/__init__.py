@@ -37,6 +37,7 @@ from .kb import (
     kb_query_csv,
     kb_read,
     make_holdout_aware_kb_tools,
+    make_self_aware_find_analogues,
     normalize_part_id,
 )
 from .memory import MEMORY_TOOL_SPECS, make_memory_tools
@@ -58,6 +59,7 @@ __all__ = [
     "kb_adopt_routing",
     "make_holdout_aware_kb_tools",
     "make_holdout_aware_adopt_routing",
+    "make_self_aware_find_analogues",
     "normalize_part_id",
     "make_catalog_lookup",
     "compute_cycle_time",

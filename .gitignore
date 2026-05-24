@@ -37,8 +37,16 @@
 **/*.log
 /server/runs/
 
-# === Auto-generated analysis output (session notes + full result dumps) ===
-/KNOWLEDGE_BASE/_research/notes/
+# === KB material NOT consumed by the agent at runtime ===
+# Kept locally on disk, but not shipped in the repo / customer package.
+# (agent loads only AGENT.md + MEMORY.md into the prompt, reads parts/
+#  patterns/reference/methodology via kb_read, and queries extracted/*.csv —
+#  never these.)
+/KNOWLEDGE_BASE/_research/
+/KNOWLEDGE_BASE/_tools/
+/KNOWLEDGE_BASE/extracted/_shards/
+/KNOWLEDGE_BASE/README.md
+/KNOWLEDGE_BASE/AGENT_TOOLS.md
 
 # === OS / editor ===
 **/.DS_Store

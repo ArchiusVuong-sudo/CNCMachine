@@ -56,6 +56,7 @@ _OP_CODE_PROCESS_TYPE: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
+    "MARK_PART":             "marking",
     "PACK_CLEAN":            "packaging",
     "OUTSIDE_VENDOR":        "outside_vendor",
 }
@@ -84,6 +85,7 @@ _OP_CODE_CATEGORY: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
+    "MARK_PART":             "marking",
     "PACK_CLEAN":            "packaging",
     "OUTSIDE_VENDOR":        "outside_vendor",
 }
@@ -112,6 +114,7 @@ _OP_CODE_LABOR_ROLE: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembler",
     "ASSY_WELD_PVC":         "welder",
     "ASSY_WELD_METAL":       "welder",
+    "MARK_PART":             "marker",
     "PACK_CLEAN":            "assembler",
     "OUTSIDE_VENDOR":        "outside_vendor",
 }

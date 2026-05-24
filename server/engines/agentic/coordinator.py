@@ -43,6 +43,7 @@ from ..process_mapping.cost_engine import compute_cost, fetch_shop_catalog
 from ..process_mapping.dim_tagger import tag_all_components
 from .agent import run_component_agent
 from .tool_loop import ToolLoopError
+from .tools.analogue import kb_weldment_complete_routing
 from .workspace import AnalysisWorkspace
 
 logger = logging.getLogger("cncserver.engines.agentic.coordinator")
@@ -274,6 +275,8 @@ _OP_CODE_PROCESS_TYPE: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
+    # Part marking (ink/laser/rubber-stamp/silkscreen/serialize)
+    "MARK_PART":             "marking",
     "PACK_CLEAN":            "packaging",
     "OUTSIDE_VENDOR":        "outside_vendor",
 }
@@ -302,6 +305,7 @@ _OP_CODE_CATEGORY: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
+    "MARK_PART":             "marking",
     "PACK_CLEAN":            "packaging",
     "OUTSIDE_VENDOR":        "outside_vendor",
 }
@@ -332,6 +336,7 @@ _OP_CODE_LABOR_ROLE: dict[str, str] = {
     "ASSY_SOLVENT_BOND":     "assembler",
     "ASSY_WELD_PVC":         "welder",
     "ASSY_WELD_METAL":       "welder",
+    "MARK_PART":             "marker",
     "PACK_CLEAN":            "assembler",
     "OUTSIDE_VENDOR":        "outside_vendor",   # cost engine treats this as pass-through
 }
@@ -401,6 +406,237 @@ def _coerce_tool_dimensions(tool_block: dict) -> dict[str, float] | None:
         except (TypeError, ValueError):
             continue
     return out or None
+
+
+# ---------------------------------------------------------------------------
+# Deterministic family-coverage gate
+# ---------------------------------------------------------------------------
+#
+# The dominant residual error — even with the ground-truth analogue visible —
+# is the OWNER component silently dropping a whole non-CNC family that the
+# adopted analogue actually carried (observed family biases: ADMIN −80%,
+# ASSEMBLY −52%, MARKING −100%). The copy-verbatim prompt rule attacks this,
+# but as a failure-free safety net the coordinator re-injects any owner-scope
+# op_code that (a) exists in the adopted analogue, (b) is entirely absent from
+# the agent's final routing, and (c) the agent did NOT explicitly mark as a
+# justified MISSING in `family_coverage`. We only ADD absent codes and only on
+# the owner, so this can never double-count an op the agent already emitted.
+
+# Owner-scope op_codes — emitted exactly once per job, by the owner only.
+# (ADMIN_STAGING is intentionally excluded: it has no `family_coverage` key
+# and carries no scored run-time, so re-injecting it adds noise, not value.)
+_OWNER_SCOPE_CODES: tuple[str, ...] = (
+    "ADMIN_PLANNING", "ADMIN_PRINT", "ADMIN_MAT_PICK",
+    "PACK_CLEAN", "INSP_FINAL_FIXED_LOT",
+    "ASSY_HARDWARE_INSTALL", "ASSY_SOLVENT_BOND",
+    "ASSY_WELD_PVC", "ASSY_WELD_METAL",
+    "MARK_PART",
+)
+
+# Owner-scope op_code → `family_coverage` key (agent's self-reported coverage
+# map). A family the agent flagged "MISSING" with a reason is respected.
+_OWNER_CODE_COVERAGE_KEY: dict[str, str] = {
+    "ADMIN_PLANNING":        "PLANNING",
+    "ADMIN_PRINT":           "PRINT",
+    "ADMIN_MAT_PICK":        "MATPICK",
+    "PACK_CLEAN":            "PACK",
+    "INSP_FINAL_FIXED_LOT":  "INSP",
+    "ASSY_HARDWARE_INSTALL": "ASSY",
+    "ASSY_SOLVENT_BOND":     "ASSY",
+    "ASSY_WELD_PVC":         "ASSY",
+    "ASSY_WELD_METAL":       "ASSY",
+    "MARK_PART":             "MARKING",
+}
+
+
+def _coverage_marked_missing(family_coverage: dict, code: str) -> bool:
+    """True if the agent explicitly flagged this code's family ``MISSING``."""
+    if not isinstance(family_coverage, dict):
+        return False
+    key = _OWNER_CODE_COVERAGE_KEY.get(code)
+    if not key:
+        return False
+    val = family_coverage.get(key)
+    return isinstance(val, str) and val.strip().upper() == "MISSING"
+
+
+def _adopted_op_to_routing_row(op: dict, seq: int, machine_id: str | None) -> dict:
+    """Project one adopted-analogue op into a routing row (run-time verbatim)."""
+    code = (op.get("op_code") or "").upper()
+    run_min = _f(op.get("run_min_per_part"))
+    fixed_hrs = _f(op.get("fixed_hrs_per_lot"))
+    return {
+        "sequence": seq,
+        "op_code": code,
+        "description": op.get("description") or "(re-injected from adopted analogue)",
+        "process_type": _process_type_for_op_code(code),
+        "category": _category_for_op_code(code),
+        "labor_role": _labor_role_for_op_code(code),
+        "operation_type": _operation_type_for_op_code(code),
+        "setup_min_per_lot": 0.0,
+        "run_min_per_part": run_min,
+        "cycle_time_min": run_min,
+        "fixed_hrs_per_lot": fixed_hrs or None,
+        "machine_id": machine_id,
+        "machine_name": None,
+        "tool_ids": [],
+        "tool_type": None,
+        "tool_dimensions": None,
+        "feature_ids": [],
+        "notes": "auto-injected: owner-scope family present in adopted analogue but dropped by agent",
+    }
+
+
+def _inject_dropped_owner_families(
+    routing_rows: list[dict],
+    adopted_routings: list[dict],
+    family_coverage: dict,
+    *,
+    is_owner: bool,
+    machine_id: str | None,
+) -> tuple[list[dict], list[str]]:
+    """Re-inject owner-scope ops the agent dropped but the analogue carried.
+
+    Returns ``(routing_rows, injected_codes)``. Only the owner re-injects,
+    only owner-scope op_codes, only codes entirely absent from the final
+    routing, and only when not flagged a justified ``MISSING``. Run-times are
+    copied verbatim from the analogue.
+    """
+    if not is_owner or not adopted_routings:
+        return routing_rows, []
+
+    present_codes = {(r.get("op_code") or "").upper() for r in routing_rows}
+    next_seq = max((int(r.get("sequence") or 0) for r in routing_rows), default=0) + 10
+
+    injected_codes: list[str] = []
+    seen: set[str] = set()
+    for adopted in adopted_routings:
+        for op in adopted.get("operations") or []:
+            if not isinstance(op, dict):
+                continue
+            code = (op.get("op_code") or "").upper()
+            if code not in _OWNER_SCOPE_CODES:
+                continue
+            if code in present_codes or code in seen:
+                continue
+            if _coverage_marked_missing(family_coverage, code):
+                continue
+            run_min = _f(op.get("run_min_per_part"))
+            fixed_hrs = _f(op.get("fixed_hrs_per_lot"))
+            if run_min <= 0 and fixed_hrs <= 0:
+                continue  # nothing scoreable to add
+            routing_rows.append(_adopted_op_to_routing_row(op, next_seq, machine_id))
+            seen.add(code)
+            injected_codes.append(code)
+            next_seq += 10
+
+    if injected_codes:
+        routing_rows.sort(key=lambda r: r.get("sequence", 0))
+    return routing_rows, injected_codes
+
+
+# ---------------------------------------------------------------------------
+# Exact-identity weldment over-decomposition gate
+# ---------------------------------------------------------------------------
+#
+# A multi-item weldment KB page prices the WHOLE part on one sheet: the
+# top-assembly routing PLUS one representative machining routing per sub-item
+# *type* (0042-83323 de-dupes its four physical PVC solids into "Item 1" +
+# "Items 2,3,4,5" → assembly_complete = 217.5). Engine 2 instead decomposes the
+# STEP into one solid per physical sub-item; each solid then runs its own agent
+# and adopts a cousin routing, so the weldment double-counts its machining
+# (observed: 0042-83323 scored +62%, four redundant sub-item routings).
+#
+# When the in-flight part is itself a KNOWN weldment (its own parts/<pn>.md has
+# a `## Sub-item routings` section), we copy that page's complete routing onto
+# the assembly_top owner and SUPPRESS the separately decomposed sub-item solids.
+# This is the assembly-scope twin of the Pass-1 exact-identity copy branch:
+# keyed on the part_number and DISABLED under holdout (so eval still measures
+# novel-part reasoning, never the answer key). It fires for 0042-83323 only;
+# single-base weldments like 839-323453-001 (no sub-item routings on the page)
+# return None from the helper and the gate stays inert.
+
+_SUBSUMED_SUB_ITEM_ROLES: frozenset[str] = frozenset({"machining", "sub_item_sheet"})
+
+
+def _apply_weldment_gate(
+    components: list[dict],
+    processes_per_component: list[list[dict]],
+    *,
+    self_part_number: str | None,
+    holdout_part_number: str | None,
+) -> dict | None:
+    """Adopt a known weldment's complete routing; suppress decomposed sub-items.
+
+    Mutates ``processes_per_component`` and ``components`` in place. Returns a
+    summary dict when the gate fires, else ``None`` (production-only; inert
+    under holdout, for single-base parts, and when no ``assembly_top`` exists).
+    """
+    if holdout_part_number:        # eval: measure reasoning, not the answer key
+        return None
+    pn = (self_part_number or "").strip()
+    if not pn:
+        return None
+
+    top_idx = next(
+        (i for i, c in enumerate(components)
+         if (c.get("component_role") or "").lower() == "assembly_top"),
+        None,
+    )
+    if top_idx is None:
+        return None
+
+    complete = kb_weldment_complete_routing(pn)
+    if not complete:               # missing page or single-base part → inert
+        return None
+
+    owner_agentic = components[top_idx].get("agentic") or {}
+    machine_id = owner_agentic.get("chosen_machine_id")
+    complete_rows = [
+        _adopted_op_to_routing_row(op, (j + 1) * 10, machine_id)
+        for j, op in enumerate(complete.get("operations") or [])
+        if isinstance(op, dict)
+    ]
+    if not complete_rows:
+        return None
+
+    # Suppress the separately decomposed sub-item solids — their machining is
+    # already inside the adopted complete routing.
+    suppressed: list[int] = []
+    for i, c in enumerate(components):
+        if i == top_idx or i >= len(processes_per_component):
+            continue
+        role = (c.get("component_role") or "").lower()
+        if role in _SUBSUMED_SUB_ITEM_ROLES and processes_per_component[i]:
+            processes_per_component[i] = []
+            ag = dict(c.get("agentic") or {})
+            ag["suppressed_by_weldment_gate"] = True
+            ag["suppress_reason"] = (
+                f"machining subsumed by exact-identity weldment page {pn} "
+                f"(assembly_complete adopted on owner idx {top_idx})"
+            )
+            c["agentic"] = ag
+            suppressed.append(i)
+
+    # Replace the owner's routing with the page's complete (top + sub-items).
+    processes_per_component[top_idx] = complete_rows
+    ag = dict(components[top_idx].get("agentic") or {})
+    ag["weldment_gate_adopted_part_number"] = pn
+    ag["weldment_gate_role"] = "assembly_complete"
+    ag["weldment_gate_suppressed_indices"] = suppressed
+    components[top_idx]["agentic"] = ag
+
+    scored_min = sum(
+        _f(r.get("run_min_per_part")) + _f(r.get("fixed_hrs_per_lot")) * 60.0
+        for r in complete_rows
+    )
+    return {
+        "owner_index": top_idx,
+        "adopted_part_number": pn,
+        "complete_op_count": len(complete_rows),
+        "scored_min_per_part": round(scored_min, 2),
+        "suppressed_indices": suppressed,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -555,10 +791,34 @@ async def _run_one_component(
     # still decorate the component with what the agent produced so the
     # cost engine and SSE surface see the real plan.
     projection_error: str | None = None
+    injected_codes: list[str] = []
     try:
         routing_rows, manufacturing_processes = _build_routing_rows(
             agent_out, default_machine_id=agent_out.get("chosen_machine_id"),
         )
+        # Deterministic family-coverage gate: if THIS component owns the
+        # assembly-scope ops and the agent silently dropped a family the
+        # adopted analogue carried, re-inject it (run-time verbatim).
+        comp_role = (component.get("component_role") or "").lower()
+        if assembly_top_present:
+            is_owner = comp_role == "assembly_top"
+        elif is_only_planned_component:
+            is_owner = True
+        else:
+            is_owner = comp_idx == 0
+        routing_rows, injected_codes = _inject_dropped_owner_families(
+            routing_rows,
+            agent_out.get("_adopted_routings") or [],
+            agent_out.get("family_coverage") or {},
+            is_owner=is_owner,
+            machine_id=agent_out.get("chosen_machine_id"),
+        )
+        if injected_codes:
+            logger.info(
+                "agentic: component %d (%s) — re-injected dropped owner-scope "
+                "families from adopted analogue: %s",
+                comp_idx, component.get("name"), injected_codes,
+            )
     except Exception as exc:  # noqa: BLE001
         logger.exception(
             "agentic: component %d (%s) — projection failed: %s",
@@ -585,6 +845,8 @@ async def _run_one_component(
         "resumed_from_workspace":   agent_out.get("resumed_from_workspace"),
         "workspace_files_at_start": agent_out.get("workspace_files_at_start"),
         "projection_error":         projection_error,
+        "family_coverage":          agent_out.get("family_coverage") or {},
+        "reinjected_owner_codes":   injected_codes,
     }
     updated["manufacturing_processes"] = manufacturing_processes
     error_event: dict | None = None
@@ -881,6 +1143,34 @@ async def run(
             time.monotonic() - t_workers, len(components),
             sum(len(p) for p in processes_per_component),
         )
+
+        # ── Exact-identity weldment over-decomposition gate ────────────────
+        # If the in-flight part is itself a known multi-item weldment, copy its
+        # page's complete routing onto the assembly_top owner and suppress the
+        # separately decomposed sub-item solids (otherwise their machining is
+        # double-counted). Production-only — inert under holdout.
+        try:
+            gate = _apply_weldment_gate(
+                components, processes_per_component,
+                self_part_number=drawing_dict.get("part_number"),
+                holdout_part_number=holdout_part_number,
+            )
+        except Exception as exc:  # noqa: BLE001 — never let the gate kill the run
+            logger.warning("agentic: weldment gate failed (skipped): %s", exc)
+            gate = None
+        if gate:
+            logger.info(
+                "agentic: weldment over-decomposition gate FIRED — adopted "
+                "assembly_complete(%s) %d ops (%.1f scored min/part) on idx %d; "
+                "suppressed sub-item solids %s",
+                gate["adopted_part_number"], gate["complete_op_count"],
+                gate["scored_min_per_part"], gate["owner_index"],
+                gate["suppressed_indices"],
+            )
+            await safe_emit(on_event, "tool_result", {
+                "tool": "weldment_decomposition_gate",
+                "result": gate,
+            })
 
         # ── Cost engine ────────────────────────────────────────────────────
         await safe_emit(on_event, "tool_call", {

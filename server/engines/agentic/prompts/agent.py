@@ -49,12 +49,15 @@ OUTPUT_SCHEMA: dict[str, Any] = {
                 # Assembly / weld / pack — for assembly_top components
                 "ASSY_HARDWARE_INSTALL | ASSY_SOLVENT_BOND | "
                 "ASSY_WELD_PVC | ASSY_WELD_METAL | "
+                # Part marking (ink/laser/rubber-stamp/silkscreen/serialize —
+                # a bench secondary op, NOT the CNC feature CNCM_PROFILE_ENGRAVE)
+                "MARK_PART | "
                 "PACK_CLEAN | OUTSIDE_VENDOR"
             ),
             "operation_type": (
                 "Roughing | Finishing | null — only set for material-removal ops; "
                 "null for DRILL/TAP/DEBUR/INSPECT/CHAMFER/FACE/TURN/PARTOFF/THREAD/"
-                "ADMIN_*/ASSY_*/INSP_*/PACK_*/OUTSIDE_VENDOR"
+                "ADMIN_*/ASSY_*/MARK_PART/INSP_*/PACK_*/OUTSIDE_VENDOR"
             ),
             "description": "one short sentence",
             "feature_ids": ["<feature id from component.features>", "..."],
@@ -133,9 +136,10 @@ OUTPUT_SCHEMA: dict[str, Any] = {
     ),
     "family_coverage": (
         "object mapping each of {PLANNING, PRINT, MATPICK, MACHINING, DEBUR, "
-        "ASSY, INSP, PACK} to either a comma-separated list of operation "
-        "sequence numbers covering that family, or the string \"MISSING\". "
-        "Required — see Pre-submission op-family checklist in the user message."
+        "ASSY, MARKING, INSP, PACK} to either a comma-separated list of "
+        "operation sequence numbers covering that family, or the string "
+        "\"MISSING\". Required — see Pre-submission op-family checklist in the "
+        "user message."
     ),
     "family_coverage_reasons": (
         "object — for each family marked MISSING above, a one-line reason. "
@@ -291,14 +295,14 @@ echoed in `parameters_per_operation` with its feeds/speeds set.
 
 ## Pre-submission op-family checklist
 
-Before you emit `final`, walk this 8-family checklist. For each family,
+Before you emit `final`, walk this 9-family checklist. For each family,
 either point to the `sequence` number(s) you emit for it, or — only if
 truly inapplicable — set `family_coverage[<family>] = "MISSING"` AND
 write a one-line reason in `family_coverage_reasons[<family>]`. A
 `MISSING` entry is allowed, but must be justified; silent omissions are
 the most common v3 failure mode.
 
-The 8 families (customer shop convention — see
+The 9 families (customer shop convention — see
 `KNOWLEDGE_BASE/patterns/setup_and_material.md` §4a):
 
   1. **PLANNING**  → `ADMIN_PLANNING`
@@ -312,11 +316,25 @@ The 8 families (customer shop convention — see
                      hardware (insert, helicoil, dowel pin, captive screw,
                      PEM/press insert, standoff), emit
                      `ASSY_HARDWARE_INSTALL` with run ≈2–4 min per piece
-                     (minimum 6).
-  7. **INSP**      → `INSP_COMPONENT` (inspect this part) and
+                     (minimum 6). **If `component_role == "assembly_top"`**:
+                     first `kb_adopt_routing` a measured weldment/assembly
+                     analogue and carry its ASSY/WELD run-minutes; if
+                     `assembly_hint.welding_required` is true you MUST emit a
+                     weld op (`ASSY_WELD_PVC`/`ASSY_WELD_METAL`) — it may NOT
+                     be `MISSING`. A welded assembly that ships with zero
+                     weld/assembly run-minutes is the dominant under-quote.
+  7. **MARKING**   → `MARK_PART` — emit ONLY when the part is marked for
+                     identification: part-marking, serialization, ink/laser/
+                     rubber-stamp, silkscreen, or vibro-peen. If your adopted
+                     analogue routing has a part-mark / stamp / engrave-ID
+                     row, KEEP it as `MARK_PART`. Most parts have no marking
+                     op → `MISSING` is the common, acceptable case here.
+                     (Do NOT confuse with `CNCM_PROFILE_ENGRAVE`, which is a
+                     CNC-milled engraved feature counted under MACHINING.)
+  8. **INSP**      → `INSP_COMPONENT` (inspect this part) and
                      `INSP_FINAL_FIXED_LOT` (always — the lot final-
                      inspection block, owned by the assembly_top owner).
-  8. **PACK**      → `PACK_CLEAN`
+  9. **PACK**      → `PACK_CLEAN`
 
 Default expectation: every shipped part touches every family. Common
 genuine `MISSING` cases (acceptable justifications):
@@ -326,6 +344,8 @@ genuine `MISSING` cases (acceptable justifications):
   the assembly_top owner — see the assembly-scope-ops rule).
 - ASSY on a singleton with **zero** BOM hardware and no inserts/dowels.
   (If ANY installed hardware is present, ASSY is required — not MISSING.)
+- MARKING on any part whose drawing/analogue routing shows no part-mark,
+  serialize, stamp, or silkscreen step (the common case).
 - DEBUR on a bought-stock part with no machined edges (rare).
 
 **Run-time reminder (before `final`):** `setup_min_per_lot` is a fixed
@@ -340,10 +360,11 @@ Emit the checklist as two top-level fields next to `rationale`:
 "family_coverage": {{
   "PLANNING": "10", "PRINT": "20", "MATPICK": "30",
   "MACHINING": "40,50", "DEBUR": "60",
-  "ASSY": "MISSING", "INSP": "70", "PACK": "80"
+  "ASSY": "MISSING", "MARKING": "MISSING", "INSP": "70", "PACK": "80"
 }},
 "family_coverage_reasons": {{
-  "ASSY": "Singleton PEEK spacer, BOM has no hardware"
+  "ASSY": "Singleton PEEK spacer, BOM has no hardware",
+  "MARKING": "Drawing specifies no part-marking or serialization"
 }}
 ```
 

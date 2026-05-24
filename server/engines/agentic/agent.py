@@ -28,6 +28,7 @@ from .tools import (
     make_holdout_aware_adopt_routing,
     make_holdout_aware_kb_tools,
     make_memory_tools,
+    make_self_aware_find_analogues,
     make_workspace_tools,
 )
 from .workspace import ComponentWorkspace
@@ -72,6 +73,7 @@ def _build_tools(
     catalog: dict | None,
     workspace: ComponentWorkspace | None,
     holdout_part_number: str | None = None,
+    self_part_number: str | None = None,
 ) -> dict[str, Callable[..., Any]]:
     """Wire the per-analysis catalog + per-component workspace into the tool set.
 
@@ -85,8 +87,21 @@ def _build_tools(
     (``memory_update``) are likewise frozen in holdout mode so the agent
     can't mutate its own prompt-loaded memory mid-measurement. Production
     runs pass ``None`` and get the plain, live tools.
+
+    When ``self_part_number`` is set (production, holdout OFF), the
+    ``kb_find_analogues`` tool becomes identity-aware: if the in-flight
+    part already exists in the KB it is surfaced at rank 1 as an ``exact``
+    match so the agent copies the known routing verbatim instead of
+    re-deriving it from a looser cousin. It MUST stay ``None`` in holdout
+    mode (the eval is deliberately measuring novel-part reasoning).
     """
     kb_tools = make_holdout_aware_kb_tools(holdout_part_number)
+    # Layer identity-awareness ON TOP of holdout-awareness. In holdout mode
+    # self_part_number is None, so this is a no-op and the answer key stays
+    # hidden; in production it floats the in-flight part's own page to #1.
+    kb_tools["kb_find_analogues"] = make_self_aware_find_analogues(
+        kb_tools["kb_find_analogues"], self_part_number
+    )
     adopt_routing = make_holdout_aware_adopt_routing(holdout_part_number)
     return {
         **kb_tools,
@@ -149,13 +164,30 @@ async def run_component_agent(
     component_index = component.get("component_index")
     component_name = component.get("name") or f"component_{component_index}"
     system_prompt = build_system_prompt()
-    tools = _build_tools(catalog, workspace, holdout_part_number=holdout_part_number)
+    # Identity for the "copy a known part verbatim" branch. Prefer the
+    # component's own BOM part number, fall back to the drawing's. Disabled
+    # under holdout (the eval must not let the agent copy its answer key).
+    self_part_number = (
+        None if holdout_part_number
+        else (component.get("part_number") or drawing.get("part_number"))
+    )
+    tools = _build_tools(
+        catalog, workspace,
+        holdout_part_number=holdout_part_number,
+        self_part_number=self_part_number,
+    )
     if holdout_part_number:
         logger.info(
             "agent: component %s — HOLDOUT mode (part_number=%s "
             "filtered from kb_read / kb_find_analogues / kb_query_csv / "
             "kb_adopt_routing)",
             component_name, holdout_part_number,
+        )
+    elif self_part_number:
+        logger.info(
+            "agent: component %s — identity-aware (self_part_number=%s; "
+            "exact KB match will be surfaced at rank 1 for verbatim copy)",
+            component_name, self_part_number,
         )
 
     # Resume hint: enumerate any pre-existing workspace files so the
@@ -218,10 +250,15 @@ async def run_component_agent(
         "total_run_min_per_part":    plan.get("total_run_min_per_part"),
         "setup_min_per_lot":         plan.get("setup_min_per_lot"),
         "rationale":                 plan.get("rationale"),
+        "family_coverage":           plan.get("family_coverage") or {},
+        "family_coverage_reasons":   plan.get("family_coverage_reasons") or {},
         "iterations":                run["iterations"],
         "tool_call_count":           len(run["tool_calls"]),
         "resumed_from_workspace":    bool(workspace_files),
         "workspace_files_at_start":  workspace_files,
+        # Full adopted-analogue routings (pre-truncation) for the
+        # coordinator's deterministic family-coverage gate.
+        "_adopted_routings":         run.get("adopted_routings") or [],
     }
 
 

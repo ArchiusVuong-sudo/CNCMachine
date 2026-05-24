@@ -29,8 +29,12 @@ agreement ~25%; investigate if not.
 
 ## Finding analogues
 `parts/INDEX.md` (filter by material, part_type, Simple/Complex, size, features) →
-open the few closest `parts/<part>.md` → reuse their measured tools/params/time/cost,
-scaled by the differing governing dimension (volume, depth, #features, qty).
+open the few closest `parts/<part>.md` → reuse their measured tools/params/time/cost.
+When the top hit is a near-exact match (same material + part_type, similar size), COPY
+its run-minutes VERBATIM — do NOT rescale. Rescaling a near-exact analogue is the #1
+source of cost error. Only scale by the differing governing dimension (volume, depth,
+#features, qty) when the analogue differs materially in size, and never scale a
+run-bearing op below the measured value.
 
 ## Hard rules
 - Setup is per-job, amortized over qty — show its per-piece impact explicitly.

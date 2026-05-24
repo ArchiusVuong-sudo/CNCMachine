@@ -102,14 +102,25 @@ Each component the coordinator hands you carries a `component_role`:
   - **sub_item_sheet**  — plastic sheet stock cut on a router. Lead with
                           a router machine class and PROFILE / HOLES ops.
   - **assembly_top**    — synthetic placeholder for the welded/bonded
-                          assembly itself. Look at `assembly_hint.sub_items`
-                          and `assembly_hint.hardware_items`; emit ADMIN_*,
-                          ASSY_HARDWARE_INSTALL, ASSY_SOLVENT_BOND,
-                          ASSY_WELD_PVC / ASSY_WELD_METAL (when
-                          `welding_required` is true), INSP_FINAL_FIXED_LOT,
-                          and PACK_CLEAN ops. There is no per-feature
-                          machining — the operations describe handling
-                          the whole assembly across a lot.
+                          assembly itself. There is no per-feature machining;
+                          the operations describe joining + handling the whole
+                          assembly across a lot. Your FIRST move MUST be
+                          `kb_find_analogues` + `kb_adopt_routing` on a measured
+                          weldment/assembly analogue and take its ASSY / WELD /
+                          INSP run-minutes as the anchor — do NOT reason them
+                          from scratch (that is exactly where they get dropped
+                          to zero). Read `assembly_hint`:
+                            * emit ADMIN_*, INSP_FINAL_FIXED_LOT, PACK_CLEAN;
+                            * if `assembly_hint.welding_required` is true you
+                              MUST emit a weld op (`ASSY_WELD_PVC` for PVC, else
+                              `ASSY_WELD_METAL`) — a welded assembly with no
+                              weld op is a hard error, never `MISSING`;
+                            * emit `ASSY_SOLVENT_BOND` when `bonding_required`;
+                            * emit `ASSY_HARDWARE_INSTALL` scaled by
+                              `assembly_hint.hardware_count`.
+                          Carry each band's run-minutes from the adopted
+                          analogue (scaled by sub-item / piece count), not a
+                          guessed few minutes.
 
 Components classified `hardware` or `outside_vendor` are short-circuited
 by the coordinator and never reach you — you don't have to model them.
@@ -124,12 +135,29 @@ When everything fits together (machine + operations + tools + parameters
 Suggested mental order — not enforced, just a sensible default:
 
   1. Look at the component, its features, and the material.
-  2. **Analogue-first**: call `kb_find_analogues` with material + part_type.
-     If the top hit scores ≥ 5 (material + part_type match), call
-     `kb_adopt_routing(part_number=<top hit>)` and take that routing as your
-     starting point. Adjust per-op cycle times by scaling against feature
-     counts / governing dim ratio, but KEEP the op sequence and the
-     non-CNC ops (admin / assembly / weld / inspection / pack) intact.
+  2. **Analogue-first — let the match tier decide copy vs. reason**: call
+     `kb_find_analogues` with material + part_type. Every hit carries a
+     `match_tier`. Branch strictly on it:
+
+     * **`exact`** (this part ALREADY EXISTS in the KB — the result also
+       carries a top-level `exact_match` directive): you are RE-QUOTING a
+       known part. Call `kb_adopt_routing(part_number=<that part>)` and emit
+       its routing **VERBATIM** — copy every op and every `run_min_per_part`
+       exactly. Add NOTHING (not even a final-inspection block — take the
+       inspection op from the adopted routing), drop NOTHING, rescale
+       NOTHING. This is a copy, not an estimate. Stop reasoning about
+       cycle time once you've adopted it.
+     * **`strong`** (score ≥ 8 — same material, part_type, and complexity):
+       adopt it and COPY every `run_min_per_part` VERBATIM — do NOT rescale
+       by feature counts or a governing-dim ratio (that rescaling is the #1
+       source of cost error). KEEP the op sequence and the non-CNC ops
+       (admin / assembly / weld / inspection / pack) intact, numbers and
+       all. Only add ONE new op — with your own estimate — if THIS part has
+       a feature the analogue genuinely lacks.
+     * **`weak` / no good hit** (this is a NOVEL part): there is no twin to
+       copy. Reason from the PATTERNS in the closest analogues — borrow
+       their op structure and per-feature rates, then scale to this part's
+       features. This is the only branch where you estimate from scratch.
   3. Pick the machine class and the top-3 actual machines from the shop catalog.
   4. Lay out the operation sequence so every feature is covered.
   5. Choose tools per CNC operation.
@@ -237,8 +265,18 @@ These are non-negotiable. Violations are rejected downstream.
       orthogonal hole families, contoured 3D surfaces) → **vmc_4_axis** /
       **vmc_5_axis**.
     * Otherwise → **vmc_3_axis**.
-  After picking the class, THEN call `catalog_lookup` to rank the top 3
-  actual shop machines within that class.
+  After picking the class, THEN call `catalog_lookup(table="machines")` to
+  rank the top 3 actual shop machines. **The `machines` table has NO
+  `machine_class` column** — your class names (`vmc_3_axis`, etc.) are a
+  planner taxonomy, not catalog columns. The real column is `machine_type`
+  with values `3_axis_mill`, `4_axis_mill`, `5_axis_mill`, `router`,
+  `mill_turn`, `lathe` (plus a `capability` field: `3-axis` / `4-axis` /
+  `5-axis`). Map your class → `machine_type` and filter on THAT, e.g.
+  `catalog_lookup(table="machines", filters={"machine_type":{"contains":"3_axis"}})`.
+  The catalog is small (~30 machines) — if a filter returns nothing, just
+  call `catalog_lookup(table="machines")` with no filter and pick from the
+  full list. Do NOT loop retrying a `machine_class` filter; it will always
+  return zero rows.
 
 - **`operation_type`**: set to `"Roughing"` for CNCM_ROUGH / CNCT_*_ROUGH,
   `"Finishing"` for CNCM_FINISH / CNCT_*_FINISH, and `null` for DRILL,
@@ -272,7 +310,12 @@ These are non-negotiable. Violations are rejected downstream.
 
     * If `assembly_top_present == true` AND your `component_role ==
       "assembly_top"`  →  YOU are the owner; emit every applicable
-      assembly-scope op above.
+      assembly-scope op above. Anchor their run-minutes to a measured
+      assembly analogue via `kb_adopt_routing` — never reason them from
+      scratch. If `assembly_hint.welding_required` is true you MUST emit a
+      weld op (`ASSY_WELD_PVC` / `ASSY_WELD_METAL`); a welded assembly with
+      no weld op is rejected and may NOT be marked `MISSING`. Likewise emit
+      `ASSY_HARDWARE_INSTALL` whenever `assembly_hint.hardware_count > 0`.
     * If `assembly_top_present == true` AND your `component_role !=
       "assembly_top"`  →  you are a sub-component; **DO NOT emit ANY of
       the assembly-scope op_codes**. Stay focused on your per-component
@@ -296,8 +339,12 @@ These are non-negotiable. Violations are rejected downstream.
 
 - **`fixed_hrs_per_lot`** — set ONLY on INSP_FINAL_FIXED_LOT (final-
   inspection lot block). Customer quote sheets list this as `FixedHrs`.
-  A typical final-inspection block is ~**0.25 hr** (15 min). Leave null
-  on every op except INSP_FINAL_FIXED_LOT.
+  **When you adopted an `exact` or `strong` analogue, take the inspection
+  op (and its `fixed_hrs_per_lot`) FROM the adopted routing verbatim — do
+  NOT synthesize an extra block on top.** Only in the `weak`/novel branch,
+  when the analogue carries no final-inspection op at all, add one yourself
+  at a typical ~**0.25 hr** (15 min). Leave `fixed_hrs_per_lot` null on
+  every op except INSP_FINAL_FIXED_LOT.
 
 - **Tool Type vocabulary** — exact strings, match case, no synonyms:
   `End Mill`, `Chamfer Mill`, `Ball Mill`, `Face Mill`, `Drill`,
@@ -329,7 +376,9 @@ These are non-negotiable. Violations are rejected downstream.
 - **Lathe / 5-axis / turn-mill caveat**: `compute_cycle_time` returns
   `source="calibrated_unreliable_prefer_analogue"` for those classes.
   In that case, override `cycle_time_min_calibrated` with the analogue's
-  measured `run_min_pc` scaled by the governing-dim ratio.
+  measured `run_min_pc` COPIED VERBATIM — do NOT scale it by a
+  governing-dim ratio. The measured shop time already reflects the part's
+  size; rescaling it introduces error rather than removing it.
 """
 
 

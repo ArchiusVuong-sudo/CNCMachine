@@ -86,11 +86,10 @@ families instead (MACHINING, DEBUR, ASSY, INSP_COMPONENT).
 
 ## 4b. ADD-work floors that are silently dropped (one-directional under-bias)
 
-The agent's reasoned-from-CNC-path estimate systematically *drops* two
-non-CNC work bands that the customer always bills. These are
-**one-directional** (always under, never over), so adding them only
-helps the bias. They are floors, not multipliers — never scale an
-existing op, add the missing op.
+The agent's reasoned-from-CNC-path estimate systematically *drops*
+non-CNC work bands that the customer bills. These are **one-directional**
+(always under, never over), so adding them only helps the bias. They are
+floors, not multipliers — never scale an existing op, add the missing op.
 
 ### 4b-i. Installed hardware → `ASSY_HARDWARE_INSTALL` is mandatory
 If **installed hardware** is present — helicoil, keensert, speedsert,
@@ -135,6 +134,23 @@ work. Detect and floor it:
   hardware install scaled by its insert count, and the weld/bond op that
   joins it. Anchor each band to the nearest single-item analogue rather
   than to the (under-sized) modeled-solid volume.
+
+### 4b-iii. Part marking → `MARK_PART` when the part is identified
+If the drawing or the adopted analogue routing calls for **part marking,
+serialization, ink / laser / rubber-stamp, silkscreen, or vibro-peen**,
+that is a bench secondary op the CNC path never captures. It is the
+MARKING family — distinct from `CNCM_PROFILE_ENGRAVE` (a CNC-milled
+engraved *feature*, which stays under MACHINING).
+
+- Emit `MARK_PART` (family MARKING) **only** when marking is actually
+  specified — most parts have none, so `MARKING = MISSING` is the common,
+  acceptable case. Do not invent it.
+- When an adopted analogue's routing has a mark / stamp / engrave-ID row,
+  KEEP it (`kb_adopt_routing` now tags it `MARK_PART`); copy its measured
+  run-min rather than re-deriving. Absent a measured row, floor it at
+  **≈1–3 min/pc** (a quick stamp/laser pass).
+- One-directional: the engine historically emitted **zero** marking ops,
+  so any genuinely-marked part was fully dropped (−100% on that family).
 
 ## 5. Estimating a NEW part — material + run checklist
 1. Stock form+size from drawing/feature-rec → volume → Material/pc via §2 (anchor

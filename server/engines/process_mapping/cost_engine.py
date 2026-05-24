@@ -107,6 +107,7 @@ _DEFAULT_RATES = {
     "setup_technician":45.0,
     "welder":          55.0,
     "assembler":       40.0,
+    "marker":          35.0,   # bench part-marking (ink/laser/stamp/silkscreen)
     "machine":         45.0,   # generic CNC machine hourly rate
     "deburr_station":  15.0,   # bench/pedestal deburr tools (Slide 8: deburr uses machine rate too)
 }
@@ -397,6 +398,7 @@ async def compute_cost(
     inspector_rate        = labor.get("inspector",        _DEFAULT_RATES["inspector"])
     assembler_rate        = labor.get("assembler",        _DEFAULT_RATES["assembler"])
     welder_rate           = labor.get("welder",           _DEFAULT_RATES["welder"])
+    marker_rate           = labor.get("marker",           _DEFAULT_RATES["marker"])
     setup_technician_rate = labor.get("setup_technician", _DEFAULT_RATES["setup_technician"])
     deburr_station        = labor.get("deburr_station",   _DEFAULT_RATES["deburr_station"])
 
@@ -408,6 +410,7 @@ async def compute_cost(
         "inspector":        inspector_rate,
         "assembler":        assembler_rate,
         "welder":           welder_rate,
+        "marker":           marker_rate,
         "setup_technician": setup_technician_rate,
     }
 
@@ -612,7 +615,7 @@ async def compute_cost(
                 labor_rate   = blended
                 machine_rate = 0.0
             elif role in (
-                "inspector", "assembler", "welder",
+                "inspector", "assembler", "welder", "marker",
                 "setup_technician", "programmer",
             ):
                 # Bench / desk work — not on a CNC: role labor only, no burden.

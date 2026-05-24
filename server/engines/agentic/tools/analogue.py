@@ -38,7 +38,18 @@ _OP_CODE_KEYWORDS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"weld(?:ing)?.*pvc|pvc.*weld",                  re.I), "ASSY_WELD_PVC"),
     (re.compile(r"weld(?:ing)?",                                 re.I), "ASSY_WELD_METAL"),
     (re.compile(r"bond",                                         re.I), "ASSY_SOLVENT_BOND"),
-    (re.compile(r"install\s+hardware|hardware\s+install|insert", re.I), "ASSY_HARDWARE_INSTALL"),
+    # Hardware-install ops. Includes named fasteners that carry no generic
+    # "install hardware"/"insert" token (helicoil, trisert/speedsert, keensert,
+    # captive screw) plus "<fastener> install" / "install <fastener>" phrasings.
+    # Unambiguous hardware names match anywhere; bare dowel/pin/screw/stud only
+    # count as assembly when paired with an install verb (so "drill dowel holes"
+    # stays a machining op).
+    (re.compile(r"install\s+hardware|hardware\s+install|\binsert\b|"
+                r"helicoil|heli-coil|tri-?sert|speed-?sert|keen-?sert|pem-?sert|"
+                r"captive\s*screw|"
+                r"install\b.*\b(?:dowel|pin|screw|stud|standoff|fastener|bushing)|"
+                r"\b(?:dowel|pin|screw|stud|standoff|fastener|bushing)\b.*\binstall",
+                re.I), "ASSY_HARDWARE_INSTALL"),
     (re.compile(r"deburr|debur",                                 re.I), "DEBUR"),
     (re.compile(r"final\s+insp",                                 re.I), "INSP_FINAL_FIXED_LOT"),
     (re.compile(r"component\s+insp|inspect",                     re.I), "INSP_COMPONENT"),
@@ -48,6 +59,12 @@ _OP_CODE_KEYWORDS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"stag(?:e|ing)|wip",                            re.I), "ADMIN_STAGING"),
     (re.compile(r"clean.*pack|\bpack",                           re.I), "PACK_CLEAN"),
     (re.compile(r"outside\s+vendor|outsource",                   re.I), "OUTSIDE_VENDOR"),
+    # Part marking (bench secondary) — must precede the CNC-engrave pattern so
+    # an explicit "part mark"/"stamp"/"silkscreen"/"serialize" row is tagged
+    # MARK_PART, while a bare "engrave" feature still maps to CNCM_PROFILE_ENGRAVE.
+    (re.compile(r"part\s*mark|\bmark(?:ing)?\b|rubber\s*stamp|ink\s*stamp|"
+                r"silk\s*screen|silkscreen|laser\s*mark|vibro|serial(?:ize)?",
+                re.I), "MARK_PART"),
     (re.compile(r"mill.*profile.*engrave|engrave",               re.I), "CNCM_PROFILE_ENGRAVE"),
     (re.compile(r"mill.*profile.*(?:slot|hole)|profile.*hole",   re.I), "CNCM_PROFILE_HOLES"),
     (re.compile(r"\bturn(?:ing)?|\block",                        re.I), "CNCT_TURN"),
@@ -218,9 +235,23 @@ def kb_adopt_routing(part_number: str, role: str | None = None) -> dict[str, Any
         return {"error": f"no routing tables found in parts/{part_number}.md"}
 
     role_norm = (role or "main").lower()
-    if role_norm in ("all", "everything"):
+    has_sub_items = any(k.lower() != "main" for k in blocks)
+    # Explicit "give me the whole quote" roles. A weldment/assembly page
+    # prices the WHOLE part: its top-assembly routing PLUS each sub-item's
+    # own machining routing. Adopting only the top table under-counts by the
+    # sub-item machining (the 0042-83323 failure). These roles return the
+    # complete routing so the assembly owner copies the entire known quote
+    # verbatim in one call.
+    #
+    # NOTE: the bare "assembly_top" role still returns main-only (below) so
+    # this change does not alter existing pipeline behavior. Switching the
+    # assembly owner to "assembly_complete" must land TOGETHER with the
+    # coordinator gate that suppresses the separately-decomposed sub-item
+    # components — otherwise the sub-item machining is double-counted.
+    _COMPLETE_ROLES = ("all", "everything", "assembly_complete", "complete")
+    if role_norm in _COMPLETE_ROLES:
         chosen = list(blocks.values())
-        title = "all"
+        title = "assembly_complete" if has_sub_items else "main"
     elif role_norm in ("sub_item_sheet", "sub", "subitem", "item"):
         non_main = {k: v for k, v in blocks.items() if k.lower() != "main"}
         if non_main:
@@ -269,6 +300,40 @@ def kb_adopt_routing(part_number: str, role: str | None = None) -> dict[str, Any
     }
 
 
+def kb_weldment_complete_routing(part_number: str) -> dict[str, Any] | None:
+    """Return the COMPLETE routing for a known multi-item weldment, or None.
+
+    Deterministic gate helper for the coordinator. A weldment/assembly KB
+    page prices the WHOLE part on one sheet: the top-assembly routing PLUS one
+    representative machining routing per sub-item *type* (e.g. 0042-83323
+    de-dupes its four physical PVC solids into "Item 1" + "Items 2,3,4,5").
+    Engine 2, by contrast, decomposes the STEP into one solid per physical
+    sub-item — so left alone each sub-item solid bills its own routing and the
+    weldment double-counts its machining.
+
+    This helper returns the page's complete routing (``kb_adopt_routing`` with
+    ``role='assembly_complete'``) ONLY when ``parts/<pn>.md`` exists AND carries
+    a ``## Sub-item routings`` section. It returns ``None`` for a missing page
+    or a single-base part (e.g. 839-323453-001, a weldment whose page has no
+    sub-item routings) so the coordinator gate stays inert there.
+    """
+    safe = _safe_kb_path(f"parts/{part_number}.md")
+    if safe is None or not safe.exists():
+        return None
+    try:
+        md = safe.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    blocks = _routing_blocks(md)
+    has_sub_items = any(k.lower() != "main" for k in blocks)
+    if not has_sub_items:
+        return None
+    result = kb_adopt_routing(part_number, role="assembly_complete")
+    if result.get("error"):
+        return None
+    return result
+
+
 def make_holdout_aware_adopt_routing(
     holdout_part_number: str | None,
 ):
@@ -310,9 +375,14 @@ ANALOGUE_TOOL_SPECS: list[dict] = [
                 "kb_find_analogues returns a high-scoring match — copy the "
                 "analogue rather than reasoning a new routing from scratch. "
                 "Returns operations with op_code, setup_min_per_lot, "
-                "run_min_per_part, and fixed_hrs_per_lot pre-filled. The "
-                "agent can then adjust per-op cycle times by scaling against "
-                "feature counts / governing dim ratio."
+                "run_min_per_part, and fixed_hrs_per_lot pre-filled. COPY "
+                "these run_min_per_part values VERBATIM into your final plan "
+                "— they are measured shop times. Do NOT rescale them by "
+                "feature counts or governing-dim ratios; rescaling is the "
+                "single largest source of cost error. Only add a brand-new op "
+                "(with your own estimate) if THIS part has a feature the "
+                "analogue genuinely lacks; otherwise keep every adopted "
+                "number unchanged."
             ),
             "parameters": {
                 "type": "object",
@@ -324,9 +394,12 @@ ANALOGUE_TOOL_SPECS: list[dict] = [
                     "role": {
                         "type": "string",
                         "description": (
-                            "'main' (default) = top-level routing; "
-                            "'sub_item_sheet' = first sub-item routing; "
-                            "'all' = every routing concatenated."
+                            "'main' (default) = top-level routing only; "
+                            "'sub_item_sheet' = one sub-item routing; "
+                            "'assembly_complete' (or 'all') = the COMPLETE "
+                            "routing for a multi-item weldment/assembly — "
+                            "top-assembly ops PLUS every sub-item's machining "
+                            "routing, summed into one plan."
                         ),
                     },
                 },
@@ -337,4 +410,4 @@ ANALOGUE_TOOL_SPECS: list[dict] = [
 ]
 
 
-__all__ = ["kb_adopt_routing", "ANALOGUE_TOOL_SPECS"]
+__all__ = ["kb_adopt_routing", "kb_weldment_complete_routing", "ANALOGUE_TOOL_SPECS"]

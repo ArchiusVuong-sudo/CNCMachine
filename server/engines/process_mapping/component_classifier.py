@@ -231,7 +231,14 @@ def synthesize_assembly_top_component(
       - bonding_required / welding_required: based on title tokens
     """
     title_upper = _drawing_title_tokens(vlm_extraction)
-    welding = any(t in title_upper for t in ("WLDMNT", "WELDMENT", "WELD"))
+    # Include the Applied-Materials abbreviation WLDMT (no 'N'): it is in
+    # _ASSEMBLY_INDICATORS so it triggers detect_top_assembly, but was
+    # historically omitted here — so a WLDMT drawing got an assembly_top with
+    # welding_required=False and the agent silently dropped the weld op
+    # (observed: 839-323453 "WLDMT, PLATING CELL, SCIM" scored ~-29% with zero
+    # weld ops). Keep this list aligned with the weld-implying indicators.
+    welding = any(t in title_upper for t in
+                  ("WLDMT", "WLDMNT", "WELDMENT", "WELDED", "WELD ASSY", "WELD"))
     bonding = "BOND" in title_upper or welding  # weldments usually pre-bond
 
     sub_items = []

@@ -188,7 +188,10 @@ async def run_tool_loop(
 
     Returns
     -------
-    ``{"final": <model output>, "iterations": int, "tool_calls": list[dict]}``
+    ``{"final": <model output>, "iterations": int, "tool_calls": list[dict],
+    "adopted_routings": list[dict]}``. ``adopted_routings`` holds the full
+    ``kb_adopt_routing`` results (pre-truncation), so the coordinator can
+    re-inject any owner-scope family the agent dropped from ``final``.
     """
     settings = _agentic_settings()
     if max_iterations is None:
@@ -202,6 +205,7 @@ async def run_tool_loop(
         {"role": "user", "content": user_prompt},
     ]
     tool_calls: list[dict] = []
+    adopted_routings: list[dict] = []
     parse_retries = 0
 
     for iteration in range(1, max_iterations + 1):
@@ -257,6 +261,7 @@ async def run_tool_loop(
                 "final": final_payload,
                 "iterations": iteration,
                 "tool_calls": tool_calls,
+                "adopted_routings": adopted_routings,
             }
 
         tool_name = parsed["tool"]
@@ -274,6 +279,23 @@ async def run_tool_loop(
             }
         else:
             result = await _invoke_tool(tools[tool_name], args)
+
+        # Capture the FULL (pre-truncation) adopted-analogue routing so the
+        # coordinator can deterministically re-inject any owner-scope family
+        # the agent later drops from its `final` plan. This is the data
+        # backbone for the family-coverage gate.
+        if (
+            tool_name == "kb_adopt_routing"
+            and isinstance(result, dict)
+            and isinstance(result.get("operations"), list)
+            and result.get("operations")
+        ):
+            adopted_routings.append({
+                "part_number": (args or {}).get("part_number"),
+                "role": (args or {}).get("role"),
+                "operations": result["operations"],
+            })
+
         result = _truncate_result(result, cap=max_tool_result_chars)
 
         tool_calls.append({
