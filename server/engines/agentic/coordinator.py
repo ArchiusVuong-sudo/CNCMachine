@@ -43,7 +43,7 @@ from ..process_mapping.cost_engine import compute_cost, fetch_shop_catalog
 from ..process_mapping.dim_tagger import tag_all_components
 from .agent import run_component_agent
 from .tool_loop import ToolLoopError
-from .tools.analogue import kb_weldment_complete_routing
+from .tools.analogue import kb_adopt_routing, kb_weldment_complete_routing
 from .workspace import AnalysisWorkspace
 
 logger = logging.getLogger("cncserver.engines.agentic.coordinator")
@@ -273,6 +273,7 @@ _OP_CODE_PROCESS_TYPE: dict[str, str] = {
     # Assembly / weld / pack
     "ASSY_HARDWARE_INSTALL": "assembly",
     "ASSY_SOLVENT_BOND":     "assembly",
+    "ASSY_GENERAL":          "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
     # Part marking (ink/laser/rubber-stamp/silkscreen/serialize)
@@ -303,6 +304,7 @@ _OP_CODE_CATEGORY: dict[str, str] = {
     "ADMIN_STAGING":         "admin",
     "ASSY_HARDWARE_INSTALL": "assembly",
     "ASSY_SOLVENT_BOND":     "assembly",
+    "ASSY_GENERAL":          "assembly",
     "ASSY_WELD_PVC":         "welding",
     "ASSY_WELD_METAL":       "welding",
     "MARK_PART":             "marking",
@@ -334,6 +336,7 @@ _OP_CODE_LABOR_ROLE: dict[str, str] = {
     "ADMIN_STAGING":         "setup_technician",
     "ASSY_HARDWARE_INSTALL": "assembler",
     "ASSY_SOLVENT_BOND":     "assembler",
+    "ASSY_GENERAL":          "assembler",
     "ASSY_WELD_PVC":         "welder",
     "ASSY_WELD_METAL":       "welder",
     "MARK_PART":             "marker",
@@ -428,7 +431,7 @@ def _coerce_tool_dimensions(tool_block: dict) -> dict[str, float] | None:
 _OWNER_SCOPE_CODES: tuple[str, ...] = (
     "ADMIN_PLANNING", "ADMIN_PRINT", "ADMIN_MAT_PICK",
     "PACK_CLEAN", "INSP_FINAL_FIXED_LOT",
-    "ASSY_HARDWARE_INSTALL", "ASSY_SOLVENT_BOND",
+    "ASSY_HARDWARE_INSTALL", "ASSY_SOLVENT_BOND", "ASSY_GENERAL",
     "ASSY_WELD_PVC", "ASSY_WELD_METAL",
     "MARK_PART",
 )
@@ -443,6 +446,7 @@ _OWNER_CODE_COVERAGE_KEY: dict[str, str] = {
     "INSP_FINAL_FIXED_LOT":  "INSP",
     "ASSY_HARDWARE_INSTALL": "ASSY",
     "ASSY_SOLVENT_BOND":     "ASSY",
+    "ASSY_GENERAL":          "ASSY",
     "ASSY_WELD_PVC":         "ASSY",
     "ASSY_WELD_METAL":       "ASSY",
     "MARK_PART":             "MARKING",
@@ -536,41 +540,64 @@ def _inject_dropped_owner_families(
 
 
 # ---------------------------------------------------------------------------
-# Exact-identity weldment over-decomposition gate
+# Exact-identity over-decomposition consolidation gate
 # ---------------------------------------------------------------------------
 #
-# A multi-item weldment KB page prices the WHOLE part on one sheet: the
-# top-assembly routing PLUS one representative machining routing per sub-item
-# *type* (0042-83323 de-dupes its four physical PVC solids into "Item 1" +
-# "Items 2,3,4,5" → assembly_complete = 217.5). Engine 2 instead decomposes the
-# STEP into one solid per physical sub-item; each solid then runs its own agent
-# and adopts a cousin routing, so the weldment double-counts its machining
-# (observed: 0042-83323 scored +62%, four redundant sub-item routings).
+# A KB page prices the WHOLE part on one quote sheet, but Engine 2 decomposes
+# the STEP into one solid per physical sub-item. In the copy branch every solid
+# floats the SAME in-flight page to rank 1 and re-adopts that whole-part quote,
+# so the machining (and lot-scope ASSY/INSP/PACK) is double-counted. Two shapes
+# of this bug, both fixed here:
 #
-# When the in-flight part is itself a KNOWN weldment (its own parts/<pn>.md has
-# a `## Sub-item routings` section), we copy that page's complete routing onto
-# the assembly_top owner and SUPPRESS the separately decomposed sub-item solids.
-# This is the assembly-scope twin of the Pass-1 exact-identity copy branch:
-# keyed on the part_number and DISABLED under holdout (so eval still measures
-# novel-part reasoning, never the answer key). It fires for 0042-83323 only;
-# single-base weldments like 839-323453-001 (no sub-item routings on the page)
-# return None from the helper and the gate stays inert.
+#   (a) Multi-item weldment page WITH a `## Sub-item routings` section
+#       (0042-83323 de-dupes four PVC solids into "Item 1" + "Items 2,3,4,5" →
+#       assembly_complete = 217.5; left alone it scored +62%). We adopt the
+#       page's COMPLETE routing onto the synthesized assembly_top owner.
+#
+#   (b) Single-`## Routing` whole-part quote (NO sub-item section) whose STEP
+#       still decomposed into ≥2 machined/sheet solids (0042-46169: a 77-min
+#       quote covering both "Item 1 - cut to size" and "Item 2 router cut" got
+#       re-applied per solid → +58%; 0043-09967 split a 50-min quote across the
+#       window solid and a synthesized assembly_top → 64% breakdown). We adopt
+#       the page's single `main` quote ONCE onto one owner.
+#
+# In both cases the OTHER decomposed machining/sheet/assembly_top solids are
+# SUPPRESSED (their routing emptied) so the quote is counted exactly once. This
+# is the assembly-scope twin of the Pass-1 exact-identity copy branch: keyed on
+# the part_number and DISABLED under holdout (so eval still measures novel-part
+# reasoning, never the answer key). Case (b) fires only when ≥2 routing-bearing
+# solids exist, so single-machined-solid parts (0041-28291, 0042-58555 — one
+# machined solid + purchased hardware) and lone-component parts stay inert.
 
-_SUBSUMED_SUB_ITEM_ROLES: frozenset[str] = frozenset({"machining", "sub_item_sheet"})
+# Roles whose routing belongs to a real machined/assembled solid (eligible to
+# own — or be suppressed by — the consolidated whole-part quote).
+_CONSOLIDATABLE_ROLES: frozenset[str] = frozenset(
+    {"machining", "sub_item_sheet", "assembly_top"}
+)
+# Back-compat alias (the suppression set, sans the owner which is skipped by index).
+_SUBSUMED_SUB_ITEM_ROLES: frozenset[str] = _CONSOLIDATABLE_ROLES
 
 
-def _apply_weldment_gate(
+def _apply_consolidation_gate(
     components: list[dict],
     processes_per_component: list[list[dict]],
     *,
     self_part_number: str | None,
     holdout_part_number: str | None,
 ) -> dict | None:
-    """Adopt a known weldment's complete routing; suppress decomposed sub-items.
+    """Count a KNOWN part's whole-part KB quote exactly once across the assembly.
 
     Mutates ``processes_per_component`` and ``components`` in place. Returns a
-    summary dict when the gate fires, else ``None`` (production-only; inert
-    under holdout, for single-base parts, and when no ``assembly_top`` exists).
+    summary dict when the gate fires, else ``None``. Production-only — inert
+    under holdout, and inert when the part has no own KB page or no
+    over-decomposition to consolidate.
+
+    Two modes (see the module-level note above):
+      * ``assembly_complete`` — the page has a ``## Sub-item routings`` section;
+        adopt its complete routing onto the synthesized ``assembly_top`` owner.
+      * ``single_quote_main`` — the page is a single ``## Routing`` whole-part
+        quote, but the STEP decomposed into ≥2 routing-bearing solids; adopt the
+        page's ``main`` quote once onto one owner.
     """
     if holdout_part_number:        # eval: measure reasoning, not the answer key
         return None
@@ -583,56 +610,79 @@ def _apply_weldment_gate(
          if (c.get("component_role") or "").lower() == "assembly_top"),
         None,
     )
-    if top_idx is None:
-        return None
+    # Real machined/assembled solids that currently carry a routing — these are
+    # the ones each re-billing the whole-part quote in the copy branch.
+    routing_idxs = [
+        i for i, c in enumerate(components)
+        if i < len(processes_per_component)
+        and (c.get("component_role") or "").lower() in _CONSOLIDATABLE_ROLES
+        and processes_per_component[i]
+    ]
 
     complete = kb_weldment_complete_routing(pn)
-    if not complete:               # missing page or single-base part → inert
-        return None
+    if complete:
+        # Mode (a): weldment page WITH sub-item routings → assembly_top owner.
+        if top_idx is None:
+            return None
+        owner_idx = top_idx
+        adopted = complete
+        mode = "assembly_complete"
+    else:
+        # Mode (b): single whole-part quote. Only consolidate when ≥2 solids
+        # would otherwise each re-bill it; a lone machined solid is correct
+        # as-is (0041-28291 / 0042-58555: one machined solid + hardware).
+        if len(routing_idxs) < 2:
+            return None
+        adopted = kb_adopt_routing(pn, role="main")
+        if not adopted or adopted.get("error"):
+            return None
+        owner_idx = top_idx if top_idx is not None else routing_idxs[0]
+        mode = "single_quote_main"
 
-    owner_agentic = components[top_idx].get("agentic") or {}
+    owner_agentic = components[owner_idx].get("agentic") or {}
     machine_id = owner_agentic.get("chosen_machine_id")
     complete_rows = [
         _adopted_op_to_routing_row(op, (j + 1) * 10, machine_id)
-        for j, op in enumerate(complete.get("operations") or [])
+        for j, op in enumerate(adopted.get("operations") or [])
         if isinstance(op, dict)
     ]
     if not complete_rows:
         return None
 
-    # Suppress the separately decomposed sub-item solids — their machining is
-    # already inside the adopted complete routing.
+    # Suppress every OTHER routing-bearing solid — its machining (and any
+    # lot-scope ASSY/INSP/PACK) is already inside the adopted whole-part quote.
     suppressed: list[int] = []
     for i, c in enumerate(components):
-        if i == top_idx or i >= len(processes_per_component):
+        if i == owner_idx or i >= len(processes_per_component):
             continue
         role = (c.get("component_role") or "").lower()
-        if role in _SUBSUMED_SUB_ITEM_ROLES and processes_per_component[i]:
+        if role in _CONSOLIDATABLE_ROLES and processes_per_component[i]:
             processes_per_component[i] = []
             ag = dict(c.get("agentic") or {})
-            ag["suppressed_by_weldment_gate"] = True
+            ag["suppressed_by_consolidation_gate"] = True
             ag["suppress_reason"] = (
-                f"machining subsumed by exact-identity weldment page {pn} "
-                f"(assembly_complete adopted on owner idx {top_idx})"
+                f"machining subsumed by exact-identity whole-part quote {pn} "
+                f"({mode} adopted on owner idx {owner_idx})"
             )
             c["agentic"] = ag
             suppressed.append(i)
 
-    # Replace the owner's routing with the page's complete (top + sub-items).
-    processes_per_component[top_idx] = complete_rows
-    ag = dict(components[top_idx].get("agentic") or {})
-    ag["weldment_gate_adopted_part_number"] = pn
-    ag["weldment_gate_role"] = "assembly_complete"
-    ag["weldment_gate_suppressed_indices"] = suppressed
-    components[top_idx]["agentic"] = ag
+    # Replace the owner's routing with the page's whole-part quote.
+    processes_per_component[owner_idx] = complete_rows
+    ag = dict(components[owner_idx].get("agentic") or {})
+    ag["consolidation_gate_adopted_part_number"] = pn
+    ag["consolidation_gate_role"] = mode
+    ag["consolidation_gate_suppressed_indices"] = suppressed
+    components[owner_idx]["agentic"] = ag
 
     scored_min = sum(
         _f(r.get("run_min_per_part")) + _f(r.get("fixed_hrs_per_lot")) * 60.0
         for r in complete_rows
     )
     return {
-        "owner_index": top_idx,
+        "owner_index": owner_idx,
         "adopted_part_number": pn,
+        "mode": mode,
         "complete_op_count": len(complete_rows),
         "scored_min_per_part": round(scored_min, 2),
         "suppressed_indices": suppressed,
@@ -894,8 +944,8 @@ async def run(
     later retry can rehydrate state via ``workspace_list`` / ``workspace_read``.
 
     ``model`` is the per-request LLM slug used by every component agent.
-    ``None`` falls back to the server default (typically
-    ``openrouter_default_model``). See
+    ``None`` falls back to the server default (the Kimi ``agent_default_model``
+    when AGENT_LLM_URL is set, else the local Qwen vLLM). See
     :func:`server.infra.llm._select_provider` for the routing rules.
     """
     t0 = time.monotonic()
@@ -1144,31 +1194,34 @@ async def run(
             sum(len(p) for p in processes_per_component),
         )
 
-        # ── Exact-identity weldment over-decomposition gate ────────────────
-        # If the in-flight part is itself a known multi-item weldment, copy its
-        # page's complete routing onto the assembly_top owner and suppress the
-        # separately decomposed sub-item solids (otherwise their machining is
-        # double-counted). Production-only — inert under holdout.
+        # ── Exact-identity over-decomposition consolidation gate ───────────
+        # If the in-flight part is itself a known part whose KB page prices the
+        # WHOLE part once, copy that quote onto a single owner and suppress the
+        # separately decomposed sub-item solids (otherwise each re-bills the
+        # whole quote and the machining double-counts). Handles both multi-item
+        # weldment pages (assembly_complete) and single-quote pages with ≥2
+        # routing-bearing solids (single_quote_main). Production-only — inert
+        # under holdout.
         try:
-            gate = _apply_weldment_gate(
+            gate = _apply_consolidation_gate(
                 components, processes_per_component,
                 self_part_number=drawing_dict.get("part_number"),
                 holdout_part_number=holdout_part_number,
             )
         except Exception as exc:  # noqa: BLE001 — never let the gate kill the run
-            logger.warning("agentic: weldment gate failed (skipped): %s", exc)
+            logger.warning("agentic: consolidation gate failed (skipped): %s", exc)
             gate = None
         if gate:
             logger.info(
-                "agentic: weldment over-decomposition gate FIRED — adopted "
-                "assembly_complete(%s) %d ops (%.1f scored min/part) on idx %d; "
+                "agentic: over-decomposition consolidation gate FIRED [%s] — "
+                "adopted %s %d ops (%.1f scored min/part) on idx %d; "
                 "suppressed sub-item solids %s",
-                gate["adopted_part_number"], gate["complete_op_count"],
+                gate["mode"], gate["adopted_part_number"], gate["complete_op_count"],
                 gate["scored_min_per_part"], gate["owner_index"],
                 gate["suppressed_indices"],
             )
             await safe_emit(on_event, "tool_result", {
-                "tool": "weldment_decomposition_gate",
+                "tool": "consolidation_gate",
                 "result": gate,
             })
 

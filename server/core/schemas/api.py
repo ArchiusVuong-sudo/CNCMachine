@@ -28,19 +28,21 @@ class AnalyzeRequest(BaseModel):
     engine: str | None = Field(
         None,
         description=(
-            "Per-request planner-engine override: 'agentic' | 'rag'. "
-            "Falls back to the server's ENGINE_MODE default when absent. "
-            "Also accepted as the '?engine=' query parameter."
+            "Per-request planner-engine override: 'agentic' (the only "
+            "supported planner). Falls back to the server's ENGINE_MODE "
+            "default when absent. Also accepted as the '?engine=' query "
+            "parameter."
         ),
     )
     model: str | None = Field(
         None,
         description=(
-            "Per-request LLM override for Engine 3 (planner). Accepts an "
-            "OpenRouter slug like 'anthropic/claude-sonnet-4.5' or the "
-            "'vllm:<name>' prefix to force the local vLLM backend. "
-            "When omitted, falls back to OPENROUTER_DEFAULT_MODEL on the "
-            "server. The available list is served by GET /v1/models."
+            "Per-request LLM override for Engine 3 (planner). Accepts the "
+            "'agent:<name>' prefix to route to the Kimi pod or the "
+            "'vllm:<name>' prefix to force the local Qwen vLLM backend. "
+            "When omitted, defaults to the Kimi agent backend if "
+            "AGENT_LLM_URL is set, else local vLLM. The available list is "
+            "served by GET /v1/models."
         ),
     )
 

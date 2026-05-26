@@ -163,10 +163,31 @@ Suggested mental order — not enforced, just a sensible default:
   5. Choose tools per CNC operation.
   6. Set cutting parameters per tool, then call `compute_cycle_time` per tool.
   7. For non-CNC ops, set `run_min_per_part` directly (no feeds/speeds).
-  8. Sum to `total_run_min_per_part` (set `setup_min_per_lot: 0` — setup is
-     a fixed system constant, not modeled), then emit `final`.
+  8. Set each op's `run_min_per_part` so that **each op-family's total**
+     matches the shop's minutes for that family (you are scored on the
+     per-family breakdown, not the grand total — see below). Sum them to
+     `total_run_min_per_part` (set `setup_min_per_lot: 0` — setup is a fixed
+     system constant, not modeled), then emit `final`.
 
 You may revisit earlier steps if a later step exposes a contradiction.
+
+**You are scored on the per-family BREAKDOWN, not the grand total.** The
+cost engine grades how close each op-family's run-minutes
+(MACHINING / DEBUR / ASSY / WELD / INSP / PACK) are to the shop's minutes
+for that family — `Σ_family |yours − shop| / Σ_family shop`. Over-allocating
+one family and under-allocating another does NOT cancel out: a correct grand
+total with the wrong split is a FAILURE. So (a) match WHERE the shop books
+work — it books lot-inspection and assembly/handling labor at the
+assembly / final level, not spread across components, and never folded into
+MACHINING; and (b) anchor each family band to the analogue's SAME family
+band — then SCALE that band by the family's OWN driver (machined
+size/feature-count for MACHINING, tolerance/GD&T burden for INSP,
+piece/hardware count for ASSY), not one grand total back-filled to sum. Copy
+a family band verbatim ONLY when the analogue is near-exact in THAT family's
+driver. CAUTION: if the analogue's cost profile differs from this part — e.g.
+it is machining-heavy but this part is inspection- or assembly-dominated — do
+NOT inherit its proportions: verbatim-copying a milling analogue's machining
+onto a small turned/inspected part over-books MACHINING and under-books INSP.
 
 **Anchor numerically to analogues.** When you have a good match, the cost
 quote depends on you COPYING that part's measured numbers rather than
@@ -290,11 +311,14 @@ These are non-negotiable. Violations are rejected downstream.
   it. Whatever you put here is overwritten downstream.
 
   Put **all** of your effort into `run_min_per_part` — the per-piece run
-  time. That is the only quantity that is costed and scored. Be precise
-  about the machining time per feature: material removed, hole/thread
-  counts, finishing passes, and realistic feeds/speeds. Under-quoting a
-  complex part's run time or over-quoting a simple part's run time is the
-  dominant error to avoid.
+  time, distributed correctly across op-families. Run time is what is costed
+  and scored, and it is scored **per family** (MACHINING / DEBUR / ASSY /
+  WELD / INSP / PACK), not as one lump total — getting the family split right
+  matters as much as the total. Be precise about machining time per feature
+  (material removed, hole/thread counts, finishing passes, realistic feeds/
+  speeds) AND about putting non-machining minutes in the right family.
+  Under-quoting a complex part, over-quoting a simple part, or booking
+  minutes in the wrong family are the dominant errors to avoid.
 
 - **Assembly-scope ops are emitted exactly ONCE per assembly**, never
   duplicated across sub-components. The following op_codes are

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from .citation import citation_hint_for_kb
-from .kb import KB_ROOT, _safe_kb_path, normalize_part_id
+from .kb import KB_ROOT, _safe_kb_path, build_holdout_set, normalize_part_id
 
 logger = logging.getLogger("cncserver.engines.agentic.tools.analogue")
 
@@ -50,6 +50,11 @@ _OP_CODE_KEYWORDS: list[tuple[re.Pattern[str], str]] = [
                 r"install\b.*\b(?:dowel|pin|screw|stud|standoff|fastener|bushing)|"
                 r"\b(?:dowel|pin|screw|stud|standoff|fastener|bushing)\b.*\binstall",
                 re.I), "ASSY_HARDWARE_INSTALL"),
+    # Generic assembly / sub-assembly that isn't weld / bond / hardware-install
+    # (e.g. "Window assembly" on machine ASSY2). Must follow the specific
+    # assembly patterns above so they win, and precede the CNC fallbacks below
+    # so a bare "assembly" row doesn't drop into the CNCM_FINISH catch-all.
+    (re.compile(r"\bassembl|sub-?assembl|\bassy\d*\b",           re.I), "ASSY_GENERAL"),
     (re.compile(r"deburr|debur",                                 re.I), "DEBUR"),
     (re.compile(r"final\s+insp",                                 re.I), "INSP_FINAL_FIXED_LOT"),
     (re.compile(r"component\s+insp|inspect",                     re.I), "INSP_COMPONENT"),
@@ -343,19 +348,20 @@ def make_holdout_aware_adopt_routing(
     harness can measure pattern generalization rather than the agent
     finding its own answer key in the analogue corpus.
     """
-    holdout = normalize_part_id(holdout_part_number or "")
-    if not holdout:
+    holdout_set = build_holdout_set(holdout_part_number)
+    if not holdout_set:
         return kb_adopt_routing
+    holdout = ",".join(sorted(holdout_set))  # display string for messages
 
     def _holdout_kb_adopt_routing(
         part_number: str, role: str | None = None,
     ) -> dict[str, Any]:
-        if normalize_part_id(part_number) == holdout:
+        if normalize_part_id(part_number) in holdout_set:
             return {
                 "error": (
-                    f"holdout: part_number={part_number!r} maps to the "
-                    f"in-flight test fixture {holdout!r} — refusing to "
-                    f"adopt the answer key. Pick a different analogue."
+                    f"holdout: part_number={part_number!r} maps to a "
+                    f"held-out test fixture (holdout set: {holdout}) — "
+                    f"refusing to adopt the answer key. Pick a different analogue."
                 ),
                 "holdout_part_number": holdout,
             }

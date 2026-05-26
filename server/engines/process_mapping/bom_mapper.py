@@ -114,18 +114,25 @@ def map_bom_to_components(
             for i, c in enumerate(components)
         ]
 
-    # Pre-extract TEngC tokens from BOM items.
-    # Field name varies across VLM extractions: `teng_c` (current schema) and
-    # legacy `tengc` are both supported. part_number is the secondary source.
-    bom_tengc: dict[int, list[str]] = {}  # item_no â†’ tokens
+    # Pre-extract TEngC tokens from BOM items, kept in SEPARATE pools per
+    # field. The `teng_c` field is the manufactured-part identity (the
+    # strongest match signal); `part_number` is the customer drawing number
+    # which a *different* component can legitimately reference inside its STEP
+    # node name (e.g. a Helicoil insert installed into adaptor "3410-00013"
+    # is named `TC1-0048965_05-3410-00013` — its OWN identity is the leading
+    # TEngC `TC1-0048965`, while `3410-00013` is the host adaptor's part
+    # number). Folding both fields into one pool and taking the first item
+    # that shares ANY token mis-maps the insert onto the adaptor's BOM line.
+    bom_tengc_field: dict[int, set[str]] = {}  # item_no → teng_c tokens
+    bom_pn_field:    dict[int, set[str]] = {}  # item_no → part_number tokens
     for bom in bom_items:
         item_no = bom.get("item_no")
         if item_no is None:
             continue
         tengc_field = str(bom.get("teng_c") or bom.get("tengc") or "")
         pn_field    = str(bom.get("part_number") or "")
-        tokens      = list({*_extract_tengc(tengc_field), *_extract_tengc(pn_field)})
-        bom_tengc[item_no] = tokens
+        bom_tengc_field[item_no] = set(_extract_tengc(tengc_field))
+        bom_pn_field[item_no]    = set(_extract_tengc(pn_field))
 
     mappings: list[dict] = []
 
@@ -163,57 +170,62 @@ def map_bom_to_components(
                 best_material  = bom.get("material") or bom.get("materials_inferred") or None
                 best_part_type = bom.get("part_type") or None
 
-        # â”€â”€ Fallback: TEngC token match â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Picks the strongest match over every BOM item rather than the first
+        # item that shares any token. Priority, highest first:
+        #   1. component's OWN identity (leading TEngC token from the node name)
+        #      == a BOM item's `teng_c` field  — the definitive match.
+        #   2. any component token == a BOM `teng_c` field token.
+        #   3. own-identity / any token == a BOM `part_number` token.
+        #   4. substring matches (either direction), same field ordering.
+        # teng_c-field beats part_number-field, exact beats substring, and the
+        # leading identity token beats trailing referenced tokens — so a
+        # Helicoil named `TC1-0048965_05-3410-00013` maps to its OWN line
+        # (teng_c TC1-0048965) instead of the host adaptor it references.
         if best_item_no is None:
-            comp_tengc_tokens = _extract_tengc(comp_label)
-            for bom in bom_items:
-                item_no = bom.get("item_no")
-                for ct in comp_tengc_tokens:
-                    if ct in (bom_tengc.get(item_no) or []):
-                        best_item_no   = item_no
-                        best_score     = _TENGC_EXACT_SCORE
-                        best_method    = "tengc"
-                        best_material  = bom.get("material") or bom.get("materials_inferred") or None
-                        best_part_type = bom.get("part_type") or None
-                        break
-                if best_item_no is not None:
-                    break
+            name_tokens = _extract_tengc(comp_name)
+            primary     = name_tokens[0] if name_tokens else None
+            all_tokens  = set(_extract_tengc(comp_label))
 
-        # â”€â”€ Partial TEngC fuzzy: comp token appears as substring in BOM â”€â”€â”€â”€â”€
-        # Try both `teng_c` and `part_number` as the BOM-side identifier so we
-        # handle assemblies whose BOM only carries the TEngC code (PVC sheet
-        # parts in 0042-83323).
-        # Guard: require BOTH sides non-empty â€” otherwise "" in anything == True
-        # and BOM items without a part_number match every component spuriously
-        # (the 0042-88459 INSERT-THREAD false-match bug).
-        if best_item_no is None:
-            comp_tengc_tokens = _extract_tengc(comp_label)
+            def _tengc_tier(teng_set: set[str], pn_set: set[str]) -> float:
+                # Exact, teng_c field
+                if primary and primary in teng_set:
+                    return 1.00
+                if teng_set & all_tokens:
+                    return 0.95
+                # Exact, part_number field
+                if primary and primary in pn_set:
+                    return 0.90
+                if pn_set & all_tokens:
+                    return 0.85
+                # Substring (either direction) — guard both sides non-empty so
+                # an empty BOM identifier can't match every component (the
+                # 0042-88459 INSERT-THREAD false-match bug).
+                def _sub(tok: str, pool: set[str]) -> bool:
+                    return bool(tok) and any(p and (tok in p or p in tok) for p in pool)
+                if primary and _sub(primary, teng_set):
+                    return 0.80
+                if any(_sub(t, teng_set) for t in all_tokens):
+                    return 0.78
+                if primary and _sub(primary, pn_set):
+                    return 0.76
+                if any(_sub(t, pn_set) for t in all_tokens):
+                    return 0.74
+                return 0.0
+
+            best_tier = 0.0
             for bom in bom_items:
                 item_no = bom.get("item_no")
-                bom_ids: list[str] = []
-                for k in ("part_number", "teng_c", "tengc"):
-                    v = str(bom.get(k) or "").upper().strip()
-                    if v:
-                        bom_ids.append(v)
-                if not bom_ids:
-                    continue
-                matched = False
-                for bid in bom_ids:
-                    for ct in comp_tengc_tokens:
-                        if not ct:
-                            continue
-                        if ct in bid or bid in ct:
-                            score = _TENGC_FUZZY_SCORE
-                            if score > best_score:
-                                best_item_no   = item_no
-                                best_score     = score
-                                best_method    = "tengc"
-                                best_material  = bom.get("material") or bom.get("materials_inferred") or None
-                                best_part_type = bom.get("part_type") or None
-                                matched = True
-                                break
-                    if matched:
-                        break
+                tier = _tengc_tier(
+                    bom_tengc_field.get(item_no) or set(),
+                    bom_pn_field.get(item_no) or set(),
+                )
+                if tier > best_tier:
+                    best_tier      = tier
+                    best_item_no   = item_no
+                    best_score     = tier
+                    best_method    = "tengc"
+                    best_material  = bom.get("material") or bom.get("materials_inferred") or None
+                    best_part_type = bom.get("part_type") or None
 
         mappings.append({
             "component_index":    comp_idx,

@@ -150,9 +150,9 @@ async def run_component_agent(
     workspace:
         Per-component on-disk scratch dir for checkpoint + resume.
     model:
-        Optional LLM slug. ``None`` or ``"vllm:..."`` routes to local
-        vLLM; ``"<vendor>/<name>"`` routes to OpenRouter (default for
-        the agentic engine).
+        Optional LLM slug. ``None`` or ``"vllm:..."`` routes to the local
+        Qwen vLLM; ``"agent:<name>"`` routes to the Kimi pod (default for
+        the agentic engine when AGENT_LLM_URL is set).
 
     Returns
     -------

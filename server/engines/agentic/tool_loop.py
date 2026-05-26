@@ -1,27 +1,35 @@
-"""ReAct/JSON tool-call driver for the single-loop agentic engine.
+"""ReAct/JSON tool-call driver for the single-loop agentic engine (Engine 3).
 
-The agent's only LLM is vLLM-served Qwen3-VL. vLLM's native function
-calling is inconsistent across versions and chat-template configs, so we
-drive tool use with a robust JSON protocol instead:
+Engine 3's only LLM is the Kimi-Linear pod (Qwen drives Engine 1's drawing
+extraction on a different path and is never used here). Kimi ships a slow
+tiktoken tokenizer, so no vLLM grammar backend can attach — guided JSON
+(``response_format``) *crashes* the engine. We therefore drive tool use with a
+robust JSON-in-content protocol and do NOT request guided decoding:
 
   * Every assistant turn emits exactly ONE JSON object.
   * ``{"thought": ..., "tool": <name>, "args": {...}}`` invokes a tool.
   * ``{"thought": ..., "final": {...}}`` ends the loop with the answer.
 
-We request ``response_format={"type": "json_object"}`` so vLLM forces
-JSON output. The model's reasoning (``<think>...</think>``) is streamed
-out as ``reasoning_content`` and forwarded to the SSE ``thinking`` event
-via the ``on_thinking`` callback.
+Kimi's native tool-call control tokens (``<|tool_call_*|>``) are stopped at
+the transport (:class:`server.infra.llm.AgentVLLMProvider`) and any leakage is
+brace-repaired there, so this loop receives a single parseable object. The
+model's reasoning (``<think>...</think>`` / ``reasoning_content``) is streamed
+out and forwarded to the SSE ``thinking`` event via ``on_thinking``.
 
-Tool execution is dispatched from a ``tools`` dict keyed by name. Sync
-and async tool functions are both supported. Errors never crash the
-loop — they come back to the agent as ``{"tool": <name>, "result":
-{"error": "..."}}`` so it can recover or switch tools.
+Tool execution is dispatched from a ``tools`` dict keyed by name. Sync and
+async tool functions are both supported. Errors never crash the loop — they
+come back to the agent as ``{"tool": <name>, "result": {"error": "..."}}`` so
+it can recover or switch tools.
 
-The previous version of this file enforced a citation gate that rejected
-``final`` payloads without an ``evidence`` array. That gate has been
-removed — the new prompt asks the agent to write a clear ``rationale``
-but does not require formal citation tokens.
+**Convergence guard.** Kimi (no guided decoding) is prone to degenerate
+repetition on novel parts — re-calling the same tool instead of emitting
+``final``. To keep the loop bounded we (a) block exact-duplicate tool calls
+(identical name + args) and steer the model on, and (b) escalate toward a
+forced ``final`` as the iteration budget runs low or one tool is over-used.
+
+The previous version enforced a citation gate that rejected ``final`` payloads
+without an ``evidence`` array. That gate has been removed — the prompt asks the
+agent to write a clear ``rationale`` but does not require citation tokens.
 """
 from __future__ import annotations
 
@@ -139,6 +147,31 @@ def _shape_check(parsed: dict) -> str | None:
     return None
 
 
+# --- Convergence guard (Kimi has no guided decoding → repetition-prone) -----
+#
+# Thresholds chosen so the working copy/exact-match path (which converges in
+# ~12 iterations) never trips them, while the novel-part repetition spiral
+# (observed: catalog_lookup x25, memory_update x18) is cut off.
+_DUP_FORCE_FINALIZE_AFTER = 3   # blocked exact-duplicate calls → demand `final`
+_TOOL_SPAM_LIMIT = 12           # one tool used this many times → nudge `final`
+_FINALIZE_TAIL = 6              # last N iterations → escalating `final` nudges
+
+_FINALIZE_INSTRUCTION = (
+    "You are repeating work without making progress. STOP gathering and emit "
+    "your `final` plan NOW using the information you already have. Respond with "
+    'EXACTLY one JSON object: {"thought": ..., "final": {...}}.'
+)
+
+
+def _args_signature(tool_name: str, args: dict) -> str:
+    """Stable key for (tool, args) so identical re-calls can be detected."""
+    try:
+        encoded = json.dumps(args or {}, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        encoded = repr(args)
+    return f"{tool_name}|{encoded}"
+
+
 async def run_tool_loop(
     *,
     system_prompt: str,
@@ -181,10 +214,9 @@ async def run_tool_loop(
         Injection seam for tests. Defaults to
         :func:`server.infra.llm.chat_messages`.
     model:
-        Optional model slug forwarded to ``chat_fn``. ``None`` or
-        ``"vllm:<name>"`` routes to local vLLM; ``"<vendor>/<name>"``
-        routes to OpenRouter. See
-        :func:`server.infra.llm._select_provider`.
+        Model slug forwarded to ``chat_fn`` (the ``"agent:<name>"`` slug for
+        the Kimi pod). Engine 3 is Kimi-only — :func:`chat_messages` ignores
+        the slug for routing and always uses the Kimi backend.
 
     Returns
     -------
@@ -207,15 +239,20 @@ async def run_tool_loop(
     tool_calls: list[dict] = []
     adopted_routings: list[dict] = []
     parse_retries = 0
+    seen_call_sigs: set[str] = set()   # (tool, args) signatures already executed
+    tool_name_counts: dict[str, int] = {}
+    dup_blocks = 0                     # exact-duplicate calls blocked so far
 
     for iteration in range(1, max_iterations + 1):
         try:
+            # No `response_format`: guided JSON crashes the Kimi engine (no
+            # grammar backend). We rely on the prompt's "one JSON object" rule
+            # plus parse_model_json salvage instead.
             resp = await chat(
                 messages,
                 model=model,
                 on_thinking=on_thinking,
                 temperature=0.0,
-                response_format={"type": "json_object"},
             )
         except Exception as exc:  # noqa: BLE001
             raise ToolLoopError(f"chat call failed at iteration {iteration}: {exc}") from exc
@@ -228,8 +265,9 @@ async def run_tool_loop(
         if shape_err:
             parse_retries += 1
             logger.warning(
-                "tool_loop[%s] iter=%d shape error: %s (retry %d/%d)",
+                "tool_loop[%s] iter=%d shape error: %s (retry %d/%d) raw=%r",
                 label, iteration, shape_err, parse_retries, max_parse_retries,
+                assistant_text[:400],
             )
             if parse_retries > max_parse_retries:
                 raise ToolLoopError(
@@ -272,6 +310,42 @@ async def run_tool_loop(
             "label": label,
         })
 
+        # Convergence guard: re-running a tool with identical args yields an
+        # identical result the model already has — pure spin. Block it, steer
+        # the model on, and after a few blocks demand `final`. (Kimi has no
+        # guided decoding and is prone to this on novel parts.)
+        sig = _args_signature(tool_name, args)
+        if sig in seen_call_sigs:
+            dup_blocks += 1
+            logger.warning(
+                "tool_loop[%s] iter=%d blocked duplicate call to %s (block %d)",
+                label, iteration, tool_name, dup_blocks,
+            )
+            steer = {
+                "error": "duplicate_call",
+                "tool": tool_name,
+                "instruction": (
+                    "You already called this tool with identical arguments; the "
+                    "result has not changed. Do NOT repeat it. Either call a "
+                    "DIFFERENT tool (or same tool with DIFFERENT args), or emit "
+                    "your `final` plan now."
+                ),
+            }
+            if dup_blocks >= _DUP_FORCE_FINALIZE_AFTER:
+                steer["instruction"] = _FINALIZE_INSTRUCTION
+            await safe_emit(on_event, "tool_result", {
+                "tool": tool_name,
+                "iteration": iteration,
+                "result": steer,
+            })
+            messages.append({
+                "role": "user",
+                "content": json.dumps({"tool": tool_name, "result": steer}),
+            })
+            continue
+        seen_call_sigs.add(sig)
+        tool_name_counts[tool_name] = tool_name_counts.get(tool_name, 0) + 1
+
         if tool_name not in tools:
             result: Any = {
                 "error": f"unknown tool {tool_name!r}",
@@ -308,9 +382,30 @@ async def run_tool_loop(
             "iteration": iteration,
             "result": result,
         })
+
+        # Steer toward `final` as the budget runs low or one tool is over-used,
+        # so a slow-converging component finalizes instead of hitting the cap.
+        result_msg: dict[str, Any] = {"tool": tool_name, "result": result}
+        guidance: list[str] = []
+        if tool_name_counts[tool_name] >= _TOOL_SPAM_LIMIT:
+            guidance.append(
+                f"You have called `{tool_name}` {tool_name_counts[tool_name]} "
+                "times — you very likely have enough. Emit `final` or switch tools."
+            )
+        remaining = max_iterations - iteration
+        if remaining <= _FINALIZE_TAIL:
+            lead = "This is your LAST step — you MUST" if remaining <= 1 else (
+                f"Only {remaining} steps remain;"
+            )
+            guidance.append(
+                f"{lead} emit your `final` plan now from what you already have; "
+                "stop gathering unless strictly required."
+            )
+        if guidance:
+            result_msg["_guidance"] = " ".join(guidance)
         messages.append({
             "role": "user",
-            "content": json.dumps({"tool": tool_name, "result": result}, default=str),
+            "content": json.dumps(result_msg, default=str),
         })
 
     raise ToolLoopError(

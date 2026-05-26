@@ -1,27 +1,26 @@
-"""LLM transport layer — vLLM (Qwen3-VL) + OpenRouter.
+"""LLM transport layer — vLLM (Qwen3-VL) + Agent vLLM (Kimi-Linear).
 
 Why this exists
 ---------------
-The pipeline talks to two distinct backends, and the integration quirks
-of each are isolated here so the engines stay focused on extraction
-logic:
+The pipeline talks to two OpenAI-compatible vLLM backends, and the
+integration quirks of each are isolated here so the engines stay focused
+on extraction logic:
 
   * **vLLM (Qwen3-VL)** — local OpenAI-compatible server. Used by
     Engine 1 (vision drawing extraction) and as a fallback text backend.
     Qwen-specific ``chat_template_kwargs`` + ``<think>...</think>``
     parsing live here.
-  * **OpenRouter** — single OpenAI-compatible gateway in front of
-    Claude / GPT / Gemini / DeepSeek / Qwen. Used by Engine 3 (agentic
-    planner) as the default. Reasoning deltas arrive in three possible
-    shapes (``delta.reasoning`` / ``delta.reasoning_content`` /
-    ``delta.reasoning_details[*].text``); we accept all of them.
+  * **Agent vLLM (Kimi-Linear)** — a second vLLM pod dedicated to the
+    Engine 3 (agentic planner). Sent PLAIN JSON-by-instruction: no
+    ``response_format`` (Kimi's slow tiktoken tokenizer has no vLLM
+    grammar backend — guided JSON crashes the engine) and no Qwen
+    ``chat_template_kwargs``.
 
 Per-request routing happens via :func:`chat_messages`'s ``model``
 parameter:
 
   * ``None`` or ``"vllm:<name>"`` → :class:`VLLMProvider`.
-  * Any other slug containing ``/`` (e.g. ``"anthropic/claude-sonnet-4.5"``)
-    → :class:`OpenRouterProvider`.
+  * ``"agent:<name>"`` → :class:`AgentVLLMProvider` (Kimi pod).
 
 Both providers share:
 
@@ -57,9 +56,12 @@ OnThinking = Callable[[str], Awaitable[None]] | None
 _MAX_CONTENT_CHARS  = 200_000
 _MAX_THINKING_CHARS = 80_000
 
-# Model-slug prefix that forces routing back to the local vLLM provider.
-# Anything else containing "/" is treated as an OpenRouter slug.
+# Model-slug prefix that forces routing to the local vLLM (Qwen) provider.
 _VLLM_PREFIX = "vllm:"
+
+# Model-slug prefix that routes to the dedicated agent backend (Kimi-Linear
+# on a second vLLM pod). See :class:`AgentVLLMProvider`.
+_AGENT_PREFIX = "agent:"
 
 
 # ---------------------------------------------------------------------------
@@ -660,6 +662,15 @@ def _normalize_vllm_model(slug: str | None) -> str | None:
     return slug
 
 
+def _normalize_agent_model(slug: str | None) -> str | None:
+    """Strip the ``agent:`` routing prefix when present."""
+    if not slug:
+        return None
+    if slug.lower().startswith(_AGENT_PREFIX):
+        return slug[len(_AGENT_PREFIX):] or None
+    return slug
+
+
 class VLLMProvider:
     """Local vLLM OpenAI-compatible backend (Qwen3-VL).
 
@@ -769,30 +780,136 @@ class VLLMProvider:
         }
 
 
-class OpenRouterProvider:
-    """OpenRouter OpenAI-compatible gateway.
+# Kimi/Moonshot native function-calling control tokens. Kimi is heavily
+# tool-trained and emits these to frame a tool call even when we drive tool
+# use via JSON-in-content (we do NOT pass an OpenAI `tools` array). The model
+# terminates the call with `<|tool_call_end|>` *instead of* the JSON object's
+# closing brace, so the streamed content arrives as a structurally-truncated
+# object (more `{` than `}`) that `parse_model_json` cannot recover. We both
+# (a) stop generation at these tokens and (b) strip + brace-repair any that
+# still leak through. Kimi path only — the Qwen `VLLMProvider` never sees them.
+_KIMI_TOOL_TOKENS = (
+    "<|tool_calls_section_begin|>",
+    "<|tool_call_begin|>",
+    "<|tool_call_argument_begin|>",
+    "<|tool_call_end|>",
+    "<|tool_calls_section_end|>",
+)
 
-    Differences from vLLM:
+# Kimi-VL-A3B-Thinking-2506 emits its reasoning INLINE in ``content`` wrapped
+# in literal-text markers — NOT vLLM special tokens, and NOT surfaced as
+# ``reasoning_content`` (no Kimi reasoning parser is registered in this vLLM
+# build). The shape is:  ◁think▷ …reasoning… ◁/think▷ {answer json}
+# (U+25C1 LEFT-POINTING TRIANGLE / U+25B7 RIGHT-POINTING TRIANGLE). We split
+# the block off client-side so the tool loop parses only the answer.
+_KIMI_THINK_OPEN = "◁think▷"      # ◁think▷
+_KIMI_THINK_CLOSE = "◁/think▷"    # ◁/think▷
 
-      * Auth header ``Authorization: Bearer <key>`` is mandatory.
-      * Optional ``HTTP-Referer`` and ``X-Title`` headers identify the
-        app on the OpenRouter dashboard.
-      * Reasoning is requested via the unified ``reasoning: {effort: ...}``
-        param. OpenRouter normalises it to each upstream's native shape
-        (e.g. Claude ``thinking``, GPT-5 ``reasoning_effort``, Gemini
-        ``thinkingBudget``).
-      * Reasoning deltas may arrive as ``delta.reasoning`` (string),
-        ``delta.reasoning_content`` (string), or
-        ``delta.reasoning_details[*].text`` (list of objects). We accept
-        all three.
-      * ``response_format={"type": "json_object"}`` works across most
-        backends OpenRouter fronts; we pass it through unchanged.
 
-    No Qwen ``<think>...</think>`` parsing here — providers fronted by
-    OpenRouter emit clean ``delta.content`` only.
+def _split_kimi_think(text: str) -> tuple[str, str]:
+    """Split a Kimi-VL ◁think▷…◁/think▷ payload into (reasoning, answer).
+
+    * Closed block — answer is everything after the LAST ◁/think▷; reasoning
+      is the text between the (first) open and that close marker.
+    * Unclosed block (model hit the token cap mid-thought) — the whole thing
+      is reasoning and there is no answer yet; the caller's
+      :func:`extract_json_from_thinking` salvage then has a chance, else the
+      tool loop retries with more budget.
+    * No marker present — returns ``("", text)`` unchanged.
+    """
+    if _KIMI_THINK_OPEN not in text and _KIMI_THINK_CLOSE not in text:
+        return "", text
+    close = text.rfind(_KIMI_THINK_CLOSE)
+    if close != -1:
+        answer = text[close + len(_KIMI_THINK_CLOSE):].strip()
+        head = text[:close]
+        open_i = head.find(_KIMI_THINK_OPEN)
+        reasoning = head[open_i + len(_KIMI_THINK_OPEN):] if open_i != -1 else head
+        return reasoning.strip(), answer
+    open_i = text.find(_KIMI_THINK_OPEN)
+    reasoning = text[open_i + len(_KIMI_THINK_OPEN):] if open_i != -1 else text
+    return reasoning.strip(), ""
+
+
+def _repair_trailing_braces(text: str) -> str:
+    """Close a JSON object whose tail brace(s)/string were lost to a cut.
+
+    String-aware so braces inside string values are not miscounted. Appends
+    exactly the trailing ``}`` (and a closing ``"`` if a string was left
+    dangling) needed to balance the object — nothing more.
+    """
+    depth = 0
+    in_str = False
+    esc = False
+    for ch in text:
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+    if in_str:
+        text += '"'
+    if depth > 0:
+        text += "}" * depth
+    return text
+
+
+def _sanitize_agent_content(text: str) -> str:
+    """Cut at the first leaked Kimi tool-call token, then brace-repair.
+
+    Everything from the first control token onward is native-tool-call framing,
+    not our JSON — drop it. The cut (or the token standing in for the final
+    brace) leaves the object short its closing brace, so repair it so the
+    tool loop's :func:`parse_model_json` can parse a clean object.
+    """
+    if not text:
+        return text
+    cut = len(text)
+    for tok in _KIMI_TOOL_TOKENS:
+        i = text.find(tok)
+        if i != -1 and i < cut:
+            cut = i
+    if cut < len(text):
+        text = text[:cut]
+    text = text.rstrip()
+    if "{" in text:
+        text = _repair_trailing_braces(text)
+    return text
+
+
+class AgentVLLMProvider:
+    """Dedicated vLLM backend for the Engine-3 agentic planner (Kimi-Linear).
+
+    Why a separate provider instead of reusing :class:`VLLMProvider`? The
+    Kimi-Linear-48B-A3B-Instruct endpoint differs from the Qwen3-VL one in
+    two ways that matter for the JSON tool loop:
+
+      * **No ``response_format``.** Kimi ships a slow tiktoken tokenizer,
+        so no vLLM grammar backend (xgrammar / guidance / llguidance) can
+        attach — requesting guided JSON *crashes the engine core*. We drop
+        ``response_format`` entirely and lean on the system prompt's
+        "respond with EXACTLY ONE JSON object" contract plus the robust
+        :func:`parse_model_json` salvage in the tool loop.
+      * **No Qwen ``chat_template_kwargs``.** ``enable_thinking`` /
+        ``thinking_budget_tokens`` are Qwen-template knobs; Kimi-Linear is
+        a non-reasoning Instruct model with its own chat template.
+
+    Everything else — the SSE parse, ``<think>`` salvage, usage capture —
+    mirrors :class:`VLLMProvider` so loop behaviour stays predictable. The
+    endpoint comes from ``AGENT_LLM_URL`` (falls back to the vision
+    ``base_url`` with a warning if that is somehow unset).
     """
 
-    name = "openrouter"
+    name = "agent_vllm"
 
     async def chat(
         self,
@@ -800,58 +917,63 @@ class OpenRouterProvider:
         *,
         model: str | None,
         on_thinking: OnThinking,
-        temperature: float,
-        response_format: dict | None,
+        temperature: float,             # IGNORED — see agent_temperature below
+        response_format: dict | None,  # accepted for parity; NEVER forwarded
         max_tokens: int | None,
-        enable_thinking: bool,
-        reasoning_effort: str | None,
+        enable_thinking: bool,          # accepted for parity; ignored
+        reasoning_effort: str | None,   # accepted for parity; ignored
     ) -> dict:
         settings = get_settings().llm
-        if not settings.openrouter_api_key:
-            raise RuntimeError(
-                "OPENROUTER_API_KEY is not configured — cannot route to "
-                f"OpenRouter model {model!r}."
+        base_url = (settings.agent_base_url or settings.base_url).rstrip("/")
+        if not settings.agent_base_url:
+            logger.warning(
+                "AgentVLLMProvider: AGENT_LLM_URL unset — falling back to "
+                "vision base_url %s", base_url,
             )
-        endpoint = f"{settings.openrouter_base_url}/chat/completions"
-        inactivity = settings.openrouter_inactivity_seconds
-        resolved_model = model or settings.openrouter_default_model
+        endpoint = f"{base_url}/v1/chat/completions"
+        inactivity = settings.agent_inactivity_seconds
+        resolved_model = _normalize_agent_model(model) or settings.agent_model
 
         payload: dict = {
             "model": resolved_model,
             "messages": messages,
             "stream":      True,
-            "temperature": temperature,
-            "max_tokens":  max_tokens or settings.openrouter_max_tokens,
+            # Ask vLLM for a trailing usage chunk (streaming omits it
+            # otherwise) so per-turn token telemetry is captured.
+            "stream_options": {"include_usage": True},
+            # Kimi-tuned sampling, NOT the inbound `temperature`. The agentic
+            # loop passes 0.0 (a Qwen-era deterministic default), but greedy
+            # decoding drops Kimi-Linear into a degenerate repetition attractor
+            # ('{"!!!!…'). Use Moonshot's recommended non-greedy sampling.
+            "temperature": settings.agent_temperature,
+            "top_p":       settings.agent_top_p,
+            "max_tokens":  max_tokens or settings.agent_max_tokens,
+            # Halt cleanly at Kimi's native tool-call framing tokens so one
+            # assistant turn = one JSON object (our protocol), and the model
+            # can't append a second native-format tool-call section. `stop` is
+            # a plain sampling param (unlike response_format) — safe for Kimi.
+            "stop": list(_KIMI_TOOL_TOKENS),
         }
-        if response_format:
-            payload["response_format"] = response_format
-        if enable_thinking:
-            effort = (reasoning_effort or settings.openrouter_default_reasoning_effort or "").strip().lower()
-            if effort in ("low", "medium", "high"):
-                payload["reasoning"] = {"effort": effort}
+        # Deliberately NO `response_format` and NO `chat_template_kwargs` —
+        # see the class docstring; both break the Kimi endpoint.
 
-        headers = {
-            "Authorization": f"Bearer {settings.openrouter_api_key}",
-            "Content-Type":  "application/json",
-        }
-        if settings.openrouter_http_referer:
-            headers["HTTP-Referer"] = settings.openrouter_http_referer
-        if settings.openrouter_app_title:
-            headers["X-Title"] = settings.openrouter_app_title
+        headers = {"Content-Type": "application/json"}
+        if settings.agent_api_key:
+            headers["Authorization"] = f"Bearer {settings.agent_api_key}"
 
         full_content = ""
         think_content = ""
         usage: dict | None = None
-        response_model: str | None = None
 
-        timeout = httpx.Timeout(settings.openrouter_request_timeout, connect=15.0)
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream("POST", endpoint, headers=headers, json=payload) as resp:
+        async with httpx.AsyncClient(timeout=None) as client:
+            async with client.stream(
+                "POST", endpoint, headers=headers, json=payload, timeout=None,
+            ) as resp:
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise RuntimeError(
-                        f"OpenRouter HTTP {resp.status_code}: "
-                        f"{body[:300].decode(errors='replace')}"
+                        f"Agent LLM HTTP {resp.status_code}: "
+                        f"{body[:200].decode(errors='replace')}"
                     )
                 buf = ""
                 aiter = resp.aiter_bytes().__aiter__()
@@ -860,115 +982,88 @@ class OpenRouterProvider:
                         raw_bytes = await asyncio.wait_for(
                             aiter.__anext__(), timeout=inactivity,
                         )
-                    except asyncio.TimeoutError:
-                        logger.warning(
-                            "OpenRouter inactivity timeout after %gs (model=%s)",
-                            inactivity, resolved_model,
-                        )
+                    except (asyncio.TimeoutError, StopAsyncIteration):
                         break
-                    except StopAsyncIteration:
-                        break
-
                     buf += raw_bytes.decode("utf-8", errors="replace")
                     lines = buf.split("\n")
                     buf = lines.pop()
                     for line in lines:
                         line = line.strip()
-                        if not line or line.startswith(":"):
-                            # OpenRouter emits SSE keep-alive comments
-                            # ("` `: OPENROUTER PROCESSING`") that must
-                            # be ignored.
+                        if not line:
                             continue
                         raw = line[6:] if line.startswith("data: ") else line
                         if raw == "[DONE]":
                             break
                         try:
                             chunk = json.loads(raw)
-                        except (json.JSONDecodeError, ValueError):
-                            continue
-                        if isinstance(chunk.get("usage"), dict):
-                            usage = chunk["usage"]
-                        if isinstance(chunk.get("model"), str):
-                            response_model = chunk["model"]
-                        choices = chunk.get("choices") or []
-                        if not choices:
-                            continue
-                        delta = (choices[0] or {}).get("delta") or {}
-
-                        # Accept all three reasoning-delta shapes that
-                        # OpenRouter producers emit.
-                        reasoning_piece: str | None = None
-                        if isinstance(delta.get("reasoning"), str):
-                            reasoning_piece = delta["reasoning"]
-                        elif isinstance(delta.get("reasoning_content"), str):
-                            reasoning_piece = delta["reasoning_content"]
-                        else:
-                            details = delta.get("reasoning_details")
-                            if isinstance(details, list):
-                                pieces = []
-                                for d in details:
-                                    if isinstance(d, dict) and isinstance(d.get("text"), str):
-                                        pieces.append(d["text"])
-                                if pieces:
-                                    reasoning_piece = "".join(pieces)
-                        if reasoning_piece:
-                            think_content += reasoning_piece
-                            if on_thinking:
-                                await on_thinking(reasoning_piece)
-
-                        if isinstance(delta.get("content"), str):
-                            full_content += delta["content"]
-
-                        if (choices[0] or {}).get("finish_reason"):
-                            break
-
+                            if isinstance(chunk.get("usage"), dict):
+                                usage = chunk["usage"]
+                            delta = (chunk.get("choices") or [{}])[0].get("delta") or {}
+                            if delta.get("reasoning_content"):
+                                think_content += delta["reasoning_content"]
+                                if on_thinking:
+                                    await on_thinking(delta["reasoning_content"])
+                            if delta.get("content"):
+                                full_content += delta["content"]
+                            if (chunk.get("choices") or [{}])[0].get("finish_reason"):
+                                break
+                        except (json.JSONDecodeError, IndexError, KeyError):
+                            pass
                     if len(full_content) > _MAX_CONTENT_CHARS:
-                        logger.warning("OpenRouter content > %d chars — breaking", _MAX_CONTENT_CHARS)
                         break
                     if len(think_content) > _MAX_THINKING_CHARS:
-                        logger.warning("OpenRouter thinking > %d chars — breaking", _MAX_THINKING_CHARS)
                         break
 
-        # Fallback: if the model wrapped its JSON answer in <think>...</think>
-        # (a few OSS models do) salvage it the same way as vLLM.
+        # Kimi-VL-A3B-Thinking wraps reasoning inline in ◁think▷…◁/think▷
+        # (literal text in `content`, never reasoning_content). Pull the
+        # answer out from after the closing marker; keep the reasoning for the
+        # trace. Falls through to the legacy <think> handling for other models.
+        if _KIMI_THINK_OPEN in full_content or _KIMI_THINK_CLOSE in full_content:
+            reasoning, answer = _split_kimi_think(full_content)
+            if reasoning and not think_content:
+                think_content = reasoning
+            full_content = answer
+        elif full_content and not think_content and "</think>" in full_content:
+            idx = full_content.index("</think>")
+            think_content = full_content[:idx].lstrip("<think>").strip()
+            full_content = full_content[idx + 8:].strip()
+
         if not full_content and think_content:
-            logger.warning(
-                "OpenRouter content=0 thinking=%d — extracting JSON",
-                len(think_content),
-            )
             full_content = extract_json_from_thinking(think_content)
+
+        # Strip + brace-repair any leaked Kimi tool-call control tokens so the
+        # tool loop receives a parseable single JSON object (Kimi path only).
+        full_content = _sanitize_agent_content(full_content)
 
         return {
             "content":  full_content,
             "thinking": think_content,
             "usage":    usage,
-            "model":    response_model or resolved_model,
+            "model":    resolved_model,
         }
 
 
 _VLLM_PROVIDER = VLLMProvider()
-_OPENROUTER_PROVIDER = OpenRouterProvider()
+_AGENT_PROVIDER = AgentVLLMProvider()
 
 
 def _select_provider(model: str | None) -> LLMProvider:
-    """Route a model slug to the right backend.
+    """Resolve a model slug to a backend — **failover escape-hatch only**.
 
-    Rules:
-      * ``None`` → :class:`VLLMProvider` (legacy default).
-      * ``"vllm:<name>"`` → :class:`VLLMProvider` with ``<name>``.
-      * Any slug containing ``"/"`` → :class:`OpenRouterProvider`.
-      * Anything else → :class:`VLLMProvider` (treats bare names like
-        ``"Qwen/Qwen3-VL-32B-Instruct-FP8"`` correctly only when prefixed
-        with ``vllm:``; otherwise OpenRouter is preferred because the
-        slug shape matches its catalog).
+    The agentic engine (Engine 3) is Kimi-only: :func:`chat_messages` always
+    routes its primary call to :class:`AgentVLLMProvider` regardless of slug,
+    so this helper is no longer on the hot path. It survives solely to resolve
+    the optional, off-by-default ``AGENT_LLM_FAILOVER`` slug, where an operator
+    may *explicitly* point at a backup planner:
+
+      * ``"agent:<name>"`` → :class:`AgentVLLMProvider` (Kimi pod).
+      * anything else (``None`` / ``"vllm:<name>"``) → :class:`VLLMProvider`.
+
+    Qwen is never reached implicitly by the agentic engine — only via this
+    deliberate failover opt-in.
     """
-    if not model:
-        return _VLLM_PROVIDER
-    slug = model.strip()
-    if slug.lower().startswith(_VLLM_PREFIX):
-        return _VLLM_PROVIDER
-    if "/" in slug:
-        return _OPENROUTER_PROVIDER
+    if model and model.strip().lower().startswith(_AGENT_PREFIX):
+        return _AGENT_PROVIDER
     return _VLLM_PROVIDER
 
 
@@ -989,45 +1084,72 @@ async def chat_messages(
 ) -> dict:
     """Multi-turn streaming chat. Returns ``{"content", "thinking", "usage", "model"}``.
 
-    Routes to vLLM or OpenRouter based on ``model`` (see
-    :func:`_select_provider`). The agentic loop carries tool results
-    forward as additional user turns and asks for JSON mode via
-    ``response_format={"type": "json_object"}``.
+    This is the agentic engine's (Engine 3) sole LLM entry, and Engine 3 is
+    **Kimi-only** — the primary call always routes to
+    :class:`AgentVLLMProvider` (the Kimi-Linear pod), irrespective of the
+    ``model`` slug. Qwen drives Engine 1's drawing extraction via the separate
+    :func:`vision_chat` path and is never reached here, except through the
+    explicit, off-by-default ``AGENT_LLM_FAILOVER`` escape hatch below. The
+    agentic loop carries tool results forward as additional user turns.
 
     Parameters
     ----------
     messages:
         OpenAI-style chat messages.
     model:
-        Optional model slug. ``None`` and ``"vllm:..."`` route to local
-        vLLM; ``"<vendor>/<name>"`` routes to OpenRouter.
+        Model slug forwarded to the Kimi provider (the ``"agent:"`` prefix is
+        stripped to recover the served model name). Does not change routing.
     on_thinking:
         Callback for reasoning deltas; forwarded to the SSE bridge.
     temperature:
         Sampling temperature (0 for the deterministic agentic loop).
     response_format:
-        Pass-through. ``{"type": "json_object"}`` forces JSON output.
+        Accepted for signature parity but NEVER forwarded — guided JSON
+        crashes the Kimi engine (slow tiktoken, no grammar backend).
     max_tokens:
-        Per-provider max-tokens cap; falls back to settings defaults.
+        Max-tokens cap; falls back to the agent settings default.
     enable_thinking:
-        Toggle reasoning. On vLLM this drives Qwen's
-        ``chat_template_kwargs``; on OpenRouter this enables the unified
-        ``reasoning: {effort: ...}`` param.
+        Accepted for parity; ignored by the Kimi backend (non-reasoning
+        Instruct model with its own chat template).
     reasoning_effort:
-        ``"low" | "medium" | "high"``. Only used by OpenRouter; ignored
-        by vLLM.
+        ``"low" | "medium" | "high"``. Accepted for parity; ignored.
     """
-    provider = _select_provider(model)
-    return await provider.chat(
-        messages,
-        model=model,
-        on_thinking=on_thinking,
-        temperature=temperature,
-        response_format=response_format,
-        max_tokens=max_tokens,
-        enable_thinking=enable_thinking,
-        reasoning_effort=reasoning_effort,
-    )
+    # Engine 3 is Kimi-only — never route the agentic loop to Qwen implicitly.
+    provider = _AGENT_PROVIDER
+    try:
+        return await provider.chat(
+            messages,
+            model=model,
+            on_thinking=on_thinking,
+            temperature=temperature,
+            response_format=response_format,
+            max_tokens=max_tokens,
+            enable_thinking=enable_thinking,
+            reasoning_effort=reasoning_effort,
+        )
+    except (httpx.HTTPError, RuntimeError) as exc:
+        # Explicit, off-by-default escape hatch: if the Kimi pod is
+        # unreachable / erroring and an operator has set AGENT_LLM_FAILOVER,
+        # retry once on that slug (resolved via _select_provider — this is the
+        # ONLY place Qwen can re-enter the agentic engine, and only by
+        # deliberate config). A different LLM planner, not a rule-based
+        # fallback, so it respects the "agent only" design.
+        failover = get_settings().llm.agent_failover
+        if failover:
+            logger.warning(
+                "agent LLM call failed (%s) — failing over to %r", exc, failover,
+            )
+            return await _select_provider(failover).chat(
+                messages,
+                model=failover,
+                on_thinking=on_thinking,
+                temperature=temperature,
+                response_format=response_format,
+                max_tokens=max_tokens,
+                enable_thinking=enable_thinking,
+                reasoning_effort=reasoning_effort,
+            )
+        raise
 
 
 __all__ = [
@@ -1038,6 +1160,6 @@ __all__ = [
     "extract_json_from_thinking",
     "find_matching_brace",
     "VLLMProvider",
-    "OpenRouterProvider",
+    "AgentVLLMProvider",
     "LLMProvider",
 ]

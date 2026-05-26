@@ -23,6 +23,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-orange: var(--orange);
+  --color-orange-foreground: var(--orange-foreground);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -44,53 +48,59 @@
   --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
 }
 
-/* ── Light Theme ─────────────────────────────────────────────── */
+/* ── Theme (CoFab) — slate base, blue-600 brand, light only ──────── */
 :root {
-  --radius: 0.5rem; /* 8px — premium SaaS feel */
+  --radius: 0.5rem; /* 8px */
 
-  --background:           oklch(0.987 0.003 250);
-  --foreground:           oklch(0.13  0.014 260);
-  --card:                 oklch(1.0   0     0);
-  --card-foreground:      oklch(0.13  0.014 260);
-  --popover:              oklch(1.0   0     0);
-  --popover-foreground:   oklch(0.13  0.014 260);
+  --background:            hsl(0 0% 100%);
+  --foreground:            hsl(222.2 84% 4.9%);
+  --card:                  hsl(0 0% 100%);
+  --card-foreground:       hsl(222.2 84% 4.9%);
+  --popover:               hsl(0 0% 100%);
+  --popover-foreground:    hsl(222.2 84% 4.9%);
 
-  /* Warm amber — richer, more premium */
-  --primary:              oklch(0.60  0.175 68);
-  --primary-foreground:   oklch(0.98  0.005 0);
+  /* Brand blue (Tailwind blue-600 ≈ #2563EB) drives the primary action. */
+  --primary:               hsl(221 83% 53%);
+  --primary-foreground:    hsl(210 40% 98%);
 
-  --secondary:            oklch(0.945 0.006 260);
-  --secondary-foreground: oklch(0.13  0.014 260);
+  --secondary:             hsl(210 40% 96.1%);
+  --secondary-foreground:  hsl(222.2 47.4% 11.2%);
 
-  --muted:                oklch(0.945 0.006 260);
-  --muted-foreground:     oklch(0.53  0.016 260);
+  --muted:                 hsl(210 40% 96.1%);
+  --muted-foreground:      hsl(215.4 16.3% 46.9%);
 
-  --accent:               oklch(0.945 0.006 260);
-  --accent-foreground:    oklch(0.13  0.014 260);
+  --accent:                hsl(214 100% 96.7%);
+  --accent-foreground:     hsl(222.2 47.4% 11.2%);
 
-  --destructive:          oklch(0.55  0.220 27);
-  --destructive-foreground: oklch(0.97 0     0);
+  --destructive:           hsl(0 72% 51%);
+  --destructive-foreground: hsl(210 40% 98%);
 
-  --border:               oklch(0.900 0.005 260);
-  --input:                oklch(0.900 0.005 260);
-  --ring:                 oklch(0.60  0.175 68);
+  --border:                hsl(214.3 31.8% 91.4%);
+  --input:                 hsl(214.3 31.8% 91.4%);
+  --ring:                  hsl(221 83% 53%);
 
-  /* Charts */
-  --chart-1: oklch(0.60  0.175 68);
-  --chart-2: oklch(0.52  0.18  170);
-  --chart-3: oklch(0.52  0.15  220);
-  --chart-4: oklch(0.58  0.19  30);
-  --chart-5: oklch(0.52  0.19  300);
+  /* Brand accent tokens (mirror CoFab's --dark-blue / --orange) */
+  --brand:                 hsl(221 83% 53%);
+  --brand-foreground:      hsl(210 40% 98%);
+  --orange:                hsl(25 95% 53%);
+  --orange-foreground:     hsl(210 40% 98%);
 
-  /* Sidebar — white for modern SaaS */
-  --sidebar:                  oklch(1.0   0     0);
-  --sidebar-foreground:       oklch(0.13  0.014 260);
-  --sidebar-primary:          oklch(0.60  0.175 68);
-  --sidebar-primary-foreground: oklch(0.98 0.005 0);
-  --sidebar-accent:           oklch(0.945 0.006 260);
-  --sidebar-accent-foreground: oklch(0.13  0.014 260);
-  --sidebar-border:           oklch(0.900 0.005 260);
-  --sidebar-ring:             oklch(0.60  0.175 68);
+  /* Charts — blue, orange, green, violet, sky */
+  --chart-1: hsl(221 83% 53%);
+  --chart-2: hsl(25 95% 53%);
+  --chart-3: hsl(142 71% 45%);
+  --chart-4: hsl(262 83% 58%);
+  --chart-5: hsl(199 89% 48%);
+
+  /* Sidebar / runs panel — faint blue-tinted near-white */
+  --sidebar:                   hsl(210 40% 98%);
+  --sidebar-foreground:        hsl(222.2 47.4% 11.2%);
+  --sidebar-primary:           hsl(221 83% 53%);
+  --sidebar-primary-foreground: hsl(210 40% 98%);
+  --sidebar-accent:            hsl(214 100% 96.7%);
+  --sidebar-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --sidebar-border:            hsl(214.3 31.8% 91.4%);
+  --sidebar-ring:              hsl(221 83% 53%);
 }
 
 @layer base {
@@ -110,31 +120,27 @@
     font-family: var(--font-mono);
   }
 
-  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: oklch(0.80 0.008 260);
+    background: hsl(215 20% 80%);
     border-radius: 4px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: oklch(0.67 0.010 260);
+    background: hsl(215 16% 65%);
   }
 }
 
 /* ── Utility helpers ─────────────────────────────────────────── */
 
-/* Elevated card with soft shadow */
+/* Elevated card with soft shadow (CoFab hover-lift feel). */
 .card-elevated {
   box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
 }
 
-/* Amber glow */
+/* Blue focus glow */
 .card-glow {
-  box-shadow: 0 0 0 1px oklch(0.60 0.175 68 / 0.20), 0 4px 16px rgb(0 0 0 / 0.06);
-}
-
-.border-accent-top {
-  border-top: 2px solid oklch(0.76 0.170 72 / 0.5);
+  box-shadow: 0 0 0 1px hsl(221 83% 53% / 0.20), 0 4px 16px rgb(0 0 0 / 0.06);
 }
 
 @keyframes status-pulse {
@@ -145,7 +151,14 @@
   animation: status-pulse 2.5s ease-in-out infinite;
 }
 
-/* Gradient brand mark */
+/* Gradient brand mark (blue → indigo, mirrors CoFab auth gradient). */
 .brand-gradient {
-  background: linear-gradient(135deg, oklch(0.65 0.175 68), oklch(0.52 0.18 50));
+  background: linear-gradient(135deg, hsl(221 83% 56%), hsl(243 75% 59%));
+}
+
+/* Subtle dotted grid for the viewport backdrop. */
+.viewport-grid {
+  background-color: hsl(210 40% 98%);
+  background-image: radial-gradient(hsl(214 25% 84%) 1px, transparent 1px);
+  background-size: 18px 18px;
 }

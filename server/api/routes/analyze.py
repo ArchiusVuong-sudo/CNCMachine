@@ -41,7 +41,7 @@ async def analyze_stream(request: Request) -> StreamingResponse:
 
     Engine selection precedence (first non-empty wins):
 
-      1. ``?engine=agentic|rag``    — query parameter (works for both bodies)
+      1. ``?engine=agentic``        — query parameter (works for both bodies)
       2. ``engine`` field in JSON body / form field of the same name
       3. Server default from ``ENGINE_MODE`` (see settings)
 

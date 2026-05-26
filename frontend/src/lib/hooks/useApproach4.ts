@@ -21,8 +21,9 @@
 import { useCallback, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { parseSSEBuffer } from "@/lib/api/client";
-import type { AgentStreamMessage } from "@/components/agent/agent-stream";
+import { saveRunSource } from "@/lib/run-sources";
 import type {
+  AgentStreamMessage,
   AgenticData,
   BBox,
   ComponentCost,
@@ -35,6 +36,20 @@ import type {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export type PipelineStatus = "idle" | "uploading" | "streaming" | "done" | "error";
+
+/**
+ * Fresh viewer sources for the *current* run. The viewport reads these
+ * immediately (no re-sign round-trip); paths are also persisted to
+ * localStorage so the same run can be reopened later from the runs panel.
+ */
+export interface UploadedSources {
+  stepUrl:      string;
+  drawingUrl:   string;
+  drawingType?: string;
+  fileName?:    string;
+  stepPath:     string;
+  drawingPath:  string;
+}
 
 /** Per-component state assembled live from SSE + final_answer. */
 export interface CanvasComponent {
@@ -66,6 +81,7 @@ export interface Approach4State {
   totalMinutes:     number | null;
   totalUsd:         number | null;
   batchSize:        number;
+  sources:          UploadedSources | null;
   canvasComponents: Record<number, CanvasComponent>;
   isStreaming:      boolean;
   isLoading:        boolean;
@@ -90,6 +106,7 @@ export function useApproach4() {
   const [totalMinutes,    setTotalMinutes]   = useState<number | null>(null);
   const [totalUsd,        setTotalUsd]       = useState<number | null>(null);
   const [batchSize,       setBatchSize]      = useState<number>(1);
+  const [sources,         setSources]        = useState<UploadedSources | null>(null);
   const [canvasComponents, setCanvasComponents] = useState<Record<number, CanvasComponent>>({});
 
   const abortRef = useRef<AbortController | null>(null);
@@ -143,6 +160,7 @@ export function useApproach4() {
     setResults(null);
     setTotalMinutes(null);
     setTotalUsd(null);
+    setSources(null);
     setCanvasComponents({});
 
     try {
@@ -171,6 +189,26 @@ export function useApproach4() {
       ]);
       if (sign3d.error) throw new Error(`Signed URL 3D: ${sign3d.error.message}`);
       if (sign2d.error) throw new Error(`Signed URL 2D: ${sign2d.error.message}`);
+
+      // Surface fresh viewer URLs immediately, and persist the durable storage
+      // *paths* (keyed by analysis id) so the run can be reopened later — the
+      // signed URLs expire in 24h but the paths never do.
+      setSources({
+        stepUrl:     sign3d.data!.signedUrl,
+        drawingUrl:  sign2d.data!.signedUrl,
+        drawingType: file2d.type || undefined,
+        fileName:    file3d.name,
+        stepPath:    file3dPath,
+        drawingPath: file2dPath,
+      });
+      saveRunSource({
+        analysisId:  runId,
+        fileName:    file3d.name,
+        stepPath:    file3dPath,
+        drawingPath: file2dPath,
+        drawingType: file2d.type || undefined,
+        createdAt:   Date.now(),
+      });
 
       // ── Open SSE stream via the API v1 catch-all proxy ─────────────────────
       setStatus("streaming");
@@ -372,6 +410,7 @@ export function useApproach4() {
     setResults(null);
     setTotalMinutes(null);
     setTotalUsd(null);
+    setSources(null);
     setCanvasComponents({});
   }, []);
 
@@ -387,6 +426,7 @@ export function useApproach4() {
     totalMinutes,
     totalUsd,
     batchSize,
+    sources,
     canvasComponents,
     run,
     cancel,

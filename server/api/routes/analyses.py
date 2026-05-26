@@ -91,9 +91,9 @@ def _coerce_float(value: object) -> float | None:
 def _sum_total_minutes(components: list) -> float | None:
     """Sum run+setup minutes across components; None if nothing usable.
 
-    Reads from whichever planner meta dict the engine attached
-    (``agentic`` or ``rag``) so the history list works regardless of
-    which engine ran.
+    Reads from the ``agentic`` planner meta dict the engine attached.
+    Historical rows may carry a legacy ``rag`` block — fall back to it so
+    old analyses still render.
     """
     minutes = 0.0
     saw_value = False

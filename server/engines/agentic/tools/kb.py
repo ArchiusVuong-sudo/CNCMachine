@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,27 @@ def normalize_part_id(raw: str) -> str:
         if 1 <= len(tail) <= 4 and all(c.isalnum() for c in tail):
             return "-".join(parts[:-1])
     return s
+
+
+def build_holdout_set(holdout_part_number: str | None) -> frozenset[str]:
+    """Normalized set of part ids the holdout-aware tools must hide.
+
+    Unions the single ``holdout_part_number`` (the in-flight fixture, set by
+    the dispatcher) with the comma-separated ``E3_HOLDOUT_EXTRA`` env var.
+    The env var enables **leave-N-out** generalization eval (hide several
+    fixtures at once) without threading a list through the whole pipeline;
+    when it is unset the set collapses to the single param — i.e. production
+    and the existing leave-one-out eval behave exactly as before.
+    """
+    ids: set[str] = set()
+    pid = normalize_part_id(holdout_part_number or "")
+    if pid:
+        ids.add(pid)
+    for raw in (os.environ.get("E3_HOLDOUT_EXTRA", "") or "").split(","):
+        nid = normalize_part_id(raw)
+        if nid:
+            ids.add(nid)
+    return frozenset(ids)
 
 
 def _safe_kb_path(relative_path: str) -> Path | None:
@@ -329,16 +351,17 @@ def make_holdout_aware_kb_tools(
     When ``holdout_part_number`` is empty / None, returns the plain tools
     unchanged — production behavior.
     """
-    holdout = normalize_part_id(holdout_part_number or "")
-    if not holdout:
+    holdout_set = build_holdout_set(holdout_part_number)
+    if not holdout_set:
         return {
             "kb_read": kb_read,
             "kb_find_analogues": kb_find_analogues,
             "kb_query_csv": kb_query_csv,
         }
+    holdout = ",".join(sorted(holdout_set))  # display string for messages
 
     def _matches_holdout(pn: str) -> bool:
-        return normalize_part_id(pn) == holdout
+        return normalize_part_id(pn) in holdout_set
 
     def _path_targets_holdout(path: str) -> bool:
         normalized = (path or "").replace("\\", "/").strip().lower()
@@ -347,7 +370,7 @@ def make_holdout_aware_kb_tools(
                 tail = normalized[len(prefix):].rsplit("/", 1)[-1]
                 if tail.endswith(".md"):
                     tail = tail[:-3]
-                if normalize_part_id(tail) == holdout:
+                if normalize_part_id(tail) in holdout_set:
                     return True
         return False
 

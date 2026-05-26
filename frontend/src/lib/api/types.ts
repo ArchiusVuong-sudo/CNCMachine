@@ -17,6 +17,17 @@
  */
 
 // ---------------------------------------------------------------------------
+// SSE stream message (assembled by useApproach4 from analyze-stream frames)
+// ---------------------------------------------------------------------------
+
+export interface AgentStreamMessage {
+  id:        string;
+  type:      string;
+  data:      Record<string, unknown>;
+  timestamp: number;
+}
+
+// ---------------------------------------------------------------------------
 // VLM (drawing) extraction
 // ---------------------------------------------------------------------------
 
@@ -32,41 +43,50 @@ export interface BomItem {
   [key: string]: unknown;
 }
 
+/** Mirrors server ``DimensionRow`` (core/schemas/drawing.py). */
 export interface DimensionRow {
-  label?:      string;
-  nominal_mm?: number;
-  upper_mm?:   number | null;
-  lower_mm?:   number | null;
+  label?:           string;
+  nominal?:         number | string;
+  unit?:            string;
+  tolerance_plus?:  number | null;
+  tolerance_minus?: number | null;
+  tolerance?:       string;
+  notes?:           string;
   [key: string]: unknown;
 }
 
+/** Mirrors server ``GdtCallout``. */
 export interface GdtCallout {
-  symbol?:    string;
-  value?:     string;
-  datum_ref?: string[];
-  feature?:   string;
+  symbol?:        string;
+  tolerance?:     string;
+  datum_refs?:    string[];
+  feature_label?: string;
   [key: string]: unknown;
 }
 
+/** Mirrors server ``ThreadSpec``. */
 export interface ThreadSpec {
-  designation?: string;
-  pitch_mm?:    number;
-  major_mm?:    number;
-  depth_mm?:    number;
+  spec?:     string;
+  label?:    string;
+  count?:    number;
+  depth_mm?: number;
+  is_blind?: boolean;
   [key: string]: unknown;
 }
 
-export interface DrawingNote {
-  text: string;
-}
-
+/** Mirrors server ``TitleBlock``. */
 export interface TitleBlock {
-  drawing_number?: string;
+  part_number?:    string;
   revision?:       string;
   title?:          string;
+  description?:    string;
   drawn_by?:       string;
-  approved_by?:    string;
+  checked_by?:     string;
   date?:           string;
+  company?:        string;
+  scale?:          string;
+  sheet?:          string;
+  dimension_unit?: string;
   [key: string]: unknown;
 }
 
@@ -79,7 +99,8 @@ export interface VlmExtraction {
   dimension_unit?:  "mm" | "in" | string;
   title_block?:     TitleBlock | null;
   bom_items?:       BomItem[];
-  drawing_notes?:   DrawingNote[];
+  /** Server emits ``list[str]``; tolerate ``{text}`` objects defensively. */
+  drawing_notes?:   (string | { text?: string })[];
   dimensions?:      DimensionRow[];
   gdt_callouts?:    GdtCallout[];
   threads?:         ThreadSpec[];

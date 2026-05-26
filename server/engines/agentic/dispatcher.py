@@ -44,8 +44,8 @@ async def dispatch(
     """Run the LLM coordinator and persist the session note.
 
     ``model`` selects the per-request LLM (e.g.
-    ``"anthropic/claude-sonnet-4.5"`` for OpenRouter, ``None`` for the
-    server default).
+    ``"agent:kimi-agent"`` for the Kimi pod, ``"vllm:<name>"`` for the
+    local Qwen backend, ``None`` for the server default).
 
     ``holdout_part_number`` enables eval-mode KB filtering: the
     agent's kb_read / kb_find_analogues / kb_query_csv / kb_adopt_routing

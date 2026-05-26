@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/layout/sidebar";
-import { Header } from "@/components/layout/header";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -18,8 +16,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CNC Costing AI | AI-Powered Manufacturing",
-  description: "AI-powered CNC part costing and manufacturing analysis",
+  title: "CoFab · CNC Costing Studio",
+  description: "AI-powered CNC part costing — drawing + 3D model in, per-component cost out.",
   icons: {
     icon: "/favicon.svg",
   },
@@ -32,20 +30,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${dmSans.variable} ${jetbrains.variable} min-h-screen`}>
-        <TooltipProvider>
-          <div className="flex h-screen overflow-hidden">
-            <Sidebar />
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Header />
-              <main className="flex-1 overflow-y-auto">
-                <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-6">
-                  {children}
-                </div>
-              </main>
-            </div>
-          </div>
-        </TooltipProvider>
+      <body className={`${dmSans.variable} ${jetbrains.variable} min-h-screen bg-background text-foreground antialiased`}>
+        {children}
+        <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>
   );

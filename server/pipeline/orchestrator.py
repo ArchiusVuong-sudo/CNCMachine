@@ -56,11 +56,9 @@ logger = logging.getLogger("cncserver.pipeline")
 # ---------------------------------------------------------------------------
 
 # Supported planner engines. The orchestrator never imports these at module
-# load time — each engine package is opaque until a request actually asks
-# for it. That's what keeps ``server/engines/<name>/`` deletable: removing
-# the agentic engine must not stop the RAG engine from serving requests,
-# and vice versa.
-_SUPPORTED_ENGINES = ("agentic", "rag")
+# load time — the engine package is opaque until a request actually asks
+# for it. That's what keeps ``server/engines/<name>/`` deletable.
+_SUPPORTED_ENGINES = ("agentic",)
 
 
 def _resolve_engine_dispatch(engine_name: str):
@@ -73,9 +71,6 @@ def _resolve_engine_dispatch(engine_name: str):
     name = (engine_name or "").strip().lower()
     if name == "agentic":
         from ..engines.agentic import dispatch as engine_plan_processes  # noqa: PLC0415
-        return engine_plan_processes
-    if name == "rag":
-        from ..engines.rag import dispatch as engine_plan_processes  # noqa: PLC0415
         return engine_plan_processes
     raise ValueError(
         f"unknown engine {name!r}; supported: {', '.join(_SUPPORTED_ENGINES)}"
@@ -124,7 +119,13 @@ async def run_pipeline(
     # Per-request override wins; otherwise fall back to the env default.
     engine_name = (engine or settings.engine.default or "agentic").strip().lower()
     # Default model for Engine 3 when the caller doesn't specify one.
-    resolved_model = (model or settings.llm.openrouter_default_model or "").strip() or None
+    # Precedence: explicit request model → agent backend (Kimi, when
+    # AGENT_LLM_URL is configured) → local vLLM (Qwen) default.
+    resolved_model = (
+        model
+        or settings.llm.agent_default_model
+        or ""
+    ).strip() or None
 
     logger.info(
         "=" * 80 + "\n"
@@ -461,7 +462,7 @@ async def run_pipeline(
     confidence_bands: list[float] = []
     evidence_tokens: list[str] = []
     for c in components_dump:
-        for engine_block in (c.get("agentic") or {}, c.get("rag") or {}):
+        for engine_block in (c.get("agentic") or {},):
             band = engine_block.get("confidence_band_pct")
             try:
                 if band is not None:

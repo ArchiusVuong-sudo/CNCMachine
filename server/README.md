@@ -40,31 +40,18 @@ server/
 │   │   ├── dim_tagger.py       #   drawing dims/GD&T/threads → AFR features
 │   │   └── cost_engine.py      #   labor + machine + tool → USD per component
 │   │
-│   ├── agentic/                # Engine 3 (agentic) — LLM ReAct planner
-│   │   ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan` + session-note writeback
-│   │   ├── coordinator.py      #   assembly orchestration; per-component asyncio.gather
-│   │   ├── per_component_agent.py# Single-loop ReAct chain per component
-│   │   ├── tool_loop.py        #   ReAct/JSON-mode driver (40-iter cap, 3 parse retries)
-│   │   ├── writeback.py        #   Agentic-only session-note writer (path-validated)
-│   │   ├── prompts/            #   System prompt + per-phase user-message builders
-│   │   └── tools/              #   kb_read, kb_find_analogues, kb_query_csv,
-│   │                           #   catalog_lookup, compute_cycle_time
-│   │
-│   └── rag/                    # Engine 3 (rag) — one-shot LLM + pgvector retrieval
-│       ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan`
+│   └── agentic/                # Engine 3 — LLM ReAct planner (the only planner)
+│       ├── dispatcher.py       #   public `dispatch(...) -> ProcessPlan` + session-note writeback
 │       ├── coordinator.py      #   assembly orchestration; per-component asyncio.gather
-│       ├── planner.py          #   per-component RAG plan (retrieve → prompt → snap → project)
-│       ├── retriever.py        #   Supabase pgvector queries (rag_search_parts/_patterns)
-│       ├── embed.py            #   OpenAI text-embedding-3-small client
-│       ├── generator.py        #   single-shot JSON-mode LLM call (one retry)
-│       ├── tool_snap.py        #   map LLM-proposed tools → catalog by (type, diameter)
-│       ├── projection.py       #   plan dict → routing rows + manufacturing processes
-│       ├── prompts/            #   system + user prompt builders
-│       └── ingestion/          #   offline CLI: schema.sql + build_index.py
+│       ├── per_component_agent.py# Single-loop ReAct chain per component
+│       ├── tool_loop.py        #   ReAct/JSON driver (40-iter cap, 3 parse retries)
+│       ├── writeback.py        #   Agentic-only session-note writer (path-validated)
+│       ├── prompts/            #   System prompt + per-phase user-message builders
+│       └── tools/              #   kb_read, kb_find_analogues, kb_query_csv,
+│                               #   catalog_lookup, compute_cycle_time
 │
-│   # Engines are deletable units: no cross-engine imports. Removing
-│   # `agentic/` leaves `rag/` working, and vice versa. The orchestrator
-│   # lazy-imports whichever engine the request asks for.
+│   # Engines are deletable units: no cross-engine imports. The
+│   # orchestrator lazy-imports the planner the request asks for.
 │
 ├── infra/                      # Network/DB adapters
 │   ├── supabase.py             #   lazy client factory

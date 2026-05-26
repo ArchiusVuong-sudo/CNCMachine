@@ -16,6 +16,35 @@
 
 ---
 
+## Scoring objective — you are graded on the per-family BREAKDOWN, not the grand total
+
+What is measured is how close each **op-family**'s run-minutes are to the
+shop's real per-family minutes:
+
+    breakdown_error = Σ_family |your_minutes − shop_minutes|  /  Σ_family shop_minutes
+
+Cancellation does NOT help you. Putting machining minutes where the shop
+books inspection is **wrong even when the grand total matches** — a "perfect
+total" with the wrong split is a FAIL. Get each run-bearing family right
+(MACHINING, DEBUR, ASSY, WELD, INSP, PACK) and the total takes care of
+itself. Two direct consequences:
+
+  * **Match WHERE the shop books work, not just how much.** This shop books
+    lot-inspection and assembly/handling labor at the **assembly / final**
+    level — do not thin it out across components, and do not push it into
+    MACHINING. A single-part job still books its own final inspection.
+  * **Anchor each family band to the analogue's SAME family band, then SCALE
+    it by THAT family's own driver.** Don't anchor one grand total and back-fill
+    the others to make it sum — take the analogue's MACHINING as your MACHINING
+    (scaled by machined size / feature-count), its INSP as your INSP (scaled by
+    tolerance / GD&T burden), its ASSY as your ASSY (scaled by piece / hardware
+    count), and so on. Verbatim-copy a band ONLY when the analogue is near-exact
+    in THAT family's driver. **Caution — profile mismatch:** if the analogue is
+    machining-heavy but this part is inspection- or assembly-dominated (or vice
+    versa), do NOT inherit its proportions; copying a milling analogue's
+    machining onto a small turned/inspected part over-books MACHINING and
+    under-books INSP.
+
 ## Validated heuristics (proven; trust these)
 
 1. **Anchor to real measured numbers, not first principles.** Reasoning a
@@ -32,11 +61,13 @@
    whatever you put there is overwritten downstream. Spend zero reasoning
    on it. The only quantity that is scored is `run_min_per_part`; put all
    of your effort there.
-3. **Run time is the only scored quantity — never anchor it from a setup
-   number.** Admin / print / mat-pick rows carry zero run time, so they do
-   not move the score; do not spend effort tuning their setup (it is the
-   flat system constant). Score-moving run lives in MACHINING, DEBUR,
-   ASSY, and INSP rows.
+3. **Run time is the only scored quantity, and it is scored PER FAMILY —
+   never anchor it from a setup number.** Admin / print / mat-pick rows carry
+   zero run time, so they do not move the score; do not spend effort tuning
+   their setup (it is the flat system constant). Score-moving run lives in
+   MACHINING, DEBUR, ASSY, WELD, INSP, and PACK rows — and each of those
+   families is graded against the shop's minutes for that family, not lumped
+   into one total (see Scoring objective above).
 4. **Walk all 8 op-families before submitting.** PLANNING / PRINT / MATPICK /
    MACHINING / DEBUR / ASSY / INSP / PACK. A missing family is allowed but
    must be justified — silent omission is the most common failure. The
