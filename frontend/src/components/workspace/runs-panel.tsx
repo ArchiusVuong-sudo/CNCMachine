@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Plus, Search, Trash2, PanelLeftClose, PanelLeft, Loader2, Database,
-  FileBox, RefreshCw, AlertCircle,
+  FileBox, RefreshCw, AlertCircle, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import type { AnalysisSummary } from "@/lib/api/types";
 import { listAnalyses, deleteAnalysis } from "@/lib/api/client";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { Button } from "@/components/ui/button";
-import { usd, timeAgo } from "@/lib/format";
+import { usd, dateShort } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface RunsPanelProps {
@@ -26,6 +26,24 @@ interface RunsPanelProps {
   refreshSignal?: number;
 }
 
+/** Projects per page in the expanded listing before pagination kicks in. */
+const PAGE_SIZE = 8;
+
+/** Row title — Part Number + Revision when known, else the file name. */
+function runTitle(r: AnalysisSummary): string {
+  if (r.part_number) return r.revision ? `${r.part_number}  ·  Rev ${r.revision}` : r.part_number;
+  return r.file_name || r.assembly_name || r.id;
+}
+
+/** Secondary line — total estimated cost · material · date created. */
+function runSubtitle(r: AnalysisSummary): string {
+  return [
+    r.total_usd != null ? usd(r.total_usd) : null,
+    r.material || null,
+    dateShort(r.created_at),
+  ].filter(Boolean).join("  ·  ");
+}
+
 export function RunsPanel({
   collapsed, onToggleCollapse, activeId, onSelectRun, onNewEstimate, liveRun, refreshSignal,
 }: RunsPanelProps) {
@@ -34,12 +52,13 @@ export function RunsPanel({
   const [error, setError]     = useState<string | null>(null);
   const [query, setQuery]     = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [page, setPage]       = useState(0);
 
   const fetchRuns = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const resp = await listAnalyses({ limit: 100 });
+      const resp = await listAnalyses({ limit: 200 });
       setRuns(resp.data ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load runs");
@@ -64,11 +83,23 @@ export function RunsPanel({
     }
   };
 
-  const filtered = runs.filter((r) => {
-    if (!query.trim()) return true;
-    const hay = `${r.file_name ?? ""} ${r.assembly_name ?? ""} ${r.id}`.toLowerCase();
-    return hay.includes(query.trim().toLowerCase());
-  });
+  // Newest first, then apply the search filter.
+  const filtered = useMemo(() => {
+    const sorted = [...runs].sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+    const q = query.trim().toLowerCase();
+    if (!q) return sorted;
+    return sorted.filter((r) => {
+      const hay = `${r.part_number ?? ""} ${r.revision ?? ""} ${r.material ?? ""} ${r.file_name ?? ""} ${r.assembly_name ?? ""} ${r.id}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [runs, query]);
+
+  // Reset to the first page whenever the result set changes underneath us.
+  useEffect(() => { setPage(0); }, [query, refreshSignal]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage  = Math.min(page, pageCount - 1);
+  const pageRows  = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
   // ── Collapsed rail ───────────────────────────────────────────────────────
   if (collapsed) {
@@ -85,7 +116,7 @@ export function RunsPanel({
           size="icon"
           className="h-9 w-9 rounded-lg"
           onClick={onNewEstimate}
-          title="New estimate"
+          title="New Project"
         >
           <Plus className="h-4.5 w-4.5" />
         </Button>
@@ -99,7 +130,7 @@ export function RunsPanel({
             <button
               key={r.id}
               onClick={() => onSelectRun(r.id)}
-              title={r.file_name ?? r.id}
+              title={runTitle(r)}
               className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
                 activeId === r.id && "bg-primary/10 text-primary",
@@ -124,22 +155,22 @@ export function RunsPanel({
   return (
     <aside className="flex h-full w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-3">
+      <div className="flex items-start justify-between px-3 py-3">
         <BrandMark />
         <button
           onClick={onToggleCollapse}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title="Collapse panel"
         >
           <PanelLeftClose className="h-4 w-4" />
         </button>
       </div>
 
-      {/* New estimate */}
+      {/* New Project */}
       <div className="px-3 pb-2">
         <Button className="w-full gap-1.5" onClick={onNewEstimate}>
           <Plus className="h-4 w-4" />
-          New estimate
+          New Project
         </Button>
       </div>
 
@@ -150,7 +181,7 @@ export function RunsPanel({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search runs…"
+            placeholder="Search projects…"
             className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-sm outline-none transition-shadow placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/40"
           />
         </div>
@@ -160,7 +191,7 @@ export function RunsPanel({
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         <div className="flex items-center justify-between px-1.5 py-1.5">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Recent runs
+            Previous projects
           </span>
           <button
             onClick={() => void fetchRuns()}
@@ -184,7 +215,7 @@ export function RunsPanel({
 
         {loading && runs.length === 0 ? (
           <div className="flex items-center gap-2 px-2 py-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading runs…
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading projects…
           </div>
         ) : error ? (
           <div className="flex items-start gap-2 px-2 py-4 text-[13px] text-red-600">
@@ -196,28 +227,47 @@ export function RunsPanel({
           </div>
         ) : filtered.length === 0 ? (
           <div className="px-2 py-8 text-center text-[13px] text-muted-foreground">
-            {query ? "No runs match your search." : "No runs yet. Start a new estimate."}
+            {query ? "No projects match your search." : "No projects yet. Start a new project."}
           </div>
         ) : (
           <div className="space-y-0.5">
-            {filtered.map((r) => (
+            {pageRows.map((r) => (
               <RunRow
                 key={r.id}
                 active={activeId === r.id}
                 onClick={() => onSelectRun(r.id)}
                 onDelete={(e) => handleDelete(r.id, e)}
                 deleting={deleting === r.id}
-                title={r.file_name || r.assembly_name || r.id}
-                subtitle={[
-                  r.total_usd != null ? usd(r.total_usd) : null,
-                  r.n_components != null ? `${r.n_components} comp` : null,
-                  timeAgo(r.created_at),
-                ].filter(Boolean).join(" · ")}
+                title={runTitle(r)}
+                subtitle={runSubtitle(r)}
               />
             ))}
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-2 border-t border-sidebar-border px-3 py-2 text-[12px] text-muted-foreground">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={safePage === 0}
+            className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+            title="Previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="tabular-nums">Page {safePage + 1} of {pageCount}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            disabled={safePage >= pageCount - 1}
+            className="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+            title="Next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="border-t border-sidebar-border p-2">
@@ -269,7 +319,7 @@ function RunRow({
           onClick={onDelete}
           disabled={deleting}
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-          title="Delete run"
+          title="Delete project"
         >
           {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
         </button>

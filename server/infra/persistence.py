@@ -518,9 +518,12 @@ async def persist_analysis_complete(
             "cost_breakdown":       comp.get("cost"),
             "pmi_annotations":      comp.get("pmi_annotations") or [],
             "stock_json":           comp.get("stock"),
-            "agentic_plan":         comp.get("agentic"),
-            "chosen_machine_id":    (comp.get("agentic") or {}).get("chosen_machine_id"),
-            "machine_class":        (comp.get("agentic") or {}).get("machine_class"),
+            # Prefer `planner` (engine-agnostic) but accept `agentic` for
+            # back-compat — DB column name kept as `agentic_plan` for migration
+            # stability; rename is at the API/UI/code boundary only.
+            "agentic_plan":         comp.get("planner") or comp.get("agentic"),
+            "chosen_machine_id":    (comp.get("planner") or comp.get("agentic") or {}).get("chosen_machine_id"),
+            "machine_class":        (comp.get("planner") or comp.get("agentic") or {}).get("machine_class"),
         }, _COMPONENT_COLS)
 
         inserted = await asyncio.to_thread(

@@ -9,7 +9,9 @@ Usage::
 
     client = get_supabase_client()
     if client is not None:
-        rows = client.table("a4_machines").select("*").eq("user_id", uid).execute()
+        rows = client.table("a4_machines").select("*").execute()
+        # NOTE: ``a4_machines.user_id`` was dropped in migration 002 — catalog
+        # tables are now globally readable; do NOT filter by user_id here.
 """
 from __future__ import annotations
 

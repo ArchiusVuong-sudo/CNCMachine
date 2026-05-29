@@ -56,6 +56,9 @@ class AnalysisSummary(BaseModel):
     id: str
     file_name: str | None = None
     assembly_name: str | None = None
+    part_number: str | None = None
+    revision: str | None = None
+    material: str | None = None
     total_usd: float | None = None
     total_minutes: float | None = None
     n_components: int | None = None
@@ -125,6 +128,9 @@ def _build_summary(compact_path: Path, full_data: dict | None) -> AnalysisSummar
     n_components = summary_block.get("n_components")
     file_name: str | None = None
     assembly_name: str | None = None
+    part_number: str | None = None
+    revision: str | None = None
+    material: str | None = None
     total_minutes: float | None = None
 
     if full_data:
@@ -137,6 +143,21 @@ def _build_summary(compact_path: Path, full_data: dict | None) -> AnalysisSummar
             full_data.get("assembly_name")
             or full_data.get("name")
         )
+        # Surface the drawing's identity so the project list can label rows by
+        # Part Number / Revision / Material instead of the raw STEP filename.
+        vlm = full_data.get("vlm_extraction") or {}
+        title_block = vlm.get("title_block") or {}
+
+        def _first_str(*vals: object) -> str | None:
+            for v in vals:
+                if isinstance(v, str) and v.strip():
+                    return v.strip()
+            return None
+
+        part_number = _first_str(vlm.get("part_number"), title_block.get("part_number"))
+        revision = _first_str(vlm.get("revision"), title_block.get("revision"))
+        material = _first_str(vlm.get("material"), title_block.get("material"))
+
         cost_block = full_data.get("cost") or {}
         if total_usd is None:
             total_usd = _coerce_float(cost_block.get("total_usd"))
@@ -150,6 +171,9 @@ def _build_summary(compact_path: Path, full_data: dict | None) -> AnalysisSummar
         id=analysis_id,
         file_name=file_name,
         assembly_name=assembly_name,
+        part_number=part_number,
+        revision=revision,
+        material=material,
         total_usd=total_usd,
         total_minutes=total_minutes,
         n_components=n_components,
@@ -214,7 +238,16 @@ def get_analysis(analysis_id: str) -> dict:
 
 @router.delete("/analyses/{analysis_id}")
 def delete_analysis(analysis_id: str) -> dict:
-    """Remove both the compact and full files for one analysis."""
+    """Remove both the compact and full files for one analysis AND its
+    Supabase rows.
+
+    Filesystem deletion is the user-visible action (the FE list reads
+    from disk); the Supabase row removal is best-effort cleanup so the
+    dashboard doesn't accumulate stale rows. FK CASCADE handles the
+    child tables (`a4_components`, `a4_features`, `a4_processes`,
+    `a4_2d_extraction`, `a4_cam_runs`, `a4_gcode`, `a4_feedback`) when
+    they're configured with ``ON DELETE CASCADE``.
+    """
     safe = _safe_id_or_400(analysis_id)
     removed: list[str] = []
     for suffix in ("_full.json", ".json"):
@@ -225,4 +258,15 @@ def delete_analysis(analysis_id: str) -> dict:
                 removed.append(path.name)
             except OSError as exc:
                 logger.warning("analyses: delete failed for %s — %s", path, exc)
+
+    # Best-effort DB cleanup — never block or 500 the API on Supabase issues.
+    try:
+        from ...infra.supabase import get_supabase_client  # noqa: PLC0415
+        client = get_supabase_client()
+        if client is not None:
+            client.table("a4_analyses").delete().eq("id", safe).execute()
+            removed.append("supabase:a4_analyses")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("analyses: supabase delete failed for %s — %s", safe, exc)
+
     return {"ok": True, "removed": removed}

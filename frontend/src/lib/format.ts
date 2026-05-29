@@ -24,6 +24,13 @@ export function toNum(v: string | number | null | undefined): number {
   return isFinite(n) ? n : 0;
 }
 
+/** Short calendar date (e.g. "11 May 2026"); accepts seconds or ms epoch. */
+export function dateShort(epoch: number): string {
+  if (typeof epoch !== "number" || !isFinite(epoch) || epoch <= 0) return "—";
+  const ms = epoch < 1e12 ? epoch * 1000 : epoch; // tolerate seconds
+  return new Date(ms).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 /** Relative "time ago" for run timestamps (accepts seconds or ms epoch). */
 export function timeAgo(epoch: number): string {
   const ms = epoch < 1e12 ? epoch * 1000 : epoch; // tolerate seconds

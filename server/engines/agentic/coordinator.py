@@ -639,7 +639,7 @@ def _apply_consolidation_gate(
         owner_idx = top_idx if top_idx is not None else routing_idxs[0]
         mode = "single_quote_main"
 
-    owner_agentic = components[owner_idx].get("agentic") or {}
+    owner_agentic = components[owner_idx].get("planner") or {}
     machine_id = owner_agentic.get("chosen_machine_id")
     complete_rows = [
         _adopted_op_to_routing_row(op, (j + 1) * 10, machine_id)
@@ -658,22 +658,22 @@ def _apply_consolidation_gate(
         role = (c.get("component_role") or "").lower()
         if role in _CONSOLIDATABLE_ROLES and processes_per_component[i]:
             processes_per_component[i] = []
-            ag = dict(c.get("agentic") or {})
+            ag = dict(c.get("planner") or {})
             ag["suppressed_by_consolidation_gate"] = True
             ag["suppress_reason"] = (
                 f"machining subsumed by exact-identity whole-part quote {pn} "
                 f"({mode} adopted on owner idx {owner_idx})"
             )
-            c["agentic"] = ag
+            c["planner"] = ag
             suppressed.append(i)
 
     # Replace the owner's routing with the page's whole-part quote.
     processes_per_component[owner_idx] = complete_rows
-    ag = dict(components[owner_idx].get("agentic") or {})
+    ag = dict(components[owner_idx].get("planner") or {})
     ag["consolidation_gate_adopted_part_number"] = pn
     ag["consolidation_gate_role"] = mode
     ag["consolidation_gate_suppressed_indices"] = suppressed
-    components[owner_idx]["agentic"] = ag
+    components[owner_idx]["planner"] = ag
 
     scored_min = sum(
         _f(r.get("run_min_per_part")) + _f(r.get("fixed_hrs_per_lot")) * 60.0
@@ -712,7 +712,7 @@ def _passthrough_component(
     """
     role = component.get("component_role") or ""
     updated = dict(component)
-    updated["agentic"] = {
+    updated["planner"] = {
         "skipped": True,
         "skip_reason": f"component_role={role}",
         "rationale": (
@@ -881,7 +881,7 @@ async def _run_one_component(
     # fields that the SSE final_answer surface picks up via Component's
     # extra='allow' schema.
     updated = dict(component)
-    updated["agentic"] = {
+    updated["planner"] = {
         "machine_class":            agent_out.get("machine_class"),
         "ranked_machines":          agent_out.get("ranked_machines") or agent_out.get("top_machines"),
         "chosen_machine_id":        agent_out.get("chosen_machine_id"),

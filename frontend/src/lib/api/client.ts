@@ -8,7 +8,7 @@
  * SSE is exposed via :func:`analyzeStream`. It opens
  * ``POST /api/v1/analyze-stream``, parses the ``event: foo / data: {...}``
  * frames, and emits parsed events through an async callback. The hook
- * (``useApproach4``) consumes them.
+ * (``useAnalysisStream``) consumes them.
  */
 import type {
   AnalysisListResponse,
@@ -125,8 +125,18 @@ export async function analyzeStream(
     signal,
   });
   if (!res.ok || !res.body) {
-    const text = await res.text().catch(() => "");
-    throw new ApiError(res.status, text, `analyze-stream failed: ${res.status}`);
+    // Mirror the REST `call<T>` error parsing so SSE error frames carry the
+    // same `{detail: ...}` extraction. FastAPI emits JSON 422/4xx error
+    // bodies even on the SSE path before the stream opens.
+    const ctype = res.headers.get("content-type") ?? "";
+    const isJson = ctype.includes("application/json");
+    const payload = isJson
+      ? await res.json().catch(() => null)
+      : await res.text().catch(() => "");
+    const detail = isJson && payload && typeof payload === "object" && "detail" in payload
+      ? String((payload as { detail: unknown }).detail)
+      : `analyze-stream failed: ${res.status}`;
+    throw new ApiError(res.status, payload, detail);
   }
   const reader  = res.body.getReader();
   const decoder = new TextDecoder();

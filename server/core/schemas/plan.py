@@ -180,3 +180,34 @@ class ProcessPlan(BaseModel):
 
     def as_dict(self) -> dict[str, Any]:
         return self.model_dump(mode="json", by_alias=True)
+
+    @classmethod
+    def empty(
+        cls,
+        *,
+        components: list[Component | dict] | None = None,
+        catalog: dict | None = None,
+        error: str | None = None,
+    ) -> "ProcessPlan":
+        """Sentinel for a failed planner run — orchestrator + persistence treat
+        this exactly like a successful empty plan (no routing, zero cost).
+
+        Mirrors the ``DrawingExtraction.empty()`` / ``AssemblyData.empty()``
+        pattern in Engines 1 and 2, so any planner engine can return this
+        shape on irrecoverable failure instead of raising. The optional
+        ``error`` is attached as an extra field (allowed by extra='allow')
+        so the orchestrator can surface it in the trace without coupling
+        to a specific engine's internal error shape.
+        """
+        comps = list(components or [])
+        plan = cls(
+            components=comps,
+            processes_per_component=[[] for _ in comps],
+            cost=CostBreakdown(),
+            category_decisions=[],
+            catalog=catalog or {},
+        )
+        if error:
+            # extra='allow' carries this through to the SSE final_answer.
+            plan.__pydantic_extra__["error"] = error  # type: ignore[union-attr]
+        return plan

@@ -9,13 +9,9 @@ import { cn } from "@/lib/utils";
 
 const PART_CATEGORIES: { value: string; label: string }[] = [
   { value: "",                  label: "Auto-detect (use 3D classifier)" },
-  { value: "cnc_milling",       label: "CNC Milling — 3/4/5-axis" },
-  { value: "cnc_lathe",         label: "CNC Lathe — turned parts" },
-  { value: "cnc_lathe_milling", label: "CNC Mill-Turn" },
-  { value: "cnc_router",        label: "CNC Router — composites / wood" },
-  { value: "sheet_metal",       label: "Sheet Metal — laser / brake" },
-  { value: "tube_pipe",         label: "Tube / Pipe" },
-  { value: "hardware",          label: "Standard Hardware" },
+  { value: "cnc_milling",       label: "CNC Milling" },
+  { value: "cnc_lathe",         label: "CNC Lathe" },
+  { value: "cnc_lathe_milling", label: "CNC Turn-mill" },
 ];
 
 const BATCH_PRESETS = [1, 10, 50, 100, 500];
@@ -76,11 +72,11 @@ export function NewEstimateDialog({ open, onOpenChange, onRun, busy }: NewEstima
             <span className="brand-gradient flex h-7 w-7 items-center justify-center rounded-md">
               <Bot className="h-4 w-4 text-white" />
             </span>
-            New cost estimate
+            New Project
           </DialogTitle>
           <DialogDescription>
-            Upload a 3D STEP model and its 2D engineering drawing. Both are required —
-            the STEP provides geometry, the drawing provides GD&amp;T, tolerances, and material.
+            Upload 3D model (.step / .stp) file and its 2D engineering drawing for cost
+            estimation. Both 3D model and 2D drawing are required.
           </DialogDescription>
         </DialogHeader>
 

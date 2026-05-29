@@ -69,7 +69,7 @@ export interface CanvasComponent {
   isRunning:    boolean;
 }
 
-export interface Approach4State {
+export interface AnalysisStreamState {
   status:           PipelineStatus;
   error:            string | null;
   analysisId:       string | null;
@@ -94,7 +94,7 @@ function readProcesses(comp: WireComponent): RoutingRow[] | undefined {
   return comp.manufacturing_processes ?? comp.processes;
 }
 
-export function useApproach4() {
+export function useAnalysisStream() {
   const [status,          setStatus]         = useState<PipelineStatus>("idle");
   const [error,           setError]          = useState<string | null>(null);
   const [analysisId,      setAnalysisId]     = useState<string | null>(null);

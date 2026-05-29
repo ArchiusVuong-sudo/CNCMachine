@@ -1,56 +1,27 @@
 "use client";
 
 import { useMemo } from "react";
+import { Ruler, Crosshair, Spline } from "lucide-react";
+import type { Component, DimensionRow, FinalAnswer, GdtCallout, ThreadSpec } from "@/lib/api/types";
 import {
-  Boxes, Ruler, Crosshair, Spline, StickyNote,
-} from "lucide-react";
-import type { FinalAnswer, DimensionRow, GdtCallout, ThreadSpec, Component } from "@/lib/api/types";
+  componentTolerances, componentGdt, componentThreads,
+  drawingTolerances, drawingGdt, drawingThreads,
+} from "@/lib/domain/extraction-model";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TitleBlock } from "./title-block";
 import { cn } from "@/lib/utils";
 
 interface ExtractionPanelProps {
   results: FinalAnswer | null;
+  /** Costed components (already filtered to drop the synthetic TOP_ASSEMBLY). */
+  components: Component[];
+  /** Selected component_index, or null for the level-0 assembly view. */
+  selectedIndex: number | null;
   className?: string;
-}
-
-interface FeatureAgg {
-  type: string;
-  count: number;
-  components: Set<number>;
-  sampleDims: string[];
 }
 
 function fmtNum(n: unknown, digits = 2): string | null {
   if (typeof n !== "number" || !isFinite(n)) return null;
   return Number.isInteger(n) ? String(n) : n.toFixed(digits);
-}
-
-function featureDimsSummary(dims?: Record<string, number | undefined>): string {
-  if (!dims) return "";
-  const parts: string[] = [];
-  if (fmtNum(dims.diameter_mm)) parts.push(`Ø${fmtNum(dims.diameter_mm)}`);
-  if (fmtNum(dims.depth_mm)) parts.push(`↧${fmtNum(dims.depth_mm)}`);
-  if (fmtNum(dims.width_mm)) parts.push(`w${fmtNum(dims.width_mm)}`);
-  if (fmtNum(dims.length_mm)) parts.push(`l${fmtNum(dims.length_mm)}`);
-  if (fmtNum(dims.radius_mm)) parts.push(`R${fmtNum(dims.radius_mm)}`);
-  return parts.join(" ");
-}
-
-function aggregateFeatures(components: Component[]): FeatureAgg[] {
-  const map = new Map<string, FeatureAgg>();
-  for (const comp of components ?? []) {
-    for (const feat of comp.features ?? []) {
-      const type = feat.feature_type || "unknown";
-      const agg = map.get(type) ?? { type, count: 0, components: new Set<number>(), sampleDims: [] };
-      agg.count += typeof feat.count === "number" ? feat.count : 1;
-      agg.components.add(comp.component_index);
-      const dim = featureDimsSummary(feat.dimensions);
-      if (dim && agg.sampleDims.length < 4 && !agg.sampleDims.includes(dim)) agg.sampleDims.push(dim);
-      map.set(type, agg);
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => b.count - a.count);
 }
 
 function toleranceText(d: DimensionRow): string {
@@ -62,78 +33,95 @@ function toleranceText(d: DimensionRow): string {
   return "—";
 }
 
-export function ExtractionPanel({ results, className }: ExtractionPanelProps) {
+/**
+ * Tolerances / GD&T / Threads tabs.
+ *
+ * Per the 28 May review:
+ *  - Notes moved to the Part Information card — the tab is gone from here.
+ *  - When a level-1 component is selected, the three tabs reflect ONLY that
+ *    component's features (via `extraction-model.ts`); the Assembly row falls
+ *    back to the drawing-level VLM extraction so nothing is hidden by default.
+ */
+export function ExtractionPanel({ results, components, selectedIndex, className }: ExtractionPanelProps) {
   const vlm = results?.vlm_extraction ?? null;
-  const components = results?.components ?? [];
+  const selected = useMemo(
+    () => (selectedIndex == null ? null : components.find((c) => c.component_index === selectedIndex) ?? null),
+    [components, selectedIndex],
+  );
 
-  const features = useMemo(() => aggregateFeatures(components), [components]);
-  const dimensions = (vlm?.dimensions ?? []) as DimensionRow[];
-  const toleranced = useMemo(
-    () => dimensions.filter((d) => d.tolerance || d.tolerance_plus != null || d.tolerance_minus != null),
-    [dimensions],
+  // Drawing-wide unit fallback: when an individual tolerance row's unit is
+  // missing OR contradicts the drawing-level unit (a common Qwen3-VL slip
+  // where the model emits "in" for a millimeter drawing), prefer the
+  // title-block / dimension-unit declaration. Visible note 2 on most
+  // Applied Materials drawings is literally "DIMENSIONS ARE IN MILLIMETERS".
+  const drawingUnit = vlm?.title_block?.dimension_unit ?? vlm?.dimension_unit ?? null;
+
+  const tolerances: DimensionRow[] = useMemo(
+    () => (selected ? componentTolerances(selected) : drawingTolerances(vlm)),
+    [selected, vlm],
   );
-  const gdt = (vlm?.gdt_callouts ?? []) as GdtCallout[];
-  const threads = (vlm?.threads ?? []) as ThreadSpec[];
-  const notes = useMemo(
-    () => (vlm?.drawing_notes ?? []).map((n) => (typeof n === "string" ? n : n?.text ?? "")).filter(Boolean),
-    [vlm],
+  const gdt: GdtCallout[] = useMemo(
+    () => (selected ? componentGdt(selected) : drawingGdt(vlm)),
+    [selected, vlm],
   );
+  const threads: ThreadSpec[] = useMemo(
+    () => (selected ? componentThreads(selected) : drawingThreads(vlm)),
+    [selected, vlm],
+  );
+
+  const scopeLabel = selected
+    ? (selected.name ?? `Component ${selected.component_index}`)
+    : "Assembly · whole drawing";
 
   return (
     <div className={cn("space-y-4", className)}>
-      <TitleBlock vlm={vlm} />
-
       <div className="rounded-xl border border-border bg-card">
-        <Tabs defaultValue="features">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
+          <span className="truncate text-[11px] text-muted-foreground">
+            Showing extraction for <span className="font-medium text-foreground/80">{scopeLabel}</span>
+          </span>
+        </div>
+        <Tabs defaultValue="tolerances">
           <div className="border-b border-border px-2 pt-2">
             <TabsList className="h-auto w-full justify-start gap-1 bg-transparent p-0">
-              <TabTrigger value="features" icon={<Boxes className="h-3.5 w-3.5" />} label="Features" count={features.length} />
-              <TabTrigger value="tolerances" icon={<Ruler className="h-3.5 w-3.5" />} label="Tolerances" count={toleranced.length} />
+              <TabTrigger value="tolerances" icon={<Ruler className="h-3.5 w-3.5" />} label="Tolerances" count={tolerances.length} />
               <TabTrigger value="gdt" icon={<Crosshair className="h-3.5 w-3.5" />} label="GD&T" count={gdt.length} />
               <TabTrigger value="threads" icon={<Spline className="h-3.5 w-3.5" />} label="Threads" count={threads.length} />
-              <TabTrigger value="notes" icon={<StickyNote className="h-3.5 w-3.5" />} label="Notes" count={notes.length} />
             </TabsList>
           </div>
 
-          <TabsContent value="features" className="m-0 p-0">
-            {features.length === 0 ? <Empty label="No features detected" /> : (
-              <Grid head={["Feature", "Count", "Parts", "Sample dims"]}>
-                {features.map((f) => (
-                  <Row key={f.type} cells={[
-                    <span key="t" className="font-medium capitalize">{f.type.replace(/_/g, " ")}</span>,
-                    <span key="c" className="tabular-nums">{f.count}</span>,
-                    <span key="p" className="tabular-nums text-muted-foreground">{f.components.size}</span>,
-                    <span key="d" className="font-mono text-xs text-muted-foreground">{f.sampleDims.join("  ") || "—"}</span>,
-                  ]} />
-                ))}
-              </Grid>
-            )}
-          </TabsContent>
-
           <TabsContent value="tolerances" className="m-0 p-0">
-            {toleranced.length === 0 ? <Empty label="No toleranced dimensions detected" /> : (
+            {tolerances.length === 0 ? <Empty label={selected ? "No toleranced features on this component" : "No toleranced dimensions detected"} /> : (
               <Grid head={["Dimension", "Nominal", "Tolerance", "Notes"]}>
-                {toleranced.map((d, i) => (
-                  <Row key={i} cells={[
-                    <span key="l" className="font-medium">{d.label || `Dim ${i + 1}`}</span>,
-                    <span key="n" className="tabular-nums">{fmtNum(d.nominal) ?? (d.nominal != null ? String(d.nominal) : "—")}{d.unit ? ` ${d.unit}` : ""}</span>,
-                    <span key="t" className="font-mono text-xs">{toleranceText(d)}</span>,
-                    <span key="o" className="text-xs text-muted-foreground">{d.notes || "—"}</span>,
-                  ]} />
-                ))}
+                {tolerances.map((d, i) => {
+                  // Per-row unit, falling back to drawing-level when the row's
+                  // unit is missing or disagrees with the title-block unit
+                  // (extraction-time hallucination).
+                  const rowUnit = d.unit && drawingUnit && d.unit !== drawingUnit
+                    ? drawingUnit
+                    : (d.unit ?? drawingUnit ?? undefined);
+                  return (
+                    <Row key={i} cells={[
+                      <span key="l" className="font-medium">{d.label || `Dim ${i + 1}`}</span>,
+                      <span key="n" className="tabular-nums">{fmtNum(d.nominal) ?? (d.nominal != null ? String(d.nominal) : "—")}{rowUnit ? ` ${rowUnit}` : ""}</span>,
+                      <span key="t" className="font-mono">{toleranceText(d)}</span>,
+                      <span key="o" className="text-muted-foreground">{d.notes || "—"}</span>,
+                    ]} />
+                  );
+                })}
               </Grid>
             )}
           </TabsContent>
 
           <TabsContent value="gdt" className="m-0 p-0">
-            {gdt.length === 0 ? <Empty label="No GD&T callouts detected" /> : (
+            {gdt.length === 0 ? <Empty label={selected ? "No GD&T callouts on this component" : "No GD&T callouts detected"} /> : (
               <Grid head={["Symbol", "Tolerance", "Datum refs", "Feature"]}>
                 {gdt.map((g, i) => (
                   <Row key={i} cells={[
                     <span key="s" className="font-mono font-semibold">{g.symbol || "—"}</span>,
-                    <span key="t" className="font-mono text-xs">{g.tolerance || "—"}</span>,
-                    <span key="d" className="font-mono text-xs text-muted-foreground">{(g.datum_refs ?? []).join(", ") || "—"}</span>,
-                    <span key="f" className="text-xs text-muted-foreground">{g.feature_label || "—"}</span>,
+                    <span key="t" className="font-mono">{g.tolerance || "—"}</span>,
+                    <span key="d" className="font-mono text-muted-foreground">{(g.datum_refs ?? []).join(", ") || "—"}</span>,
+                    <span key="f" className="text-muted-foreground">{g.feature_label || "—"}</span>,
                   ]} />
                 ))}
               </Grid>
@@ -141,30 +129,17 @@ export function ExtractionPanel({ results, className }: ExtractionPanelProps) {
           </TabsContent>
 
           <TabsContent value="threads" className="m-0 p-0">
-            {threads.length === 0 ? <Empty label="No threads detected" /> : (
+            {threads.length === 0 ? <Empty label={selected ? "No threaded features on this component" : "No threads detected"} /> : (
               <Grid head={["Spec", "Count", "Depth", "Type"]}>
                 {threads.map((t, i) => (
                   <Row key={i} cells={[
                     <span key="s" className="font-mono font-medium">{t.spec || t.label || "—"}</span>,
                     <span key="c" className="tabular-nums">{t.count ?? "—"}</span>,
                     <span key="d" className="tabular-nums">{fmtNum(t.depth_mm) ? `${fmtNum(t.depth_mm)} mm` : "—"}</span>,
-                    <span key="b" className="text-xs text-muted-foreground">{t.is_blind == null ? "—" : t.is_blind ? "Blind" : "Through"}</span>,
+                    <span key="b" className="text-muted-foreground">{t.is_blind == null ? "—" : t.is_blind ? "Blind" : "Through"}</span>,
                   ]} />
                 ))}
               </Grid>
-            )}
-          </TabsContent>
-
-          <TabsContent value="notes" className="m-0 p-0">
-            {notes.length === 0 ? <Empty label="No drawing notes detected" /> : (
-              <ol className="divide-y divide-border">
-                {notes.map((n, i) => (
-                  <li key={i} className="flex gap-3 px-4 py-2.5 text-sm">
-                    <span className="select-none font-mono text-xs text-muted-foreground">{i + 1}.</span>
-                    <span className="text-foreground/90">{n}</span>
-                  </li>
-                ))}
-              </ol>
             )}
           </TabsContent>
         </Tabs>

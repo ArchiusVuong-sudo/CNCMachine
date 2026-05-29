@@ -1,315 +1,32 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import { useEffect, useRef, useState, useCallback } from "react";
-import * as THREE from "three";
-import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink } from "lucide-react";
+import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink, Scan, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getOcctInstance } from "./occt-loader";
+import { useStepViewer } from "@/lib/hooks/viewer/useStepViewer";
+import type { ViewportComponentInfo } from "./viewport";
 
 interface StepViewerProps {
   fileUrl: string | null;
   title?: string;
+  components?: ViewportComponentInfo[];
+  selectedIndex?: number | null;
 }
 
-const BG_COLOR = 0xf8fafc;        // slate-50
-const GRID_MAJOR = 0xcbd5e1;      // slate-300
-const GRID_MINOR = 0xe2e8f0;      // slate-200
-const MESH_COLOR = 0x6b7d96;      // machined steel blue-grey
+type Dim = "l" | "w" | "h";
 
-export function StepViewer({ fileUrl, title }: StepViewerProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const modelRef = useRef<THREE.Group | null>(null);
-  const animationIdRef = useRef<number | null>(null);
-  const clippingPlaneRef = useRef<THREE.Plane | null>(null);
-  const isInitializedRef = useRef(false);
-  const pendingFileUrlRef = useRef<string | null>(null);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [modelLoaded, setModelLoaded] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [clippingEnabled, setClippingEnabled] = useState(false);
-  const [clippingPosition, setClippingPosition] = useState([50]);
-  const [isVisible, setIsVisible] = useState(false);
-  const previousMouseRef = useRef({ x: 0, y: 0 });
-  const modelBoundsRef = useRef<{ min: number; max: number }>({ min: -5, max: 5 });
-
-  // Fully dispose the WebGL context so we don't leak contexts across remounts.
-  const cleanup = useCallback(() => {
-    if (animationIdRef.current) {
-      cancelAnimationFrame(animationIdRef.current);
-      animationIdRef.current = null;
-    }
-    if (sceneRef.current) {
-      while (sceneRef.current.children.length > 0) {
-        const child = sceneRef.current.children[0];
-        sceneRef.current.remove(child);
-        if (child instanceof THREE.Mesh) {
-          child.geometry?.dispose();
-          const mats = Array.isArray(child.material) ? child.material : [child.material];
-          mats.forEach((m) => m?.dispose());
-        }
-      }
-    }
-    if (rendererRef.current) {
-      rendererRef.current.dispose();
-      rendererRef.current.forceContextLoss();
-      const el = rendererRef.current.domElement;
-      if (containerRef.current && el.parentNode === containerRef.current) {
-        containerRef.current.removeChild(el);
-      }
-      rendererRef.current = null;
-    }
-    modelRef.current = null;
-    sceneRef.current = null;
-    cameraRef.current = null;
-    clippingPlaneRef.current = null;
-    isInitializedRef.current = false;
-    setModelLoaded(false);
-  }, []);
-
-  // Only spin up WebGL when the viewport is actually on screen.
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new IntersectionObserver(
-      (entries) => setIsVisible(entries[0]?.isIntersecting ?? false),
-      { threshold: 0.1 },
-    );
-    observer.observe(container);
-    return () => {
-      observer.disconnect();
-      cleanup();
-    };
-  }, [cleanup]);
-
-  const initScene = useCallback(() => {
-    if (!containerRef.current || isInitializedRef.current) return false;
-    const container = containerRef.current;
-    const width = container.clientWidth || 300;
-    const height = container.clientHeight || 200;
-
-    try {
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(BG_COLOR);
-      sceneRef.current = scene;
-
-      const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-      camera.position.set(5, 5, 5);
-      camera.lookAt(0, 0, 0);
-      cameraRef.current = camera;
-
-      clippingPlaneRef.current = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-      renderer.setSize(width, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.localClippingEnabled = true;
-      container.appendChild(renderer.domElement);
-      rendererRef.current = renderer;
-
-      scene.add(new THREE.AmbientLight(0xffffff, 0.65));
-      const l1 = new THREE.DirectionalLight(0xffffff, 0.85); l1.position.set(10, 10, 10); scene.add(l1);
-      const l2 = new THREE.DirectionalLight(0xffffff, 0.4); l2.position.set(-10, -10, -10); scene.add(l2);
-      const l3 = new THREE.DirectionalLight(0xffffff, 0.3); l3.position.set(0, 10, 0); scene.add(l3);
-      scene.add(new THREE.GridHelper(10, 10, GRID_MAJOR, GRID_MINOR));
-
-      const animate = () => {
-        animationIdRef.current = requestAnimationFrame(animate);
-        if (rendererRef.current && sceneRef.current && cameraRef.current) {
-          rendererRef.current.render(sceneRef.current, cameraRef.current);
-        }
-      };
-      animate();
-      isInitializedRef.current = true;
-      return true;
-    } catch (err) {
-      console.error("Failed to initialize WebGL:", err);
-      setError("WebGL not available. Close other 3D viewers or refresh the page.");
-      return false;
-    }
-  }, []);
-
-  const updateClippingPlane = useCallback((position: number) => {
-    if (!clippingPlaneRef.current) return;
-    const { min, max } = modelBoundsRef.current;
-    clippingPlaneRef.current.constant = min + (position / 100) * (max - min);
-  }, []);
-
-  const toggleClipping = useCallback((enabled: boolean) => {
-    if (!modelRef.current || !clippingPlaneRef.current) return;
-    modelRef.current.traverse((child) => {
-      if (child instanceof THREE.Mesh && child.material) {
-        const mats = Array.isArray(child.material) ? child.material : [child.material];
-        mats.forEach((mat) => {
-          if (mat instanceof THREE.MeshPhongMaterial || mat instanceof THREE.MeshStandardMaterial) {
-            mat.clippingPlanes = enabled ? [clippingPlaneRef.current!] : [];
-            mat.clipShadows = enabled;
-            mat.needsUpdate = true;
-          }
-        });
-      }
-    });
-  }, []);
-
-  useEffect(() => { toggleClipping(clippingEnabled); }, [clippingEnabled, toggleClipping]);
-  useEffect(() => { if (clippingEnabled) updateClippingPlane(clippingPosition[0]); }, [clippingPosition, clippingEnabled, updateClippingPlane]);
-
-  const loadStepFile = useCallback(async (url: string) => {
-    if (!sceneRef.current) return;
-    setLoading(true);
-    setError(null);
-    setModelLoaded(false);
-    setClippingEnabled(false);
-    setClippingPosition([50]);
-
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch STEP file: ${response.status} ${response.statusText}`);
-      const fileBuffer = new Uint8Array(await response.arrayBuffer());
-
-      const occt = await getOcctInstance();
-      const result = occt.ReadStepFile(fileBuffer, null);
-      if (!result?.success) throw new Error("Failed to parse STEP file");
-      if (!result.meshes || result.meshes.length === 0) throw new Error("No geometry found in STEP file");
-
-      // Drop any previous model.
-      if (modelRef.current && sceneRef.current) {
-        sceneRef.current.remove(modelRef.current);
-        modelRef.current.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.geometry.dispose();
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach((m) => m?.dispose());
-          }
-        });
-      }
-
-      const group = new THREE.Group();
-      for (const mesh of result.meshes) {
-        if (!mesh.attributes?.position?.array) continue;
-        const geometry = new THREE.BufferGeometry();
-        const posArray = mesh.attributes.position.array;
-        geometry.setAttribute("position", new THREE.BufferAttribute(
-          posArray instanceof Float32Array ? posArray : new Float32Array(posArray), 3));
-        if (mesh.attributes.normal?.array) {
-          const n = mesh.attributes.normal.array;
-          geometry.setAttribute("normal", new THREE.BufferAttribute(
-            n instanceof Float32Array ? n : new Float32Array(n), 3));
-        } else {
-          geometry.computeVertexNormals();
-        }
-        if (mesh.index?.array) {
-          const idx = mesh.index.array;
-          geometry.setIndex(new THREE.BufferAttribute(
-            idx instanceof Uint32Array ? idx : new Uint32Array(idx), 1));
-        }
-        let color = MESH_COLOR;
-        if (mesh.color && mesh.color.length >= 3) {
-          color = new THREE.Color(mesh.color[0], mesh.color[1], mesh.color[2]).getHex();
-        }
-        const material = new THREE.MeshPhongMaterial({ color, side: THREE.DoubleSide, flatShading: false, shininess: 30 });
-        group.add(new THREE.Mesh(geometry, material));
-      }
-
-      // Center + scale to a comfortable viewing box.
-      const box = new THREE.Box3().setFromObject(group);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z);
-      if (maxDim > 0) group.scale.setScalar(4 / maxDim);
-      group.position.sub(center.multiplyScalar(group.scale.x));
-
-      const scaledBox = new THREE.Box3().setFromObject(group);
-      modelBoundsRef.current = { min: scaledBox.min.y, max: scaledBox.max.y };
-
-      sceneRef.current.add(group);
-      modelRef.current = group;
-
-      if (cameraRef.current) {
-        cameraRef.current.position.set(5, 5, 5);
-        cameraRef.current.lookAt(0, 0, 0);
-      }
-      setModelLoaded(true);
-    } catch (err) {
-      console.error("StepViewer: error loading STEP file:", err);
-      setError(err instanceof Error ? err.message : "Failed to load 3D model");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // ── Mouse / wheel orbit + zoom ────────────────────────────────────────────
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!modelLoaded) return;
-    setIsDragging(true);
-    previousMouseRef.current = { x: e.clientX, y: e.clientY };
-  };
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !modelRef.current) return;
-    const dx = e.clientX - previousMouseRef.current.x;
-    const dy = e.clientY - previousMouseRef.current.y;
-    modelRef.current.rotation.y += dx * 0.01;
-    modelRef.current.rotation.x += dy * 0.01;
-    previousMouseRef.current = { x: e.clientX, y: e.clientY };
-  };
-  const handleMouseUp = () => setIsDragging(false);
-  const handleWheel = (e: React.WheelEvent) => {
-    if (!cameraRef.current || !modelLoaded) return;
-    const newZ = cameraRef.current.position.z + e.deltaY * 0.01;
-    cameraRef.current.position.z = Math.max(2, Math.min(20, newZ));
-  };
-  const handleZoomIn = () => { if (cameraRef.current) cameraRef.current.position.z = Math.max(2, cameraRef.current.position.z - 1); };
-  const handleZoomOut = () => { if (cameraRef.current) cameraRef.current.position.z = Math.min(20, cameraRef.current.position.z + 1); };
-  const handleResetView = () => {
-    if (cameraRef.current) { cameraRef.current.position.set(5, 5, 5); cameraRef.current.lookAt(0, 0, 0); }
-    if (modelRef.current) modelRef.current.rotation.set(0, 0, 0);
-  };
-
-  // Resize handling.
-  useEffect(() => {
-    const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      if (width > 0 && height > 0) {
-        cameraRef.current.aspect = width / height;
-        cameraRef.current.updateProjectionMatrix();
-        rendererRef.current.setSize(width, height);
-      }
-    };
-    window.addEventListener("resize", handleResize);
-    const t = setTimeout(handleResize, 100);
-    return () => { window.removeEventListener("resize", handleResize); clearTimeout(t); };
-  }, []);
-
-  // Init scene when visible; tear down when hidden.
-  useEffect(() => {
-    if (!isVisible) {
-      if (isInitializedRef.current) cleanup();
-      return;
-    }
-    const t = setTimeout(() => {
-      const ok = initScene();
-      if (ok && pendingFileUrlRef.current) loadStepFile(pendingFileUrlRef.current);
-    }, 50);
-    return () => clearTimeout(t);
-  }, [isVisible, initScene, cleanup, loadStepFile]);
-
-  // Load STEP when URL changes (or defer until the scene is ready).
-  useEffect(() => {
-    if (!fileUrl) { pendingFileUrlRef.current = null; return; }
-    if (isInitializedRef.current && isVisible) loadStepFile(fileUrl);
-    else pendingFileUrlRef.current = fileUrl;
-  }, [fileUrl, isVisible, loadStepFile]);
+/**
+ * 3D STEP viewer — presentation only. The WebGL lifecycle, orbit/zoom,
+ * component isolation, bounding-box overlay, measure tool, and cross-section
+ * clip live in `useStepViewer`; this component wires the hook's grouped API
+ * (refs, pointer handlers, toolbar actions, overlay labels) to the DOM.
+ */
+export function StepViewer({ fileUrl, title, components, selectedIndex }: StepViewerProps) {
+  const {
+    containerRef, overlayRef, loading, error, modelLoaded, cursorStyle,
+    pointer, view, measure, bbox, section,
+  } = useStepViewer({ fileUrl, components, selectedIndex });
 
   const showPlaceholder = !fileUrl;
 
@@ -317,10 +34,30 @@ export function StepViewer({ fileUrl, title }: StepViewerProps) {
     <div className="relative h-full w-full">
       {modelLoaded && !loading && (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
+          {/* Measure tool */}
+          <Button
+            variant={measure.active ? "default" : "outline"}
+            size="icon"
+            className="h-8 w-8 bg-background/90 backdrop-blur-sm"
+            title="Measure distance"
+            onClick={measure.toggle}
+          >
+            <Ruler className="h-4 w-4" />
+          </Button>
+          {/* BBox toggle */}
+          <Button
+            variant={bbox.visible ? "default" : "outline"}
+            size="icon"
+            className="h-8 w-8 bg-background/90 backdrop-blur-sm"
+            title="Bounding box dimensions"
+            onClick={bbox.toggle}
+          >
+            <Scan className="h-4 w-4" />
+          </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button
-                variant={clippingEnabled ? "default" : "outline"}
+                variant={section.enabled ? "default" : "outline"}
                 size="icon"
                 className="h-8 w-8 bg-background/90 backdrop-blur-sm"
                 title="Cross section"
@@ -333,30 +70,30 @@ export function StepViewer({ fileUrl, title }: StepViewerProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Cross section</span>
                   <Button
-                    variant={clippingEnabled ? "default" : "outline"}
+                    variant={section.enabled ? "default" : "outline"}
                     size="sm"
                     className="h-6 text-xs"
-                    onClick={() => setClippingEnabled(!clippingEnabled)}
+                    onClick={() => section.setEnabled(!section.enabled)}
                   >
-                    {clippingEnabled ? "On" : "Off"}
+                    {section.enabled ? "On" : "Off"}
                   </Button>
                 </div>
-                {clippingEnabled && (
+                {section.enabled && (
                   <div className="space-y-2">
                     <span className="text-xs text-muted-foreground">Cut position</span>
-                    <Slider value={clippingPosition} onValueChange={setClippingPosition} min={0} max={100} step={1} />
+                    <Slider value={section.position} onValueChange={section.setPosition} min={0} max={100} step={1} />
                   </div>
                 )}
               </div>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={handleZoomIn} title="Zoom in">
+          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={view.zoomIn} title="Zoom in">
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={handleZoomOut} title="Zoom out">
+          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={view.zoomOut} title="Zoom out">
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={handleResetView} title="Reset view">
+          <Button variant="outline" size="icon" className="h-8 w-8 bg-background/90 backdrop-blur-sm" onClick={view.resetView} title="Reset view">
             <RotateCcw className="h-4 w-4" />
           </Button>
           {fileUrl && (
@@ -370,6 +107,17 @@ export function StepViewer({ fileUrl, title }: StepViewerProps) {
       {title && !showPlaceholder && (
         <div className="absolute left-3 top-3 z-10 rounded-md bg-background/90 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm">
           {title}
+        </div>
+      )}
+
+      {/* Measure status badge */}
+      {measure.active && modelLoaded && (
+        <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-md bg-background/90 px-3 py-1.5 text-xs text-muted-foreground backdrop-blur-sm shadow">
+          {measure.count === 0 && "Click a point on the model"}
+          {measure.count === 1 && "Click a second point"}
+          {measure.count === 2 && measure.distMm !== null && (
+            <span className="font-semibold text-foreground">Dist: {measure.distMm.toFixed(1)} mm</span>
+          )}
         </div>
       )}
 
@@ -398,15 +146,75 @@ export function StepViewer({ fileUrl, title }: StepViewerProps) {
         </div>
       )}
 
+      {/* HTML overlay for dimension labels and measure label */}
+      <div ref={overlayRef} className="pointer-events-none absolute inset-0" style={{ zIndex: 15 }}>
+        {bbox.visible && (["l", "w", "h"] as Dim[]).map((dim) => {
+          const pos = bbox.labelPos[dim];
+          if (!pos) return null;
+          const label = dim.toUpperCase();
+          return (
+            <div
+              key={dim}
+              style={{
+                position: "absolute",
+                left: pos.x,
+                top: pos.y,
+                transform: "translate(-50%, -50%)",
+                pointerEvents: "auto",
+                zIndex: 15,
+              }}
+            >
+              {bbox.editingDim === dim ? (
+                <input
+                  autoFocus
+                  type="number"
+                  value={bbox.editInput}
+                  onChange={(e) => bbox.setEditInput(e.target.value)}
+                  onBlur={bbox.onEditCommit}
+                  onKeyDown={bbox.onEditKeyDown}
+                  className="w-20 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs font-medium text-blue-700 shadow outline-none"
+                  style={{ pointerEvents: "auto" }}
+                />
+              ) : (
+                <div
+                  className="cursor-text rounded bg-blue-600/90 px-1.5 py-0.5 text-xs font-semibold text-white shadow backdrop-blur-sm select-none"
+                  title="Double-click to edit"
+                  onDoubleClick={() => bbox.onDoubleClick(dim)}
+                >
+                  {label}: {bbox.dimValues[dim].toFixed(1)} mm
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {measure.active && measure.labelPos && measure.distMm !== null && (
+          <div
+            style={{
+              position: "absolute",
+              left: measure.labelPos.x,
+              top: measure.labelPos.y,
+              transform: "translate(-50%, -120%)",
+              pointerEvents: "none",
+              zIndex: 15,
+            }}
+          >
+            <div className="rounded bg-red-600/90 px-2 py-0.5 text-xs font-semibold text-white shadow backdrop-blur-sm">
+              Dist: {measure.distMm.toFixed(1)} mm
+            </div>
+          </div>
+        )}
+      </div>
+
       <div
         ref={containerRef}
         className="h-full w-full overflow-hidden"
-        style={{ cursor: modelLoaded ? (isDragging ? "grabbing" : "grab") : "default" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
+        style={{ cursor: cursorStyle }}
+        onMouseDown={pointer.onMouseDown}
+        onMouseMove={pointer.onMouseMove}
+        onMouseUp={pointer.onMouseUp}
+        onMouseLeave={pointer.onMouseUp}
+        onWheel={pointer.onWheel}
+        onClick={pointer.onClick}
       />
     </div>
   );

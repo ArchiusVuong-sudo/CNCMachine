@@ -65,6 +65,56 @@ _AGENT_PREFIX = "agent:"
 
 
 # ---------------------------------------------------------------------------
+# Hosted-OpenAI-compatible vs local-vLLM adapter
+# ---------------------------------------------------------------------------
+#
+# When ``VISION_MODEL_URL`` points at a hosted OpenAI-compatible provider
+# (Gemini's ``v1beta/openai`` shim, OpenAI proper, OpenRouter, …) the
+# Qwen-specific knobs that vLLM accepts will 400 the request — Gemini
+# rejects ``chat_template_kwargs``, ``skip_special_tokens`` and
+# ``repetition_penalty``. We detect those endpoints by URL host suffix and
+# strip the vLLM-only fields from the payload.
+
+_HOSTED_OPENAI_HOSTS = (
+    "generativelanguage.googleapis.com",   # Gemini OpenAI-compat
+    "api.openai.com",
+    "openrouter.ai",
+    "api.together.xyz",
+    "api.fireworks.ai",
+    "api.deepinfra.com",
+    "api.anthropic.com",                    # routed via /v1/chat/completions where supported
+)
+
+_VLLM_ONLY_PAYLOAD_KEYS = (
+    "chat_template_kwargs",
+    "skip_special_tokens",
+    "repetition_penalty",
+)
+
+
+def _is_hosted_openai(base_url: str | None) -> bool:
+    if not base_url:
+        return False
+    return any(host in base_url for host in _HOSTED_OPENAI_HOSTS)
+
+
+def _adapt_payload_for_endpoint(payload: dict, base_url: str | None) -> dict:
+    """Strip vLLM-only fields when speaking to a hosted OpenAI-compat backend."""
+    if not _is_hosted_openai(base_url):
+        return payload
+    for key in _VLLM_ONLY_PAYLOAD_KEYS:
+        payload.pop(key, None)
+    return payload
+
+
+def _auth_headers(api_key: str | None) -> dict:
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    return headers
+
+
+# ---------------------------------------------------------------------------
 # Image MIME detection (vLLM expects a data URL)
 # ---------------------------------------------------------------------------
 
@@ -339,6 +389,8 @@ async def vision_chat(
         },
         "skip_special_tokens": False,
     }
+    payload = _adapt_payload_for_endpoint(payload, settings.base_url)
+    headers = _auth_headers(settings.vision_api_key)
 
     full_content = ""
     think_content = ""
@@ -347,7 +399,9 @@ async def vision_chat(
 
     try:
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", endpoint, json=payload, timeout=None) as resp:
+            async with client.stream(
+                "POST", endpoint, headers=headers, json=payload, timeout=None,
+            ) as resp:
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise RuntimeError(
@@ -499,10 +553,12 @@ async def _reformat_thinking_to_json(
         "temperature": 0,
         "max_tokens":  8192,
     }
+    payload = _adapt_payload_for_endpoint(payload, base_url)
+    headers = _auth_headers(get_settings().llm.vision_api_key)
     endpoint = f"{base_url.rstrip('/')}/v1/chat/completions"
     out = ""
     async with httpx.AsyncClient(timeout=60.0) as client:
-        async with client.stream("POST", endpoint, json=payload) as resp:
+        async with client.stream("POST", endpoint, headers=headers, json=payload) as resp:
             if resp.status_code != 200:
                 return ""
             buf = ""
@@ -567,12 +623,16 @@ async def text_chat(
         },
         "skip_special_tokens": False,
     }
+    payload = _adapt_payload_for_endpoint(payload, settings.base_url)
+    headers = _auth_headers(settings.vision_api_key)
 
     full_content = ""
     think_content = ""
 
     async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream("POST", endpoint, json=payload, timeout=None) as resp:
+        async with client.stream(
+            "POST", endpoint, headers=headers, json=payload, timeout=None,
+        ) as resp:
             if resp.status_code != 200:
                 body = await resp.aread()
                 raise RuntimeError(
@@ -712,13 +772,17 @@ class VLLMProvider:
         }
         if response_format:
             payload["response_format"] = response_format
+        payload = _adapt_payload_for_endpoint(payload, settings.base_url)
+        headers = _auth_headers(settings.vision_api_key)
 
         full_content = ""
         think_content = ""
         usage: dict | None = None
 
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", endpoint, json=payload, timeout=None) as resp:
+            async with client.stream(
+                "POST", endpoint, headers=headers, json=payload, timeout=None,
+            ) as resp:
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise RuntimeError(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   CheckCircle2, Loader2, XCircle, AlertTriangle, Wrench, Brain, Sparkles, Flag,
 } from "lucide-react";
@@ -14,6 +14,28 @@ interface ProgressTimelineProps {
   className?: string;
 }
 
+/** Collapse pending `tool_call` rows into their matching `tool_result` so the
+ *  timeline shows one row per tool invocation (with the final state). Without
+ *  this, a `tool_call` event whose `tool_result` arrives later renders as a
+ *  spinner forever in history view — and even in the live view, both rows sit
+ *  side-by-side once the result lands. Matching is by `(tool, iteration)` —
+ *  the orchestrator stamps every tool event with an integer iteration, so
+ *  collisions across different iterations of the same tool are not possible. */
+function collapseToolPairs(messages: AgentStreamMessage[]): AgentStreamMessage[] {
+  const resolved = new Set<string>();
+  for (const m of messages) {
+    if (m.type === "tool_result") {
+      const d = m.data as { tool?: unknown; iteration?: unknown };
+      resolved.add(`${String(d.tool)}#${String(d.iteration)}`);
+    }
+  }
+  return messages.filter((m) => {
+    if (m.type !== "tool_call") return true;
+    const d = m.data as { tool?: unknown; iteration?: unknown };
+    return !resolved.has(`${String(d.tool)}#${String(d.iteration)}`);
+  });
+}
+
 const TOOL_LABELS: Record<string, string> = {
   kb_read: "Read knowledge base",
   kb_find_analogues: "Find analogue parts",
@@ -25,13 +47,15 @@ const TOOL_LABELS: Record<string, string> = {
 
 export function ProgressTimeline({ messages, liveThinking, isStreaming, className }: ProgressTimelineProps) {
   const endRef = useRef<HTMLDivElement>(null);
+  // Collapse tool_call/tool_result pairs into one row per invocation.
+  const rows = useMemo(() => collapseToolPairs(messages), [messages]);
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [messages.length, liveThinking]);
+  }, [rows.length, liveThinking]);
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      {messages.map((m) => <TimelineRow key={m.id} msg={m} />)}
+      {rows.map((m) => <TimelineRow key={m.id} msg={m} isStreaming={isStreaming} />)}
 
       {liveThinking && (
         <Row icon={<Brain className="h-3.5 w-3.5 animate-pulse text-violet-500" />} tone="thinking">
@@ -49,13 +73,22 @@ export function ProgressTimeline({ messages, liveThinking, isStreaming, classNam
   );
 }
 
-function TimelineRow({ msg }: { msg: AgentStreamMessage }) {
-  const d = msg.data as any;
+function TimelineRow({ msg, isStreaming }: { msg: AgentStreamMessage; isStreaming: boolean }) {
+  // Index the loose payload as Record — every consumer below checks the
+  // field's existence/type before use, so the unknown type is safe.
+  const d = msg.data as Record<string, unknown> & {
+    failed?: boolean; completed?: boolean; title?: string; message?: string;
+    tool?: string; iteration?: number; label?: string; duration_ms?: number;
+    result?: unknown; auto_completed?: boolean; note?: string;
+  };
 
   switch (msg.type) {
     case "status": {
       const failed = !!d.failed;
-      const completed = !!d.completed;
+      // Once the pipeline is no longer streaming, any `status` row that
+      // was never explicitly marked completed should still resolve — the
+      // pipeline can't be both finished AND still working on a status.
+      const completed = !!d.completed || !isStreaming;
       const icon = failed
         ? <XCircle className="h-4 w-4 text-destructive" />
         : completed
@@ -74,11 +107,16 @@ function TimelineRow({ msg }: { msg: AgentStreamMessage }) {
       const failed = !!d.failed;
       const tool = String(d.tool ?? "tool");
       const label = TOOL_LABELS[tool] ?? tool;
+      // Mirror the status rule: a tool_call that survived the pair-collapse
+      // is an orphan whose result event was dropped — but if the pipeline
+      // is no longer streaming, the only honest read is "this call finished
+      // somehow", so show a check instead of a perpetually-spinning loader.
+      const stillRunning = !isResult && isStreaming;
       const icon = failed
         ? <XCircle className="h-3.5 w-3.5 text-destructive" />
-        : isResult
-          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          : <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
+        : stillRunning
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          : <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />;
       return (
         <Row icon={icon} tone="tool">
           <span className="inline-flex items-center gap-1.5">

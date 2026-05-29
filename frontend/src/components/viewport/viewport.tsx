@@ -8,12 +8,20 @@ import { DrawingViewer } from "./drawing-viewer";
 
 export type ViewportMode = "3d" | "2d";
 
+export interface ViewportComponentInfo {
+  component_index: number;
+  name?: string | null;
+  bbox?: { length_mm?: number; width_mm?: number; height_mm?: number } | null;
+}
+
 interface ViewportProps {
   stepUrl?: string | null;
   drawingUrl?: string | null;
   drawingType?: string | null;
   fileName?: string | null;
   className?: string;
+  components?: ViewportComponentInfo[];
+  selectedIndex?: number | null;
 }
 
 /**
@@ -22,7 +30,7 @@ interface ViewportProps {
  * viewer a worker, so unmounting the inactive one frees those resources and
  * the active viewer reloads cleanly when re-selected.
  */
-export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className }: ViewportProps) {
+export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className, components, selectedIndex }: ViewportProps) {
   const has3d = !!stepUrl;
   const has2d = !!drawingUrl;
 
@@ -57,7 +65,7 @@ export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className
 
       <div className="h-full w-full">
         {mode === "3d"
-          ? <StepViewer fileUrl={stepUrl ?? null} title={fileName ?? undefined} />
+          ? <StepViewer fileUrl={stepUrl ?? null} title={fileName ?? undefined} components={components} selectedIndex={selectedIndex} />
           : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} title={fileName ?? undefined} />}
       </div>
     </div>

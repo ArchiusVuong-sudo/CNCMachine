@@ -48,7 +48,10 @@
   --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
 }
 
-/* ── Theme (CoFab) — slate base, blue-600 brand, light only ──────── */
+/* ── Theme (CoFab / CostAssist) — slate base, BLUE primary, light only ──
+   Per the 27 May review: all buttons + toggles use the company-logo blue
+   (221 83% 53%) as the primary action colour. The same blue lives on
+   --brand for gradient marks and focus glows. */
 :root {
   --radius: 0.5rem; /* 8px */
 
@@ -59,7 +62,7 @@
   --popover:               hsl(0 0% 100%);
   --popover-foreground:    hsl(222.2 84% 4.9%);
 
-  /* Brand blue (Tailwind blue-600 ≈ #2563EB) drives the primary action. */
+  /* Primary = company-logo blue (drives every button + toggle). */
   --primary:               hsl(221 83% 53%);
   --primary-foreground:    hsl(210 40% 98%);
 
@@ -69,17 +72,17 @@
   --muted:                 hsl(210 40% 96.1%);
   --muted-foreground:      hsl(215.4 16.3% 46.9%);
 
-  --accent:                hsl(214 100% 96.7%);
+  --accent:                hsl(210 40% 96.1%);
   --accent-foreground:     hsl(222.2 47.4% 11.2%);
 
-  --destructive:           hsl(0 72% 51%);
+  --destructive:           hsl(0 84.2% 60.2%);
   --destructive-foreground: hsl(210 40% 98%);
 
   --border:                hsl(214.3 31.8% 91.4%);
   --input:                 hsl(214.3 31.8% 91.4%);
   --ring:                  hsl(221 83% 53%);
 
-  /* Brand accent tokens (mirror CoFab's --dark-blue / --orange) */
+  /* Brand accent tokens (CoFab's --dark-blue / --orange). */
   --brand:                 hsl(221 83% 53%);
   --brand-foreground:      hsl(210 40% 98%);
   --orange:                hsl(25 95% 53%);
@@ -92,15 +95,15 @@
   --chart-4: hsl(262 83% 58%);
   --chart-5: hsl(199 89% 48%);
 
-  /* Sidebar / runs panel — faint blue-tinted near-white */
-  --sidebar:                   hsl(210 40% 98%);
-  --sidebar-foreground:        hsl(222.2 47.4% 11.2%);
-  --sidebar-primary:           hsl(221 83% 53%);
-  --sidebar-primary-foreground: hsl(210 40% 98%);
-  --sidebar-accent:            hsl(214 100% 96.7%);
-  --sidebar-accent-foreground: hsl(222.2 47.4% 11.2%);
-  --sidebar-border:            hsl(214.3 31.8% 91.4%);
-  --sidebar-ring:              hsl(221 83% 53%);
+  /* Sidebar / runs panel — mirrors CoFab sidebar tokens (neutral greys). */
+  --sidebar:                   hsl(0 0% 98%);
+  --sidebar-foreground:        hsl(240 5.3% 26.1%);
+  --sidebar-primary:           hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent:            hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border:            hsl(220 13% 91%);
+  --sidebar-ring:              hsl(217.2 91.2% 59.8%);
 }
 
 @layer base {

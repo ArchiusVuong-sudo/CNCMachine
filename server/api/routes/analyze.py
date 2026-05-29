@@ -12,15 +12,18 @@ orchestrator's events, terminated by a single ``done`` frame.
 """
 from __future__ import annotations
 
+import json
 import logging
+import time
 import uuid
-from typing import Any
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, File, Form, Request
 from fastapi.responses import StreamingResponse
 from starlette.datastructures import UploadFile
 
 from ...core.schemas import AnalyzeRequest
+from ...core.writeback import _NOTES_DIR, _safe_id
 from ...infra.supabase import get_supabase_client
 from ...pipeline import run_pipeline
 from ..sse import stream_to_sse
@@ -132,7 +135,7 @@ async def analyze_stream(request: Request) -> StreamingResponse:
     )
 
     return StreamingResponse(
-        stream_to_sse(events),
+        stream_to_sse(_capture_and_persist_messages(events, analysis_id)),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -140,3 +143,48 @@ async def analyze_stream(request: Request) -> StreamingResponse:
             "Connection": "keep-alive",
         },
     )
+
+
+async def _capture_and_persist_messages(
+    gen: AsyncIterator[tuple[str, dict]],
+    analysis_id: str,
+) -> AsyncIterator[tuple[str, dict]]:
+    """Pass orchestrator events through unchanged while collecting them, then
+    write the message log into the saved ``<id>_full.json`` so the history
+    view's pipeline activity card can replay them.
+
+    Filters out ``heartbeat`` (keep-alive only, not interesting to a saved
+    timeline). Best-effort: file errors are logged and swallowed.
+    """
+    messages: list[dict[str, Any]] = []
+    async for ev in gen:
+        ev_type = ev[0]
+        ev_data = ev[1] if len(ev) > 1 else {}
+        if ev_type != "heartbeat":
+            messages.append({
+                "id":        str(uuid.uuid4()),
+                "type":      ev_type,
+                "data":      ev_data,
+                "timestamp": int(time.time() * 1000),
+            })
+        yield ev
+
+    safe = _safe_id(analysis_id)
+    if not safe or not messages:
+        return
+    target = _NOTES_DIR / f"{safe}_full.json"
+    try:
+        existing = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning("messages persist: could not read %s — %s", target, exc)
+        return
+    existing["messages"] = messages
+    try:
+        target.write_text(
+            json.dumps(existing, indent=2, default=str, ensure_ascii=False),
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        logger.warning("messages persist: write failed for %s — %s", target, exc)
+        return
+    logger.info("messages persist: %d events saved → %s", len(messages), target)

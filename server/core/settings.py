@@ -63,8 +63,14 @@ class LLMSettings:
     """
 
     # ── vLLM (Qwen3-VL) ────────────────────────────────────────────────
+    # When ``base_url`` is a hosted OpenAI-compatible provider (Gemini's
+    # ``v1beta/openai``, OpenAI proper, OpenRouter, etc.), ``vision_api_key``
+    # holds the Bearer token. Set ``VISION_MODEL_API_KEY`` in the env to use
+    # a hosted backend as a stand-in for the local Qwen3-VL vLLM — handy
+    # while the GPU pod is unavailable.
     base_url: str = "http://localhost:11434"
     model: str = "Qwen/Qwen3-VL-32B-Instruct-FP8"
+    vision_api_key: str | None = None
     vlm_inactivity_seconds: float = 30.0
     vlm_thinking_budget_tokens: int = 6000
     vlm_max_tokens: int = 12288
@@ -158,13 +164,18 @@ class AgenticSettings:
 
 @dataclass(frozen=True)
 class EngineSettings:
-    """Engine-3 selection. Picks which planner backend runs per analysis.
+    """Engine selection. Picks which 2D / 3D / planner backend runs.
 
-    ``agentic`` is the only supported planner. The knob is kept so a
-    per-request ``?engine=`` / ``engine`` body field still validates.
+    All three are pluggable seams. The defaults are the in-house engines
+    (Qwen3-VL for 2D, OCC subprocess for 3D, agentic ReAct loop for the
+    planner). External engines plug in by adding a branch to the matching
+    ``_resolve_*_engine`` helper in ``pipeline/orchestrator.py`` and
+    setting the env var below.
     """
 
-    default: str = "agentic"
+    default:        str = "agentic"   # planner engine (Engine 3)
+    extraction_2d:  str = "default"   # drawing-extraction engine (Engine 1)
+    extraction_3d:  str = "default"   # 3D feature-recognition engine (Engine 2)
 
 
 @dataclass(frozen=True)
@@ -199,6 +210,7 @@ def _llm_settings() -> LLMSettings:
             or os.environ.get("VISION_MODEL")
             or "Qwen/Qwen3-VL-32B-Instruct-FP8"
         ),
+        vision_api_key=os.environ.get("VISION_MODEL_API_KEY") or None,
         vlm_inactivity_seconds=float(os.environ.get("VLM_INACTIVITY_SECONDS", "30")),
         vlm_thinking_budget_tokens=_int("VLM_THINKING_BUDGET_TOKENS", 6000),
         vlm_max_tokens=_int("VLM_MAX_TOKENS", 12288),
@@ -257,6 +269,8 @@ def load_settings() -> Settings:
         ),
         engine=EngineSettings(
             default=(os.environ.get("ENGINE_MODE") or "agentic").strip().lower(),
+            extraction_2d=(os.environ.get("EXTRACTION_2D_ENGINE") or "default").strip().lower(),
+            extraction_3d=(os.environ.get("EXTRACTION_3D_ENGINE") or "default").strip().lower(),
         ),
     )
 

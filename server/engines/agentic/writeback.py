@@ -46,7 +46,7 @@ def _summarize_plan(plan_dict: dict) -> dict:
     components = plan_dict.get("components") or []
     notes_components: list[dict] = []
     for comp in components:
-        agentic = (comp or {}).get("agentic") or {}
+        agentic = (comp or {}).get("planner") or (comp or {}).get("agentic") or {}
         notes_components.append({
             "component_index": comp.get("component_index"),
             "name": comp.get("name"),

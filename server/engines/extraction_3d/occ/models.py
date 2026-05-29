@@ -1,4 +1,9 @@
-"""Pydantic models for the STEP Assembly Analyzer API."""
+"""Pydantic models for the STEP Assembly Analyzer API.
+
+``FeatureType`` is re-exported from the shared schema package so the OCC
+subprocess and the orchestrator agree on the vocabulary by construction
+(no manual mirror to drift).
+"""
 
 from __future__ import annotations
 
@@ -6,6 +11,10 @@ import enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+# Re-export the canonical enum so callers `from .models import FeatureType`
+# keep working unchanged but transparently get the shared definition.
+from server.core.schemas.enums import FeatureType  # noqa: F401  (re-export)
 
 
 # ── Enums ────────────────────────────────────────────────────────────────────
@@ -18,38 +27,6 @@ class PartType(str, enum.Enum):
     CNC_LATHE_MILLING = "cnc_lathe_milling"
     TUBE_PIPE = "tube_pipe"
     HARDWARE = "hardware"
-    UNKNOWN = "unknown"
-
-
-class FeatureType(str, enum.Enum):
-    """Controlled vocabulary — must mirror
-    ``server.core.schemas.enums.FeatureType`` (19 values + UNKNOWN).
-    """
-
-    # Hole-making
-    THROUGH_HOLE = "through_hole"
-    BLIND_HOLE = "blind_hole"
-    DRILLED_HOLE = "drilled_hole"
-    COUNTERBORE = "counterbore"
-    COUNTERSINK = "countersink"
-    TAPERED_BORE = "tapered_bore"
-    # Milling
-    POCKET = "pocket"
-    STEP = "step"
-    FILLET = "fillet"
-    CHAMFER = "chamfer"
-    THREAD = "thread"
-    BOSS = "boss"
-    RIB = "rib"
-    DRAFT = "draft"
-    UNDERCUT = "undercut"
-    GROOVE = "groove"
-    # Turning
-    LATHE_OD = "lathe_od"
-    TAPERED_OD = "tapered_od"
-    # Facing
-    FACE = "face"
-    # Sentinel
     UNKNOWN = "unknown"
 
 

@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import time
 from typing import Any, AsyncGenerator
+from urllib.parse import unquote, urlsplit
 
 from ..core.events import EventBridge
 from ..core.http import download_bytes
@@ -39,8 +41,6 @@ from ..core.settings import get_settings
 from ..core.tracing import finalize_trace, record_step, start_trace
 from ..core.writeback import write_full_result
 from ..engines.cam import run as engine_generate_gcode
-from ..engines.extraction_2d import run as engine_extract_2d
-from ..engines.extraction_3d import run as engine_recognize_3d
 from ..engines.process_mapping.cost_engine import fetch_shop_catalog
 from ..infra.persistence import (
     persist_analysis_complete,
@@ -75,6 +75,94 @@ def _resolve_engine_dispatch(engine_name: str):
     raise ValueError(
         f"unknown engine {name!r}; supported: {', '.join(_SUPPORTED_ENGINES)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Engine 1 (drawing extraction) + Engine 2 (3D feature recognition) registry
+# ---------------------------------------------------------------------------
+#
+# Same lazy-import seam as the planner above. Each registry is a tuple of
+# supported names and ``_resolve_*_engine`` returns the matching ``run``
+# callable; the orchestrator never imports the engine packages at module load.
+# Swapping in an external engine is now a single registry edit + an env var
+# (``EXTRACTION_2D_ENGINE`` / ``EXTRACTION_3D_ENGINE``) rather than touching
+# the imports at the top of this file.
+
+_SUPPORTED_2D_ENGINES = ("default",)
+_SUPPORTED_3D_ENGINES = ("default",)
+
+
+def _resolve_2d_engine(name: str | None):
+    """Resolve the 2D drawing-extraction ``run`` callable for ``name``.
+
+    Defaults to the in-house Qwen3-VL pipeline at ``engines.extraction_2d``.
+    External engines plug in here — any callable matching the same async
+    signature ``(drawing_bytes, *, filename, max_pages, on_event, on_thinking)
+    -> DrawingExtraction`` is drop-in.
+    """
+    n = (name or "default").strip().lower()
+    if n in ("default", "vlm", "qwen3-vl", "extraction_2d"):
+        from ..engines.extraction_2d import run as run_2d  # noqa: PLC0415
+        return run_2d
+    raise ValueError(
+        f"unknown 2D engine {n!r}; supported: {', '.join(_SUPPORTED_2D_ENGINES)}"
+    )
+
+
+def _resolve_3d_engine(name: str | None):
+    """Resolve the 3D feature-recognition ``run`` callable for ``name``.
+
+    Defaults to the in-house OCC subprocess at ``engines.extraction_3d``.
+    External engines plug in here — any callable matching the same async
+    signature ``(step_bytes, *, filename, on_event) -> AssemblyData`` is
+    drop-in.
+    """
+    n = (name or "default").strip().lower()
+    if n in ("default", "occ", "cadquery", "extraction_3d"):
+        from ..engines.extraction_3d import run as run_3d  # noqa: PLC0415
+        return run_3d
+    raise ValueError(
+        f"unknown 3D engine {n!r}; supported: {', '.join(_SUPPORTED_3D_ENGINES)}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Storage reference parsing
+# ---------------------------------------------------------------------------
+
+# Supabase Storage URL shapes we may receive as step_url / drawing_url:
+#   .../storage/v1/object/sign/<bucket>/<path>?token=...      (signed, expiring)
+#   .../storage/v1/object/public/<bucket>/<path>              (public)
+#   .../storage/v1/object/authenticated/<bucket>/<path>       (authenticated)
+#   .../storage/v1/object/<bucket>/<path>                     (bare)
+# We extract the *durable* (bucket, object-path) pair so the results
+# envelope can carry it. The FE re-signs from this pair whenever its
+# localStorage source cache misses (different browser / cleared cache),
+# which is what makes reopened runs render geometry everywhere.
+_STORAGE_RE = re.compile(
+    r"/storage/v1/object/(?:sign/|public/|authenticated/)?(?P<bucket>[^/]+)/(?P<path>[^?]+)"
+)
+
+
+def _parse_storage_ref(url: str | None) -> tuple[str | None, str | None]:
+    """Return ``(bucket, object_path)`` parsed from a Supabase storage URL.
+
+    Returns ``(None, None)`` for non-storage URLs (arbitrary HTTPS, or the
+    raw-bytes upload path where there is no URL at all), so the caller can
+    simply omit the source when nothing durable exists.
+    """
+    if not url:
+        return (None, None)
+    try:
+        path = urlsplit(url).path
+    except (ValueError, AttributeError):
+        return (None, None)
+    match = _STORAGE_RE.search(path)
+    if not match:
+        return (None, None)
+    bucket = match.group("bucket") or None
+    obj = unquote(match.group("path") or "") or None
+    return (bucket, obj)
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +345,11 @@ async def run_pipeline(
     t_phase1 = time.monotonic()
     logger.info("PHASE 1 START: engine1 (VLM) + engine2 (OCC) + catalog launching concurrently")
 
+    # Resolve via registry so external engines can be plugged in without
+    # touching this file. Defaults to the in-house implementations.
+    engine_extract_2d  = _resolve_2d_engine(settings.engine.extraction_2d)
+    engine_recognize_3d = _resolve_3d_engine(settings.engine.extraction_3d)
+
     engine1_task = asyncio.create_task(engine_extract_2d(
         drawing_bytes,
         filename=file_name,
@@ -390,11 +483,13 @@ async def run_pipeline(
         plan = await engine3_task
     except Exception as exc:
         logger.exception("PHASE 2: engine3 raised: %s", exc)
-        plan = ProcessPlan(
+        # Use the schema-owned sentinel so the fallback shape stays in
+        # sync with ProcessPlan's defaults — the orchestrator no longer
+        # has to know the planner's empty-payload construction details.
+        plan = ProcessPlan.empty(
             components=list(assembly_data.components),
-            processes_per_component=[],
-            cost={"total_usd": 0.0, "breakdown_by_component": []},
             catalog=catalog,
+            error=f"{exc.__class__.__name__}: {exc}",
         )
 
     components              = list(plan.components)
@@ -462,7 +557,9 @@ async def run_pipeline(
     confidence_bands: list[float] = []
     evidence_tokens: list[str] = []
     for c in components_dump:
-        for engine_block in (c.get("agentic") or {},):
+        # Prefer the engine-agnostic `planner` key; fall back to the legacy
+        # `agentic` key for runs persisted before the rename.
+        for engine_block in (c.get("planner") or c.get("agentic") or {},):
             band = engine_block.get("confidence_band_pct")
             try:
                 if band is not None:
@@ -484,6 +581,20 @@ async def run_pipeline(
         for d in category_decisions
     ]
 
+    # Durable storage refs so the FE can re-sign viewer URLs for this run
+    # on any browser/machine even when its localStorage cache is empty.
+    # Parsed from the (possibly already-expired) signed URLs we were given;
+    # all-None when the request came in as raw bytes (local dev), in which
+    # case the FE simply keeps using its localStorage source cache.
+    _step_bucket, _step_path = _parse_storage_ref(step_url)
+    _draw_bucket, _draw_path = _parse_storage_ref(drawing_url)
+    sources_block = {
+        "bucket":       _step_bucket or _draw_bucket,
+        "step_path":    _step_path,
+        "drawing_path": _draw_path,
+        "file_name":    file_name or None,
+    }
+
     results = {
         "analysis_id":     analysis_id,
         "approach":        "modular_monolith",
@@ -491,6 +602,7 @@ async def run_pipeline(
         "batch_size":      batch_size,
         "assembly_name":   assembly_data.assembly_name or file_name,
         "file_name":       file_name,
+        "sources":         sources_block,
         "total_minutes":   total_minutes,
         "total_usd":       total_usd,
         "elapsed_seconds": elapsed,

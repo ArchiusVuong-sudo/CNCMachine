@@ -17,7 +17,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// SSE stream message (assembled by useApproach4 from analyze-stream frames)
+// SSE stream message (assembled by useAnalysisStream from analyze-stream frames)
 // ---------------------------------------------------------------------------
 
 export interface AgentStreamMessage {
@@ -220,8 +220,11 @@ export interface AgenticParameters {
   [key: string]: unknown;
 }
 
-/** Decorated per-component agentic payload attached by the coordinator. */
-export interface AgenticData {
+/** Engine-agnostic per-component planner payload — whichever planner engine
+ *  ran (in-house agentic, external CAM planner, manual override, etc.) attaches
+ *  its output here. The legacy `agentic` key on Component is still read as a
+ *  fallback for runs persisted before the rename. */
+export interface PlannerData {
   machine_class?:            string;
   chosen_machine_id?:        string | null;
   ranked_machines?:          RankedMachine[];
@@ -236,29 +239,49 @@ export interface AgenticData {
   fallback_rungs?:           Record<string, unknown>;
   iterations_by_phase?:      Record<string, number>;
   tool_call_count_by_phase?: Record<string, number>;
+  /** True when this component is a consolidated child of another and its
+   *  machining was rolled into the assembly owner. Used to avoid double-
+   *  counting cycle time / cost. */
+  suppressed_by_consolidation_gate?: boolean;
   error?:                    string | null;
   [key: string]: unknown;
 }
 
-/** One row in ``processes_per_component[i]`` — flat routing/cost row. */
+/** One row in ``processes_per_component[i]`` — flat routing/cost row.
+ *  Field names mirror server `core/schemas/plan.RoutingRow` (Pydantic) 1:1
+ *  so a different planner engine emitting the same Pydantic shape Just Works
+ *  without an FE adapter. */
 export interface RoutingRow {
-  sequence_order?:   number;
+  /** Position in the routing sequence (1, 2, 3…). Mirrors Pydantic
+   *  `RoutingRow.sequence`. */
+  sequence?:         number;
   op_code?:          string;
   op_id?:            string;
   process_type?:     string;
   category?:         string;
-  feature_indices?:  number[];
+  /** String feature IDs (Pydantic `feature_ids: list[str]`). */
+  feature_ids?:      string[];
   operation_count?:  number;
-  tooling_ref?:      { tool_id: string | null; tool_name: string; diameter_mm?: number };
-  machine_ref?:      { machine_id: string | null; machine_name: string };
+  /** Flat machine fields (mirror Pydantic). */
+  machine_id?:       string | null;
+  machine_name?:     string;
+  /** Flat tooling fields (mirror Pydantic). */
+  tool_ids?:         string[];
+  tool_type?:        string;
+  tool_dimensions?:  Record<string, number>;
   spindle_rpm?:      number;
   feed_mm_per_min?:  number;
   depth_of_cut_mm?:  number;
   cut_length_mm?:    number;
   cycle_time_min?:   number;
+  setup_min_per_lot?: number;
+  run_min_per_part?: number;
   labor_cost_usd?:   number;
   machine_cost_usd?: number;
+  tool_cost_usd?:    number;
   total_cost_usd?:   number;
+  /** Machining complexity rating (backend-supplied; e.g. "Low"/"Medium"/"High"). */
+  complexity?:       string | number;
   notes?:            string;
   [key: string]: unknown;
 }
@@ -308,8 +331,13 @@ export interface Component {
   stock?:                 StockInfo | null;
   cost?:                  ComponentCost;
   cycle_time_min?:        number;
-  /** Agentic engine output (Phase A→D). */
-  agentic?:               AgenticData;
+  /** Overall machining complexity rating (backend-supplied). */
+  complexity?:            string | number;
+  /** Planner engine output (whichever engine ran — agentic, external, etc.). */
+  planner?:               PlannerData;
+  /** Legacy alias for runs persisted before the planner-rename. Consumers
+   *  should prefer `planner` and treat this as a backwards-compat fallback. */
+  agentic?:               PlannerData;
   [key: string]: unknown;
 }
 
@@ -395,6 +423,26 @@ export interface FinalAnswer {
   cost?:                    CostBlock;
   cycle_time?:              CycleTimeBlock;
   cam?:                     CamBlock;
+  /**
+   * SSE pipeline events captured at the route layer and persisted into
+   * the saved analysis JSON. Powers the History view's pipeline-activity
+   * card so reopening a run shows the same timeline as the live stream.
+   * Absent on runs persisted before the capture layer was added.
+   */
+  messages?:                AgentStreamMessage[];
+  /**
+   * Durable storage refs for the uploaded STEP / drawing, written by the
+   * orchestrator. Lets the viewer re-sign URLs for a reopened run even
+   * when this browser's localStorage source cache is empty (different
+   * machine / cleared cache). All fields may be null when the run was
+   * submitted as raw bytes rather than Supabase URLs.
+   */
+  sources?: {
+    bucket?:       string | null;
+    step_path?:    string | null;
+    drawing_path?: string | null;
+    file_name?:    string | null;
+  };
   [key: string]: unknown;
 }
 
@@ -406,6 +454,10 @@ export interface AnalysisSummary {
   id:             string;
   file_name?:     string | null;
   assembly_name?: string | null;
+  /** Drawing identity (server reads these from vlm_extraction). */
+  part_number?:   string | null;
+  revision?:      string | null;
+  material?:      string | null;
   total_usd?:     number | null;
   total_minutes?: number | null;
   n_components?:  number | null;

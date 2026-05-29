@@ -91,3 +91,72 @@ export async function resignRunSource(analysisId: string): Promise<ViewerSources
 
   return { stepUrl, drawingUrl, drawingType: src.drawingType, fileName: src.fileName };
 }
+
+/** Explicit storage paths, typically the server envelope's `sources` block. */
+export interface StoragePathRef {
+  bucket?: string | null;
+  stepPath?: string | null;
+  drawingPath?: string | null;
+  fileName?: string | null;
+}
+
+/** Best-effort MIME type for a drawing path, inferred from its extension. */
+function inferDrawingType(path?: string | null): string | null {
+  if (!path) return null;
+  const ext = path.split("?")[0].split(".").pop()?.toLowerCase();
+  if (ext === "pdf") return "application/pdf";
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  return null;
+}
+
+/**
+ * Sign explicit storage paths into fresh viewer URLs — the durable fallback
+ * when this browser's localStorage source cache has no entry for the run
+ * (run opened on a different machine, or after the cache was cleared). The
+ * paths come from the server results envelope, which is shared across all
+ * browsers, so geometry renders everywhere a run is reopened.
+ *
+ * Side effect: caches the resolved paths back into localStorage so the next
+ * reopen on this browser is a plain {@link resignRunSource}.
+ *
+ * Returns null when there is nothing signable (no paths at all).
+ */
+export async function resignStoragePaths(
+  analysisId: string,
+  ref: StoragePathRef,
+): Promise<ViewerSources | null> {
+  const stepPath = ref.stepPath || undefined;
+  const drawingPath = ref.drawingPath || undefined;
+  if (!stepPath && !drawingPath) return null;
+
+  const bucket = ref.bucket || BUCKET;
+  const sb = createSupabaseBrowserClient();
+  let stepUrl: string | null = null;
+  let drawingUrl: string | null = null;
+
+  if (stepPath) {
+    const { data } = await sb.storage.from(bucket).createSignedUrl(stepPath, RESIGN_TTL_SEC);
+    stepUrl = data?.signedUrl ?? null;
+  }
+  if (drawingPath) {
+    const { data } = await sb.storage.from(bucket).createSignedUrl(drawingPath, RESIGN_TTL_SEC);
+    drawingUrl = data?.signedUrl ?? null;
+  }
+
+  const drawingType = inferDrawingType(drawingPath);
+
+  // Warm the localStorage cache so the next reopen on this browser is cheap.
+  if (stepPath || drawingPath) {
+    saveRunSource({
+      analysisId,
+      fileName: ref.fileName ?? undefined,
+      stepPath,
+      drawingPath,
+      drawingType: drawingType ?? undefined,
+      createdAt: Date.now(),
+    });
+  }
+
+  return { stepUrl, drawingUrl, drawingType, fileName: ref.fileName ?? null };
+}
