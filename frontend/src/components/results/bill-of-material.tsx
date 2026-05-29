@@ -18,6 +18,9 @@ interface BillOfMaterialProps {
   totalMin?: number;
   /** Selected component_index, or null for the level-0 assembly row. */
   selectedIndex: number | null;
+  /** "Soft" highlight from a 3D mesh click — renders a lighter row tint
+   *  without changing the navigated selection. */
+  hoveredIndex?: number | null;
   onSelect: (index: number | null) => void;
   className?: string;
 }
@@ -39,7 +42,7 @@ const COLS = 13;
  * come from `useBomTable`.
  */
 export function BillOfMaterial({
-  components, assemblyName, totalUsd, totalMin, selectedIndex, onSelect, className,
+  components, assemblyName, totalUsd, totalMin, selectedIndex, hoveredIndex, onSelect, className,
 }: BillOfMaterialProps) {
   const {
     flat, totals, partsCount, hidden,
@@ -112,6 +115,7 @@ export function BillOfMaterial({
                   row={r.row}
                   level={r.level}
                   active={selectedIndex === r.row.componentIndex}
+                  hovered={hoveredIndex === r.row.componentIndex}
                   onSelect={() => onSelect(r.row.componentIndex)}
                   onAddChild={() => addChild(r.row.key)}
                   onHide={() => hideComponent(r.row.key)}
@@ -184,11 +188,12 @@ const AssemblyRow = memo(function AssemblyRow({
 });
 
 const ComponentRow = memo(function ComponentRow({
-  row, level, active, onSelect, onAddChild, onHide,
+  row, level, active, hovered, onSelect, onAddChild, onHide,
 }: {
   row: import("@/lib/domain/bom-model").BomComponentRow;
   level: number;
   active: boolean;
+  hovered?: boolean;
   onSelect: () => void;
   onAddChild: () => void;
   onHide: () => void;
@@ -198,7 +203,7 @@ const ComponentRow = memo(function ComponentRow({
       onClick={onSelect}
       className={cn(
         "cursor-pointer transition-colors",
-        active ? "bg-primary/10" : "hover:bg-muted/40",
+        active ? "bg-primary/10" : hovered ? "bg-primary/5" : "hover:bg-muted/40",
       )}
     >
       <LevelCell level={level} />

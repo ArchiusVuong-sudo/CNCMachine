@@ -1,8 +1,9 @@
 # Ignore everything at root by default
 /*
 
-# Allow only the 3 target folders + this gitignore
+# Allow only the 3 target folders + this gitignore + the public README
 !/.gitignore
+!/README.md
 !/KNOWLEDGE_BASE/
 !/server/
 !/frontend/

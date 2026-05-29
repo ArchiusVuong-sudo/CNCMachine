@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink, Scan, Ruler } from "lucide-react";
+import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink, Scan, Ruler, Crosshair, Spline } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,6 +12,9 @@ interface StepViewerProps {
   title?: string;
   components?: ViewportComponentInfo[];
   selectedIndex?: number | null;
+  hoveredIndex?: number | null;
+  onSelectComponent?: (componentIndex: number | null) => void;
+  selectedCounts?: { tolerances: number; gdt: number; threads: number } | null;
 }
 
 type Dim = "l" | "w" | "h";
@@ -22,16 +25,32 @@ type Dim = "l" | "w" | "h";
  * clip live in `useStepViewer`; this component wires the hook's grouped API
  * (refs, pointer handlers, toolbar actions, overlay labels) to the DOM.
  */
-export function StepViewer({ fileUrl, title, components, selectedIndex }: StepViewerProps) {
+export function StepViewer({ fileUrl, title, components, selectedIndex, hoveredIndex, onSelectComponent, selectedCounts }: StepViewerProps) {
   const {
     containerRef, overlayRef, loading, error, modelLoaded, cursorStyle,
     pointer, view, measure, bbox, section,
-  } = useStepViewer({ fileUrl, components, selectedIndex });
+  } = useStepViewer({ fileUrl, components, selectedIndex, hoveredIndex, onSelectComponent });
 
   const showPlaceholder = !fileUrl;
 
   return (
     <div className="relative h-full w-full">
+      {modelLoaded && !loading && selectedCounts && (selectedCounts.tolerances + selectedCounts.gdt + selectedCounts.threads) > 0 && (
+        <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-3 rounded-md border border-border bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1" title="Tolerances">
+            <Ruler className="h-3.5 w-3.5 text-primary" />
+            <span className="tabular-nums">{selectedCounts.tolerances}</span>
+          </span>
+          <span className="inline-flex items-center gap-1" title="GD&T callouts">
+            <Crosshair className="h-3.5 w-3.5 text-primary" />
+            <span className="tabular-nums">{selectedCounts.gdt}</span>
+          </span>
+          <span className="inline-flex items-center gap-1" title="Threads">
+            <Spline className="h-3.5 w-3.5 text-primary" />
+            <span className="tabular-nums">{selectedCounts.threads}</span>
+          </span>
+        </div>
+      )}
       {modelLoaded && !loading && (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
           {/* Measure tool */}
@@ -172,12 +191,12 @@ export function StepViewer({ fileUrl, title, components, selectedIndex }: StepVi
                   onChange={(e) => bbox.setEditInput(e.target.value)}
                   onBlur={bbox.onEditCommit}
                   onKeyDown={bbox.onEditKeyDown}
-                  className="w-20 rounded border border-blue-400 bg-white px-1 py-0.5 text-xs font-medium text-blue-700 shadow outline-none"
+                  className="w-20 rounded border border-primary bg-white px-1 py-0.5 text-xs font-medium text-primary shadow outline-none"
                   style={{ pointerEvents: "auto" }}
                 />
               ) : (
                 <div
-                  className="cursor-text rounded bg-blue-600/90 px-1.5 py-0.5 text-xs font-semibold text-white shadow backdrop-blur-sm select-none"
+                  className="cursor-text rounded bg-primary/90 px-1.5 py-0.5 text-xs font-semibold text-primary-foreground shadow backdrop-blur-sm select-none"
                   title="Double-click to edit"
                   onDoubleClick={() => bbox.onDoubleClick(dim)}
                 >

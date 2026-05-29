@@ -18,6 +18,9 @@ class PartType(str, enum.Enum):
     CNC_LATHE_MILLING = "cnc_lathe_milling"
     TUBE_PIPE         = "tube_pipe"
     HARDWARE          = "hardware"
+    # Multi-body joined assembly (welded, solvent-bonded, mechanically
+    # fastened). Brief-mandated: hard pair 0042-83323 is a PVC weldment.
+    WELDMENT          = "weldment"
     UNKNOWN           = "unknown"
 
 

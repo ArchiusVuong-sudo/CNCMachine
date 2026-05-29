@@ -44,8 +44,8 @@ const CATEGORIES = [
     label: "Tooling",
     desc:  "Cutting tools with geometry, material, coating, and expected life.",
     icon:  Drill,
-    color: "from-blue-50 to-blue-100/50 border-blue-200/60",
-    iconBg:"bg-blue-100 text-blue-600",
+    color: "from-primary/5 to-primary/10 border-primary/20",
+    iconBg:"bg-primary/15 text-primary",
     href:  "/cost-db/tooling",
   },
   {

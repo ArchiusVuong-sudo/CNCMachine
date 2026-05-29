@@ -23,7 +23,16 @@ import {
 interface UseStepViewerArgs {
   fileUrl: string | null;
   components?: ViewportComponentInfo[];
+  /** Deep selection — drives mesh isolation. */
   selectedIndex?: number | null;
+  /** Soft selection — drives a blue tint on the picked mesh WITHOUT
+   *  isolating the assembly. Used for the "spot-id" gesture. */
+  hoveredIndex?: number | null;
+  /** Optional click-to-pick callback. When set, a click on a mesh
+   *  raycasts the scene, maps the hit to a `component_index` via the
+   *  OCCT product name preserved on `mesh.userData.occtName`, and
+   *  forwards the result. Clicking empty space passes `null`. */
+  onSelectComponent?: (componentIndex: number | null) => void;
 }
 
 type Dim = "l" | "w" | "h";
@@ -35,7 +44,7 @@ interface MeasurePoint {
   marker: THREE.Mesh;
 }
 
-export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepViewerArgs) {
+export function useStepViewer({ fileUrl, components, selectedIndex, hoveredIndex, onSelectComponent }: UseStepViewerArgs) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -106,6 +115,10 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
   const targetRef = useRef(new THREE.Vector3(0, 0, 0));
   const sphericalRef = useRef<Spherical>({ radius: 9, theta: DEFAULT_THETA, phi: DEFAULT_PHI });
   const defaultRadiusRef = useRef(9);
+  // Default camera target stamped at load time; used to restore framing
+  // when the user switches from a single-component isolation back to the
+  // assembly view.
+  const defaultTargetRef = useRef(new THREE.Vector3(0, 0, 0));
 
   // Position the camera from the current orbit — the single source of camera truth.
   const applyCamera = useCallback(() => {
@@ -169,6 +182,19 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
   }, []);
 
   // ── Component isolation ───────────────────────────────────────────────────────
+  //   Selecting a BoM row HIDES every other mesh so the user can inspect a
+  //   single component. The mesh-to-component pairing matches by NAME (the
+  //   STEP product name preserved on `mesh.userData.occtName`) rather than
+  //   position — that's the only way to handle assemblies with multi-instance
+  //   hardware, where one BoM row corresponds to N OCCT meshes (qty = N) and
+  //   the totals diverge from the component list length.
+  //
+  //   Why not match server-side?  The OCC subprocess on the server emits a
+  //   `Component[]` of *logical* parts (one per BoM line), and the browser's
+  //   occt-import-js emits one mesh per *instance* in the STEP product tree.
+  //   The two outputs don't have a stable count relationship without name
+  //   matching. Falling back to a global dim when no name match works keeps
+  //   the UI responsive without inventing a wrong mapping.
   const applyComponentIsolation = useCallback(() => {
     const meshes = meshListRef.current;
     if (meshes.length === 0) return;
@@ -176,8 +202,9 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
     const comps = components ?? [];
     const sel = selectedIndex;
 
-    // Restore originals first
+    // Restore visibility + materials first.
     for (const mesh of meshes) {
+      mesh.visible = true;
       const orig = originalMaterialsRef.current.get(mesh);
       if (orig) {
         mesh.material = orig;
@@ -190,35 +217,121 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
       }
     }
 
-    // Only apply isolation if counts match and selectedIndex is a number
-    if (typeof sel !== "number" || sel === null) return;
-    const sorted = [...comps].sort((a, b) => a.component_index - b.component_index);
-    if (sorted.length !== meshes.length) return;
-
-    const selectedMeshIdx = sorted.findIndex((c) => c.component_index === sel);
-    if (selectedMeshIdx === -1) return;
-
-    for (let i = 0; i < meshes.length; i++) {
-      const mesh = meshes[i];
-      if (i === selectedMeshIdx) continue; // keep selected at full opacity
-
-      const orig = originalMaterialsRef.current.get(mesh);
-      if (!orig) continue;
-      const origMat = Array.isArray(orig) ? orig[0] : orig;
-      if (!origMat) continue;
-
-      const dimMat = (origMat as THREE.MeshPhongMaterial).clone();
-      dimMat.transparent = true;
-      dimMat.opacity = 0.18;
-      dimMat.color.set(0x999999);
-      mesh.material = dimMat;
+    // Assembly view + maybe a hover tint. Restore camera to the original
+    // framing (the hover-only state never moves the camera, only swaps a
+    // material colour), then if `hoveredIndex` is set just tint that one
+    // mesh blue without isolating the rest.
+    if (typeof sel !== "number") {
+      const camera = cameraRef.current;
+      if (camera) {
+        targetRef.current.copy(defaultTargetRef.current);
+        sphericalRef.current = { ...sphericalRef.current, radius: defaultRadiusRef.current };
+        positionCamera(camera, targetRef.current, sphericalRef.current);
+      }
+      if (typeof hoveredIndex === "number") {
+        const hoveredComp = comps.find((c) => c.component_index === hoveredIndex);
+        if (hoveredComp?.name) {
+          const HIGHLIGHT_COLOR = 0x215f9a;
+          const norm = (s: string) => s.toLowerCase().replace(/[\s_\-.]/g, "");
+          const targetNorm = norm(hoveredComp.name);
+          for (const mesh of meshes) {
+            const meshName = String(mesh.userData?.occtName ?? "");
+            if (!meshName) continue;
+            const meshNorm = norm(meshName);
+            if (meshNorm.includes(targetNorm) || (targetNorm.length > 4 && targetNorm.includes(meshNorm))) {
+              const orig = originalMaterialsRef.current.get(mesh);
+              const origMat = Array.isArray(orig) ? orig[0] : orig;
+              if (origMat) {
+                const tinted = (origMat as THREE.MeshPhongMaterial).clone();
+                tinted.color.setHex(HIGHLIGHT_COLOR);
+                mesh.material = tinted;
+              }
+            }
+          }
+        }
+      }
+      return;
     }
-  }, [components, selectedIndex]);
 
-  // Re-apply isolation whenever selectedIndex or components changes
+    const selectedComp = comps.find((c) => c.component_index === sel);
+    if (!selectedComp || !selectedComp.name) return;
+    const targetName = selectedComp.name.toLowerCase();
+
+    // First pick: meshes whose `occtName` contains the component name (or
+    // vice versa) — substring match handles STEP names that carry suffixes
+    // like ".prt" or instance numbers.
+    const norm = (s: string) => s.toLowerCase().replace(/[\s_\-.]/g, "");
+    const targetNorm = norm(targetName);
+    const matched: THREE.Mesh[] = [];
+    for (const mesh of meshes) {
+      const meshName = String(mesh.userData?.occtName ?? "");
+      if (!meshName) continue;
+      const meshNorm = norm(meshName);
+      if (meshNorm.includes(targetNorm) || (targetNorm.length > 4 && targetNorm.includes(meshNorm))) {
+        matched.push(mesh);
+      }
+    }
+
+    if (matched.length === 0) {
+      // Name match failed (rare — the STEP file may use anonymous shape
+      // names like "Compound_1"). Surface that something is selected by
+      // dimming everything; we have nothing better to highlight.
+      for (const mesh of meshes) {
+        const orig = originalMaterialsRef.current.get(mesh);
+        if (!orig) continue;
+        const origMat = Array.isArray(orig) ? orig[0] : orig;
+        if (!origMat) continue;
+        const dimMat = (origMat as THREE.MeshPhongMaterial).clone();
+        dimMat.transparent = true;
+        dimMat.opacity = 0.25;
+        mesh.material = dimMat;
+      }
+      return;
+    }
+
+    // Hide every mesh not in the matched set; tint the matched ones with
+    // the brand primary so the selection reads as a deliberate state — not
+    // just "the rest disappeared" — and the click target stands out from
+    // the original part colour the STEP file ships with.
+    const HIGHLIGHT_COLOR = 0x215f9a; // #215F9A, CoFab primary blue.
+    const matchedSet = new Set(matched);
+    for (const mesh of meshes) {
+      if (matchedSet.has(mesh)) {
+        const orig = originalMaterialsRef.current.get(mesh);
+        const origMat = Array.isArray(orig) ? orig[0] : orig;
+        if (origMat) {
+          const tinted = (origMat as THREE.MeshPhongMaterial).clone();
+          tinted.color.setHex(HIGHLIGHT_COLOR);
+          mesh.material = tinted;
+        }
+      } else {
+        mesh.visible = false;
+      }
+    }
+
+    // Auto-frame the camera to the COMBINED bbox of all matched meshes
+    // (so qty > 1 fans of identical bolts all stay framed).
+    const camera = cameraRef.current;
+    if (camera) {
+      const combined = new THREE.Box3();
+      for (const mesh of matched) combined.expandByObject(mesh);
+      if (!combined.isEmpty()) {
+        const sphere = combined.getBoundingSphere(new THREE.Sphere());
+        const fovRad = (camera.fov * Math.PI) / 180;
+        const radius = clamp((sphere.radius / Math.sin(fovRad / 2)) * 1.6, MIN_RADIUS, MAX_RADIUS);
+        targetRef.current.copy(sphere.center);
+        sphericalRef.current = { ...sphericalRef.current, radius };
+        positionCamera(camera, targetRef.current, sphericalRef.current);
+      }
+    }
+  // hoveredIndex is consumed inside the same function (for the
+  // assembly-view-with-hover branch) so it's a real dep.
+  }, [components, selectedIndex, hoveredIndex]);
+
+  // Re-apply isolation whenever selectedIndex / hoveredIndex / components changes
   useEffect(() => {
     if (modelLoaded) applyComponentIsolation();
-  }, [selectedIndex, components, modelLoaded, applyComponentIsolation]);
+  }, [selectedIndex, hoveredIndex, components, modelLoaded, applyComponentIsolation]);
 
   // ── Resolve real-world dims for bbox labels ───────────────────────────────────
   const getEffectiveDims = useCallback((): { l: number; w: number; h: number } => {
@@ -518,6 +631,7 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
 
       // Frame the part; "Reset" returns to exactly this framing.
       targetRef.current.copy(frame.target);
+      defaultTargetRef.current.copy(frame.target);
       defaultRadiusRef.current = frame.radius;
       sphericalRef.current = { radius: frame.radius, theta: DEFAULT_THETA, phi: DEFAULT_PHI };
       applyCamera();
@@ -583,7 +697,7 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
 
   // ── Measure click handler ─────────────────────────────────────────────────
   const onClick = useCallback((e: React.MouseEvent) => {
-    if (!measureModeRef.current || !modelRef.current || !cameraRef.current || !sceneRef.current || !containerRef.current) return;
+    if (!modelRef.current || !cameraRef.current || !sceneRef.current || !containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
     const ndcX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -591,6 +705,35 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
 
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), cameraRef.current);
+
+    // Click-to-pick: when measure mode is off and the parent provided a
+    // selection callback, route the click as a BoM-row selection.
+    if (!measureModeRef.current) {
+      if (!onSelectComponent) return;
+      const allMeshes = meshListRef.current;
+      // Only intersect VISIBLE meshes so a hidden component (already
+      // isolated away) cannot be re-selected through the air.
+      const visible = allMeshes.filter((m) => m.visible);
+      const hits = raycaster.intersectObjects(visible, false);
+      if (hits.length === 0) {
+        // Empty-space click clears the selection (matches BoM row click).
+        onSelectComponent(null);
+        return;
+      }
+      const hitMesh = hits[0].object as THREE.Mesh;
+      const hitName = String(hitMesh.userData?.occtName ?? "");
+      if (!hitName || !components) return;
+      const norm = (s: string) => s.toLowerCase().replace(/[\s_\-.]/g, "");
+      const hitNorm = norm(hitName);
+      const matched = components.find((c) => {
+        const cn = norm(c.name ?? "");
+        return cn && (hitNorm.includes(cn) || (cn.length > 4 && cn.includes(hitNorm)));
+      });
+      if (matched) onSelectComponent(matched.component_index);
+      return;
+    }
+
+    if (!measureModeRef.current) return;
 
     const meshes: THREE.Mesh[] = [];
     modelRef.current.traverse((child) => { if (child instanceof THREE.Mesh) meshes.push(child); });
@@ -626,7 +769,7 @@ export function useStepViewer({ fileUrl, components, selectedIndex }: UseStepVie
       const scaleFactor = scaleFactorRef.current;
       setMeasureDistMm(scaleFactor > 0 ? sceneDist / scaleFactor : sceneDist);
     }
-  }, [clearMeasure]);
+  }, [clearMeasure, components, onSelectComponent]);
 
   // Resize handling.
   useEffect(() => {

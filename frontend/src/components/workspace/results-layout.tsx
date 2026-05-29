@@ -6,6 +6,10 @@ import { adoptCostedComponents, deriveResultTotals } from "@/lib/domain/results-
 import { Viewport, type ViewportComponentInfo } from "@/components/viewport/viewport";
 import { PartInformation } from "@/components/extraction/part-information";
 import { ExtractionPanel } from "@/components/extraction/extraction-panel";
+import {
+  componentTolerances, componentGdt, componentThreads,
+  drawingTolerances, drawingGdt, drawingThreads,
+} from "@/lib/domain/extraction-model";
 import { BillOfMaterial } from "@/components/results/bill-of-material";
 import { CostBreakdown } from "@/components/results/cost-breakdown";
 import type { ViewerSrc } from "./types";
@@ -33,6 +37,19 @@ export function ResultsLayout({
   analysisId: string | null;
 }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  // 3D mesh clicks set this lighter "hovered" state — they tint the picked
+  // mesh blue without isolating the rest of the assembly and without
+  // changing which component the extraction tabs / cost panel are pinned
+  // to.  BoM row clicks remain the only path that swaps the deep
+  // `selectedIndex` (which drives isolation + tab filter).
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  // BoM click = full navigation; also clears any 3D hover so the visual
+  // state stays consistent.
+  const selectAndClearHover = (i: number | null) => {
+    setSelectedIndex(i);
+    setHoveredIndex(null);
+  };
 
   const vlm = results?.vlm_extraction ?? null;
   const components = useMemo<Component[]>(() => adoptCostedComponents(results), [results]);
@@ -50,6 +67,24 @@ export function ResultsLayout({
       : null,
   }));
 
+  // Counts for the compact overlay inside the 3D viewer. When a component
+  // is picked, show that component's per-feature counts; otherwise (or when
+  // the component has no tagged features yet) fall back to drawing-level.
+  const selectedComp = selectedIndex == null ? null : components.find((c) => c.component_index === selectedIndex) ?? null;
+  const selectedCounts = selectedComp
+    ? {
+        tolerances: componentTolerances(selectedComp).length,
+        gdt:        componentGdt(selectedComp).length,
+        threads:    componentThreads(selectedComp).length,
+      }
+    : vlm
+      ? {
+          tolerances: drawingTolerances(vlm).length,
+          gdt:        drawingGdt(vlm).length,
+          threads:    drawingThreads(vlm).length,
+        }
+      : null;
+
   return (
     <>
       {/* Row 1 — Part Information | Viewer
@@ -58,7 +93,7 @@ export function ResultsLayout({
          Mobile/tablet (<xl): stacks, each card uses its natural / min height. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[30%_minmax(0,70%)] xl:items-stretch xl:h-[clamp(420px,calc(100vh-180px),640px)]">
         <PartInformation vlm={vlm} totalUsd={totalUsd} nComponents={hasComponents ? components.length : undefined} />
-        <div className="min-h-[360px] min-w-0 xl:min-h-0 xl:h-full">
+        <div className="min-h-90 min-w-0 xl:min-h-0 xl:h-full">
           <Viewport
             stepUrl={viewer.stepUrl}
             drawingUrl={viewer.drawingUrl}
@@ -66,6 +101,9 @@ export function ResultsLayout({
             fileName={viewer.fileName}
             components={viewerComponents}
             selectedIndex={selectedIndex}
+            hoveredIndex={hoveredIndex}
+            onSelectComponent={setHoveredIndex}
+            selectedCounts={selectedCounts}
             className="h-full w-full"
           />
         </div>
@@ -80,7 +118,8 @@ export function ResultsLayout({
             totalUsd={totalUsd}
             totalMin={totalMin}
             selectedIndex={selectedIndex}
-            onSelect={setSelectedIndex}
+            hoveredIndex={hoveredIndex}
+            onSelect={selectAndClearHover}
           />
 
           {/* Row 3 — Cost Breakdown | Tolerances / GD&T / Threads */}

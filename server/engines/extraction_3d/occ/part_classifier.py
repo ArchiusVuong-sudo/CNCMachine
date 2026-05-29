@@ -102,6 +102,13 @@ _NAME_KEYWORDS: dict[PartType, tuple[list[str], list[str]]] = {
          "mill-turn", "turn-mill", "millturn", "turnmill",
          "shft", "sft"],
     ),
+    PartType.WELDMENT: (
+        ["weldment", "weld assembly", "welded assembly",
+         "weld assy", "welded assy", "bonded assembly",
+         "bonded assy", "solvent bond", "bonded",
+         "wldmnt", "wldmt"],
+        ["weldment", "wldmnt"],
+    ),
 }
 
 
@@ -111,9 +118,10 @@ def _score_name_keywords(name: str) -> dict[PartType, float]:
     if not name:
         return bonuses
     name_lower = name.lower()
-    # Only apply keyword matching for hardware — all other part types
-    # rely purely on geometry heuristics.
-    for pt in [PartType.HARDWARE]:
+    # Apply keyword matching for hardware AND weldments — both are
+    # name-driven (weldments aren't a single-body geometric pattern, they
+    # are an assembly-level concept). Other part types rely on geometry.
+    for pt in [PartType.HARDWARE, PartType.WELDMENT]:
         keywords, strong_keywords = _NAME_KEYWORDS[pt]
         bonus = 0.0
         for kw in strong_keywords:

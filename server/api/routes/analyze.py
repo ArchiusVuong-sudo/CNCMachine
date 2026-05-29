@@ -12,6 +12,7 @@ orchestrator's events, terminated by a single ``done`` frame.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -134,8 +135,63 @@ async def analyze_stream(request: Request) -> StreamingResponse:
         model=model,
     )
 
+    # ── Decouple pipeline from SSE stream ───────────────────────────────────
+    # Cloudflare Tunnel (the trycloudflare.com free proxy) silently kills
+    # long-running HTTP/2 streams. When the SSE response is cancelled mid-
+    # pipeline, the underlying async generator gets a CancelledError on its
+    # next `yield`, which aborts the pipeline entirely — losing all the
+    # work Engine 1 has already done. To survive that, we tee events into a
+    # queue and run the pipeline as an *independent* background Task. The
+    # SSE response consumes the queue; if the client disconnects, the queue
+    # consumer stops but the background task drains the pipeline to
+    # completion. Results still land in Supabase + `_research/notes` so a
+    # browser refresh shows the finished run.
+    queue: asyncio.Queue[tuple[str, dict] | None] = asyncio.Queue(maxsize=2048)
+
+    async def _drain_to_queue() -> None:
+        try:
+            async for ev in _capture_and_persist_messages(events, analysis_id):
+                try:
+                    queue.put_nowait(ev)
+                except asyncio.QueueFull:
+                    # Slow consumer (or client disconnected). Drop the SSE
+                    # tee — but the pipeline continues; persistence still
+                    # happens at the tail of `_capture_and_persist_messages`.
+                    pass
+        except Exception as exc:
+            logger.exception(
+                "analyze-stream: background pipeline raised for %s: %s",
+                analysis_id, exc,
+            )
+        finally:
+            try:
+                queue.put_nowait(None)
+            except asyncio.QueueFull:
+                pass
+
+    asyncio.create_task(_drain_to_queue())
+
+    async def _pump_to_sse() -> AsyncIterator[tuple[str, dict]]:
+        """Yield queued events. On client disconnect, the consumer is
+        cancelled by FastAPI — we just stop yielding; the background task
+        keeps running independently."""
+        while True:
+            try:
+                ev = await queue.get()
+            except asyncio.CancelledError:
+                logger.info(
+                    "analyze-stream: SSE consumer cancelled for %s "
+                    "(client likely disconnected) — background pipeline "
+                    "continues",
+                    analysis_id,
+                )
+                return
+            if ev is None:
+                return
+            yield ev
+
     return StreamingResponse(
-        stream_to_sse(_capture_and_persist_messages(events, analysis_id)),
+        stream_to_sse(_pump_to_sse()),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

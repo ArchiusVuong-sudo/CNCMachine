@@ -49,9 +49,11 @@
 }
 
 /* ── Theme (CoFab / CostAssist) — slate base, BLUE primary, light only ──
-   Per the 27 May review: all buttons + toggles use the company-logo blue
-   (221 83% 53%) as the primary action colour. The same blue lives on
-   --brand for gradient marks and focus glows. */
+   Per the 29 May review: primary blue is now the official CoFab logo
+   blue `#215F9A` → `hsl(209 65% 37%)`. The same blue lives on `--brand`
+   for gradient marks and focus glows. Keeping a single source of truth
+   here so every Button / Badge / focus-ring picks the right shade up
+   via CSS variables. */
 :root {
   --radius: 0.5rem; /* 8px */
 
@@ -62,8 +64,8 @@
   --popover:               hsl(0 0% 100%);
   --popover-foreground:    hsl(222.2 84% 4.9%);
 
-  /* Primary = company-logo blue (drives every button + toggle). */
-  --primary:               hsl(221 83% 53%);
+  /* Primary = official CoFab logo blue #215F9A (drives every button + toggle). */
+  --primary:               hsl(209 65% 37%);
   --primary-foreground:    hsl(210 40% 98%);
 
   --secondary:             hsl(210 40% 96.1%);
@@ -80,16 +82,16 @@
 
   --border:                hsl(214.3 31.8% 91.4%);
   --input:                 hsl(214.3 31.8% 91.4%);
-  --ring:                  hsl(221 83% 53%);
+  --ring:                  hsl(209 65% 37%);
 
   /* Brand accent tokens (CoFab's --dark-blue / --orange). */
-  --brand:                 hsl(221 83% 53%);
+  --brand:                 hsl(209 65% 37%);
   --brand-foreground:      hsl(210 40% 98%);
   --orange:                hsl(25 95% 53%);
   --orange-foreground:     hsl(210 40% 98%);
 
   /* Charts — blue, orange, green, violet, sky */
-  --chart-1: hsl(221 83% 53%);
+  --chart-1: hsl(209 65% 37%);
   --chart-2: hsl(25 95% 53%);
   --chart-3: hsl(142 71% 45%);
   --chart-4: hsl(262 83% 58%);
@@ -143,7 +145,7 @@
 
 /* Blue focus glow */
 .card-glow {
-  box-shadow: 0 0 0 1px hsl(221 83% 53% / 0.20), 0 4px 16px rgb(0 0 0 / 0.06);
+  box-shadow: 0 0 0 1px hsl(209 65% 37% / 0.20), 0 4px 16px rgb(0 0 0 / 0.06);
 }
 
 @keyframes status-pulse {
@@ -154,9 +156,9 @@
   animation: status-pulse 2.5s ease-in-out infinite;
 }
 
-/* Gradient brand mark (blue → indigo, mirrors CoFab auth gradient). */
+/* Gradient brand mark — monochromatic CoFab blue (lighter → darker). */
 .brand-gradient {
-  background: linear-gradient(135deg, hsl(221 83% 56%), hsl(243 75% 59%));
+  background: linear-gradient(135deg, hsl(209 65% 44%), hsl(209 65% 30%));
 }
 
 /* Subtle dotted grid for the viewport backdrop. */

@@ -1111,6 +1111,32 @@ async def run(
                     "role":            "assembly_top",
                     "reason":          "synthesized_for_multi_item_weldment",
                 })
+                # Brief Page 5 mitigation #2 — AFR cross-feeds OCR. If
+                # Engine 1's VLM missed the assembly category (typical when
+                # the title block has no obvious WLDMNT token), refine
+                # drawing.part_category from what AFR detected. Engine 2's
+                # welding-contact detector + the multi-sheet assembly
+                # heuristic are stronger signals than the VLM's keyword
+                # scrape, so they win the tiebreak.
+                hint = synth.get("assembly_hint", {}) or {}
+                inferred: str | None = None
+                if hint.get("welding_required"):
+                    inferred = "weldment"
+                elif hint.get("bonding_required"):
+                    inferred = "assembly_bonded"
+                elif hint.get("hardware_count", 0) and (
+                    drawing_dict.get("assembly_method") in (None, "")
+                ):
+                    inferred = "assembly_bolted"
+                current = (drawing_dict.get("part_category") or "").lower()
+                if inferred and current in ("", "unknown", "assembly"):
+                    drawing_dict["part_category"] = inferred
+                    drawing_dict["part_category_source"] = "afr_cross_feed"
+                    logger.info(
+                        "agentic: refined drawing.part_category → %s "
+                        "(was %r, source=afr_cross_feed)",
+                        inferred, current or None,
+                    )
         except Exception as exc:
             logger.warning("agentic: assembly_top synthesis failed: %s", exc)
         await safe_emit(on_event, "tool_result", {

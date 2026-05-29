@@ -63,17 +63,47 @@ export function componentGdt(c: Component): GdtCallout[] {
       });
     }
   }
+  // Component-level fallback — `dim_tagger.py` attaches positional GD&T
+  // here when no feature matched (typical: "position" callouts with no
+  // nominal value, just datum refs).
+  const compLevel = (c as Component & { gdt_callouts?: string[] }).gdt_callouts ?? [];
+  for (const callout of compLevel) {
+    if (typeof callout === "string" && callout.trim().length > 0) {
+      out.push({ symbol: callout });
+    }
+  }
   return out;
 }
 
 export function componentThreads(c: Component): ThreadSpec[] {
-  return (c.features ?? [])
-    .filter((f) => THREAD_RE.test(f.feature_type ?? "") || f.dimensions?.thread_pitch_mm != null)
-    .map((f) => ({
-      spec: prettyFeatureLabel(f),
+  // Per-feature first: catches OCC-recognised threads or the
+  // `is_threaded` / `thread_spec` flags the dim_tagger sets when a thread
+  // dimension matched a drilled hole's minor diameter.
+  type ThreadFeat = (typeof c.features)[number] & {
+    is_threaded?: boolean;
+    thread_spec?: string;
+  };
+  const featRows = (c.features ?? []).filter((f) => {
+    const ff = f as ThreadFeat;
+    return (
+      THREAD_RE.test(f.feature_type ?? "") ||
+      f.dimensions?.thread_pitch_mm != null ||
+      ff.is_threaded === true ||
+      typeof ff.thread_spec === "string"
+    );
+  }).map((f) => {
+    const ff = f as ThreadFeat;
+    return {
+      spec: ff.thread_spec ?? prettyFeatureLabel(f),
       count: f.count,
       depth_mm: f.dimensions?.depth_mm,
-    }));
+    } as ThreadSpec;
+  });
+  if (featRows.length > 0) return featRows;
+  // Component-level fallback — dim_tagger appends drawing threads here
+  // when the diameter match was loose / missing.
+  const compLevel = (c as Component & { threads?: ThreadSpec[] }).threads;
+  return Array.isArray(compLevel) ? compLevel : [];
 }
 
 /** Notes are drawing-level only — components don't carry their own notes. */

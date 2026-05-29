@@ -268,7 +268,7 @@ export default function ToolingPage() {
       <div className="flex items-center gap-3 flex-wrap">
         <Link href="/cost-db"><Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground"><ArrowLeft className="w-3.5 h-3.5" />Cost DB</Button></Link>
         <div className="flex items-center gap-2 flex-1">
-          <Drill className="w-4.5 h-4.5 text-blue-500" />
+          <Drill className="w-4.5 h-4.5 text-primary" />
           <h1 className="text-[18px] font-bold tracking-tight">Tooling</h1>
           <Badge variant="secondary" className="ml-2 text-[10px] font-mono">{rows.length} items</Badge>
         </div>
@@ -287,7 +287,7 @@ export default function ToolingPage() {
           <option value="">All holders</option>
           {holders.map((h) => <option key={h} value={h}>{h}</option>)}
         </select>
-        <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={openAdd}>
+        <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={openAdd}>
           <Plus className="w-3.5 h-3.5" />Add Tool
         </Button>
       </div>
@@ -319,7 +319,7 @@ export default function ToolingPage() {
                 <TableCell className="font-medium text-[12.5px]">{r.tool_name}</TableCell>
                 <TableCell className="text-[12px] text-slate-600">{r.machine_brand_affinity ?? "—"}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="text-[9.5px] font-mono border-blue-200 text-blue-700 bg-blue-50">
+                  <Badge variant="outline" className="text-[9.5px] font-mono border-primary/30 text-primary bg-primary/10">
                     {TOOL_TYPES.find((t) => t.value === r.tool_type)?.label ?? r.tool_type ?? "—"}
                   </Badge>
                 </TableCell>
@@ -330,7 +330,7 @@ export default function ToolingPage() {
                 <TableCell className="font-mono text-[12px]">{r.cost_usd != null ? `$${r.cost_usd.toFixed(2)}` : "—"}</TableCell>
                 <TableCell>
                   <button onClick={() => handleToggle(r)} aria-label="Toggle active"
-                    className={cn("relative w-9 h-5 rounded-full transition-colors", r.is_active ? "bg-blue-500" : "bg-slate-200")}>
+                    className={cn("relative w-9 h-5 rounded-full transition-colors", r.is_active ? "bg-primary" : "bg-slate-200")}>
                     <span className={cn("absolute left-0.5 top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", r.is_active ? "translate-x-4" : "translate-x-0")} />
                   </button>
                 </TableCell>
@@ -495,7 +495,7 @@ export default function ToolingPage() {
 
             <div className="flex justify-end gap-2.5 pt-1">
               <Button variant="outline" size="sm" onClick={() => setShowDlg(false)}>Cancel</Button>
-              <Button size="sm" className="bg-blue-500 hover:bg-blue-600 text-white" onClick={handleSave} disabled={saving || !form.tool_name}>
+              <Button size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={handleSave} disabled={saving || !form.tool_name}>
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
                 {editRow ? "Save" : "Add"}
               </Button>

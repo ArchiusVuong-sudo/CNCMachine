@@ -63,6 +63,13 @@ _DEFAULT_BLENDED_RATE_USD_PER_HR = 30.0  # quote-shop rate when no machine catal
 # what actually lands on the cost line.
 _FIXED_LOT_SETUP_MIN = 20.0
 
+# Brief Page 4 user-specific practice — "Pre-setting, tool life". Pre-setting
+# is the per-tool calibration time (probe length, set offsets, prove ATC pick)
+# the operator pays before any cut. Industry default = 3 min/tool, charged
+# ONCE per unique tool per component setup, NOT every run. Overridable via env
+# so each shop can tune.
+_TOOL_PRESET_MIN_PER_TOOL = float(os.environ.get("A4_TOOL_PRESET_MIN", "3.0"))
+
 
 def _blended_rate_usd_per_hr() -> float:
     """Read A4_BLENDED_RATE_USD_PER_HR env var.
@@ -257,6 +264,59 @@ def _tokens(s: str) -> set[str]:
     return {t for t in re.split(r"[^a-z0-9]+", s.lower()) if t}
 
 
+def _estimate_qty_per_stock(comp: dict, stock_row: dict) -> int:
+    """Brief Page 5 mitigation — "Raw mat stock nesting".
+
+    Estimate how many copies of this component fit on one stock blank by
+    simple bbox-based rectangular packing. Used for FLAT stock (sheet /
+    plate / router-cut) where the operator nests multiple parts on a
+    single blank. Returns 1 (no nesting) for bar / round / tube / 3D
+    machined parts where one stock = one part is realistic.
+
+    Algorithm:
+      - Stock blank dims come from a4_material_stock.length_mm /
+        width_mm. If either is missing the function returns 1.
+      - Part footprint comes from comp.bbox: L = largest in-plane
+        dim, W = next-largest. The thickness dim is ignored.
+      - Add a 6 mm kerf/spacing margin per part.
+      - Compute floor(L_stock / (L_part + kerf)) ×
+                floor(W_stock / (W_part + kerf)).
+      - Cap at 50 parts/sheet (heuristic to suppress unrealistic
+        large numbers when bboxes are mis-detected).
+
+    Trade-off: this is a 2D rectangular cap, not a real nesting
+    optimizer (no rotation, no irregular shapes). It is dramatically
+    closer to reality than the previous qty_per_stock=1 hardcode for
+    sheet/plate workflows, while staying deterministic.
+    """
+    form = (stock_row.get("material_form") or "").lower()
+    flat_forms = ("sheet", "plate", "slab", "blank", "panel")
+    if not any(tok in form for tok in flat_forms):
+        return 1
+
+    L_stock = float(stock_row.get("length_mm") or 0.0)
+    W_stock = float(stock_row.get("width_mm")  or 0.0)
+    if L_stock <= 0 or W_stock <= 0:
+        return 1
+
+    bb = comp.get("bbox") or comp.get("bounding_box") or {}
+    dims = sorted(
+        [float(bb.get(k) or 0.0) for k in ("length_mm", "width_mm", "height_mm")],
+        reverse=True,
+    )
+    nonzero = [d for d in dims if d > 0]
+    if len(nonzero) < 2:
+        return 1
+    L_part, W_part = nonzero[0], nonzero[1]
+
+    kerf = 6.0  # mm spacing between parts (saw kerf + clamp margin)
+    n_long  = max(1, int((L_stock) // (L_part + kerf))) if (L_part + kerf) > 0 else 1
+    n_short = max(1, int((W_stock) // (W_part + kerf))) if (W_part + kerf) > 0 else 1
+    qty = n_long * n_short
+
+    return max(1, min(qty, 50))
+
+
 def _pick_stock(comp: dict, catalog: dict) -> dict | None:
     """Find the cheapest stock row that matches the component's material.
 
@@ -266,8 +326,9 @@ def _pick_stock(comp: dict, catalog: dict) -> dict | None:
     catalog material shares any meaningful tokens with comp.material.
 
     Returns the cheapest matching row with stock_id/material_name/
-    cost_per_stock_usd/qty_per_stock populated. qty_per_stock defaults to 1
-    (one part per stock) since we don't run nest-fitting here.
+    cost_per_stock_usd/qty_per_stock populated. For flat stock forms
+    (sheet/plate/blank) ``qty_per_stock`` is the nesting estimate from
+    :func:`_estimate_qty_per_stock`; for bar/round forms it stays at 1.
     """
     mat = (comp.get("material") or "").strip()
     if not mat:
@@ -291,12 +352,13 @@ def _pick_stock(comp: dict, catalog: dict) -> dict | None:
         return None
 
     best = min(best_rows, key=lambda r: float(r.get("cost_per_stock_usd") or 1e12))
+    qty_per_stock = _estimate_qty_per_stock(comp, best)
     return {
         "stock_id":            best.get("id"),
         "material_name":       best.get("material_name"),
         "size_label":          best.get("material_form"),
         "cost_per_stock_usd":  float(best.get("cost_per_stock_usd") or 0.0),
-        "qty_per_stock":       1,
+        "qty_per_stock":       qty_per_stock,
     }
 
 
@@ -578,11 +640,30 @@ async def compute_cost(
         else:
             fixed_lot_usd = 0.0
 
+        # Pre-setting time: count distinct tools used by THIS component, then
+        # charge `n_tools × _TOOL_PRESET_MIN_PER_TOOL` once per setup (per
+        # lot, like _FIXED_LOT_SETUP_MIN). This is in addition to the flat
+        # 20-min machine warm-up + fixturing baseline. Brief Page 4
+        # user-specific practice.
+        distinct_tool_ids: set[str] = set()
+        for proc in processes:
+            for tid in (proc.get("tool_ids") or []):
+                if tid:
+                    distinct_tool_ids.add(str(tid))
+            single_tid = proc.get("tool_id") or (
+                proc.get("tooling_ref") or {}
+            ).get("tool_id")
+            if single_tid:
+                distinct_tool_ids.add(str(single_tid))
+        preset_min = len(distinct_tool_ids) * _TOOL_PRESET_MIN_PER_TOOL
+
         if processes and not _lot_setup_charged:
-            setup_min_total = _FIXED_LOT_SETUP_MIN
+            setup_min_total = _FIXED_LOT_SETUP_MIN + preset_min
             _lot_setup_charged = True
         else:
-            setup_min_total = 0.0
+            # Subsequent components in the same lot only pay their own
+            # pre-setting (no second machine warm-up).
+            setup_min_total = preset_min
         setup_usd = ((setup_min_total / 60.0) * setup_rate) / batch_size
 
         machining_by_process: dict[str, float] = {}

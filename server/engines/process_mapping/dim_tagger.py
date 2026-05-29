@@ -238,12 +238,29 @@ def tag_component_dimensions(
     bbox     = component.get("bbox") or {}
     unit     = (vlm_extraction.get("dimension_unit") or "mm").lower()
 
+    # Drawing-level unit override.  The VLM often mis-tags per-row units
+    # ("4X 12.0±0.8" extracted as `unit: "in"` even though the title block
+    # says mm) which sends `_vlm_dim_value_mm` down the wrong code path —
+    # 12 "in" → 304.8 mm has no chance of matching the 12 mm feature.  We
+    # only ever trust the per-row unit when it agrees with the drawing
+    # default; everything else is normalised to the drawing.
+    def _normalise(raw_dict: dict) -> dict:
+        if not isinstance(raw_dict, dict):
+            return raw_dict
+        ru = (raw_dict.get("unit") or "").lower()
+        if ru and ru != unit:
+            normalised = dict(raw_dict)
+            normalised["unit"] = unit
+            return normalised
+        return raw_dict
+
     tags: list[dict] = []
 
     # 1. Dimensions
-    for raw in (vlm_extraction.get("dimensions") or []):
-        if not isinstance(raw, dict):
+    for raw_orig in (vlm_extraction.get("dimensions") or []):
+        if not isinstance(raw_orig, dict):
             continue
+        raw = _normalise(raw_orig)
         target = _vlm_dim_value_mm(raw, default_unit=unit)
         if target is None:
             continue
@@ -288,9 +305,10 @@ def tag_component_dimensions(
             _apply_to_feature(features[feat_idx], tag)
 
     # 2. GD&T callouts â€” try to match the datum/feature reference, else tag bbox
-    for raw in (vlm_extraction.get("gdt_callouts") or []):
-        if not isinstance(raw, dict):
+    for raw_orig in (vlm_extraction.get("gdt_callouts") or []):
+        if not isinstance(raw_orig, dict):
             continue
+        raw = _normalise(raw_orig)
         tol_class, fin, insp = _gdt_implications(raw)
         feat_idx = None
         face_ids: list[int] = []
@@ -317,11 +335,21 @@ def tag_component_dimensions(
         tags.append(tag)
         if feat_idx is not None:
             _apply_to_feature(features[feat_idx], tag)
+        else:
+            # Positional GD&T on a multi-datum reference often has no nominal
+            # value, so it never matches a single feature. Surface it at the
+            # component level so the per-component GD&T tab is not empty.
+            cb_str = raw.get("symbol") or raw.get("callout") or raw.get("type")
+            if cb_str:
+                component_callouts = component.setdefault("gdt_callouts", [])
+                if cb_str not in component_callouts:
+                    component_callouts.append(cb_str)
 
     # 3. Threads
-    for raw in (vlm_extraction.get("threads") or []):
-        if not isinstance(raw, dict):
+    for raw_orig in (vlm_extraction.get("threads") or []):
+        if not isinstance(raw_orig, dict):
             continue
+        raw = _normalise(raw_orig)
         spec = str(raw.get("spec") or raw.get("label") or "")
         # Parse minor diameter from M6, M10, 1/4-20, etc.
         target_mm = _thread_minor_diameter_mm(spec)
@@ -349,7 +377,29 @@ def tag_component_dimensions(
         if feat_idx is not None:
             feat = features[feat_idx]
             feat.setdefault("operations", []).append("tapping")
+            # Mark the matched feature as threaded so the frontend's per-component
+            # Threads tab can find it. We retain the OCC's original feature_type
+            # for downstream geometric code (drilled_hole etc.) but stash the
+            # thread spec + flag on the feature itself.
+            feat["is_threaded"]   = True
+            feat["thread_spec"]   = spec
+            ft = (feat.get("feature_type") or "").lower()
+            if "thread" not in ft and "tap" not in ft:
+                feat["feature_type"] = f"threaded_{ft or 'hole'}"
             _apply_to_feature(feat, tag)
+        else:
+            # No diameter match — still surface the thread on the component so
+            # the UI's Threads tab reflects what the drawing actually called for.
+            spec_clean = spec.strip()
+            if spec_clean:
+                comp_threads = component.setdefault("threads", [])
+                if not any((t.get("spec") or t.get("label")) == spec_clean for t in comp_threads):
+                    comp_threads.append({
+                        "spec":     spec_clean,
+                        "count":    raw.get("count") or raw.get("quantity"),
+                        "depth_mm": raw.get("depth_mm"),
+                        "is_blind": raw.get("is_blind"),
+                    })
 
     # Roll-up
     component["tagged_dimensions"]    = tags
@@ -361,13 +411,42 @@ def tag_component_dimensions(
 
 
 def _apply_to_feature(feat: dict, tag: dict) -> None:
-    """Merge a tag into a feature: tighten tolerance_class, OR-flags, append source."""
+    """Merge a tag into a feature: tighten tolerance_class, OR-flags, append source.
+
+    Also copy the raw VLM tolerance values (``tolerance_plus`` /
+    ``tolerance_minus``) and GD&T callouts onto the feature itself so the
+    frontend's per-component Tolerances / GD&T tabs render the actual
+    drawing values. Multiple dimensions can match the same feature; in
+    that case we keep the TIGHTEST tolerance (smallest absolute value),
+    and union the GD&T callout strings."""
     cls = tag.get("tolerance_class") or "standard"
     cur = feat.get("tolerance_class") or "loose"
     if _TOL_RANK[cls] < _TOL_RANK.get(cur, 99):
         feat["tolerance_class"] = cls
     feat["needs_finishing"]  = bool(feat.get("needs_finishing"))  or bool(tag.get("needs_finishing"))
     feat["needs_inspection"] = bool(feat.get("needs_inspection")) or bool(tag.get("needs_inspection"))
+
+    raw = tag.get("vlm_dim") or {}
+    if tag.get("source") == "dimension":
+        plus  = _to_float(raw.get("tolerance_plus")  or raw.get("plus"))
+        minus = _to_float(raw.get("tolerance_minus") or raw.get("minus"))
+        if plus is not None:
+            cur_plus = feat.get("tolerance_plus")
+            if cur_plus is None or abs(plus) < abs(cur_plus):
+                feat["tolerance_plus"] = plus
+        if minus is not None:
+            cur_minus = feat.get("tolerance_minus")
+            if cur_minus is None or abs(minus) < abs(cur_minus):
+                feat["tolerance_minus"] = minus
+    elif tag.get("source") == "gdt":
+        # Append raw callout strings to the feature so per-component GD&T
+        # tab can list them.  Dedup by exact string.
+        callout = raw.get("symbol") or raw.get("callout") or raw.get("text")
+        if callout:
+            existing = feat.setdefault("gdt_callouts", [])
+            if callout not in existing:
+                existing.append(callout)
+
     feat.setdefault("tagged_dimensions", []).append({
         "source":           tag.get("source"),
         "value_mm":         tag.get("value_mm"),

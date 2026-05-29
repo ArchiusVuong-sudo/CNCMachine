@@ -173,9 +173,54 @@ def _component_summary(component: dict) -> dict:
     bbox = component.get("bbox") or component.get("bounding_box") or {}
     features = component.get("features") or []
     feature_type_counts: dict[str, int] = {}
+    # Brief Page 4 — "Specs & Tolerances" and "GD&T" are mandatory factors
+    # the AI Model must consider. Aggregate them into a structured digest
+    # the agent can scan in O(1) instead of crawling every feature dict.
+    tightest_tol_mm: float | None = None
+    n_features_toleranced = 0
+    n_features_gdt = 0
+    n_features_threaded = 0
+    gdt_symbols: list[str] = []
+    thread_specs: list[str] = []
     for f in features:
-        ft = (f or {}).get("type") or (f or {}).get("feature_type") or "unknown"
+        ff = f or {}
+        ft = ff.get("type") or ff.get("feature_type") or "unknown"
         feature_type_counts[ft] = feature_type_counts.get(ft, 0) + 1
+        tp, tm = ff.get("tolerance_plus"), ff.get("tolerance_minus")
+        tol_band: float | None = None
+        if isinstance(tp, (int, float)) and isinstance(tm, (int, float)):
+            tol_band = float(tp) + float(tm)  # full bilateral band
+        elif isinstance(tp, (int, float)):
+            tol_band = float(tp)
+        elif isinstance(tm, (int, float)):
+            tol_band = float(tm)
+        if tol_band is not None:
+            n_features_toleranced += 1
+            if tightest_tol_mm is None or tol_band < tightest_tol_mm:
+                tightest_tol_mm = tol_band
+        gdt = ff.get("gdt_callouts") or []
+        if gdt:
+            n_features_gdt += 1
+            for c in gdt:
+                if isinstance(c, str) and c.strip():
+                    gdt_symbols.append(c.strip())
+        if ff.get("is_threaded") or ff.get("thread_spec"):
+            n_features_threaded += 1
+            ts = ff.get("thread_spec")
+            if isinstance(ts, str) and ts.strip():
+                thread_specs.append(ts.strip())
+    # Fold in component-level fallbacks (dim_tagger writes here when a
+    # GD&T / thread callout did NOT match any feature geometrically — eg
+    # composite position true-position callouts with no nominal value).
+    for c in component.get("gdt_callouts") or []:
+        if isinstance(c, str) and c.strip():
+            gdt_symbols.append(c.strip())
+    for t in component.get("threads") or []:
+        if isinstance(t, dict):
+            spec = t.get("spec") or t.get("label")
+            if isinstance(spec, str) and spec.strip():
+                thread_specs.append(spec.strip())
+                n_features_threaded += 1
     summary = {
         "component_index": component.get("component_index"),
         "name": component.get("name"),
@@ -189,6 +234,27 @@ def _component_summary(component: dict) -> dict:
         "envelope_mm": bbox if isinstance(bbox, dict) else None,
         "n_features": len(features),
         "feature_type_counts": feature_type_counts,
+        # Brief Page 4 — Specs & Tolerances digest. Tightest band drives
+        # process selection (finish vs rough), inspector burden, and
+        # machine class (router vs VMC). Counts surface scope.
+        "tolerances": {
+            "n_features_toleranced": n_features_toleranced,
+            "tightest_total_band_mm": (
+                round(tightest_tol_mm, 4) if tightest_tol_mm is not None else None
+            ),
+        },
+        # Brief Page 4 — GD&T digest. Symbols verbatim so the agent can
+        # spot position/profile/perpendicularity etc. and book INSP burden.
+        "gdt": {
+            "n_features_with_gdt": n_features_gdt,
+            "callouts": gdt_symbols[:20],  # cap to keep prompt small
+        },
+        # Brief Page 5 mitigation — thread mapping. Surface thread specs
+        # so Phase B routes a TAPPING op and Phase C picks the tap.
+        "threads": {
+            "n_threaded_features": n_features_threaded,
+            "specs": list(dict.fromkeys(thread_specs))[:20],
+        },
         "features": features,
     }
     # Synthetic assembly_top components carry an assembly_hint block that
@@ -240,6 +306,13 @@ def build_agent_user_message(
     inputs = {
         "material": drawing.get("material"),
         "part_number": drawing.get("part_number"),
+        # Brief Page 3 OCR outputs — drawing-level "category" (weldment /
+        # assembly_bolted / sheet_metal / cnc_milling / ...) and "mfg spec"
+        # (assembly_method = welded / bolted / riveted / bonded). Drives
+        # whether the planner routes through ASSY_WELD_* / ASSY_SOLVENT_BOND
+        # / ASSY_HARDWARE_INSTALL on the top assembly node.
+        "drawing_part_category": drawing.get("part_category"),
+        "drawing_assembly_method": drawing.get("assembly_method"),
         "qty_per_lot": batch_size,
         "dispatch": {
             "assembly_top_present":       bool(assembly_top_present),

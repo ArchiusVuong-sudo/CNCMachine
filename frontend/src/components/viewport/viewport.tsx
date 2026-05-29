@@ -21,7 +21,21 @@ interface ViewportProps {
   fileName?: string | null;
   className?: string;
   components?: ViewportComponentInfo[];
+  /** "Deep" selection — drives full isolation + tab filter + cost panel.
+   *  Set by clicking a row in the BoM table. */
   selectedIndex?: number | null;
+  /** "Soft" selection — drives a blue tint on a single mesh WITHOUT
+   *  isolating the assembly. Set by clicking a mesh in the 3D viewer,
+   *  cleared when a BoM row is clicked. */
+  hoveredIndex?: number | null;
+  /** Called when the user clicks a 3D mesh — the parent wires this to
+   *  `setHoveredIndex` so the click reads as a spot-identification gesture,
+   *  not a full navigation. Clicking empty space passes `null`. */
+  onSelectComponent?: (componentIndex: number | null) => void;
+  /** Extraction counts shown as a compact overlay inside the 3D viewer
+   *  when a component is selected. Kept as a simple shape so the heavy
+   *  detail tables stay in the side panel. */
+  selectedCounts?: { tolerances: number; gdt: number; threads: number } | null;
 }
 
 /**
@@ -30,7 +44,7 @@ interface ViewportProps {
  * viewer a worker, so unmounting the inactive one frees those resources and
  * the active viewer reloads cleanly when re-selected.
  */
-export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className, components, selectedIndex }: ViewportProps) {
+export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className, components, selectedIndex, hoveredIndex, onSelectComponent, selectedCounts }: ViewportProps) {
   const has3d = !!stepUrl;
   const has2d = !!drawingUrl;
 
@@ -65,7 +79,7 @@ export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className
 
       <div className="h-full w-full">
         {mode === "3d"
-          ? <StepViewer fileUrl={stepUrl ?? null} title={fileName ?? undefined} components={components} selectedIndex={selectedIndex} />
+          ? <StepViewer fileUrl={stepUrl ?? null} title={fileName ?? undefined} components={components} selectedIndex={selectedIndex} hoveredIndex={hoveredIndex} onSelectComponent={onSelectComponent} selectedCounts={selectedCounts} />
           : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} title={fileName ?? undefined} />}
       </div>
     </div>

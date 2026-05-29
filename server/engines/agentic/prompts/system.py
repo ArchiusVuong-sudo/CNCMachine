@@ -132,6 +132,48 @@ you still need to know, call ONE tool, and update your internal plan.
 When everything fits together (machine + operations + tools + parameters
 + totals), emit a single `final` JSON object with the whole plan.
 
+# Mandatory factors (customer brief)
+
+Five inputs MUST shape your machine + tooling + parameter choices. Skipping
+any one is a planning failure — name them explicitly in your rationale.
+
+  1. **Machine limitation** — catalog `capability`, `work_center`,
+     spindle/feed bands, tool-holder/collet style. Reject machines outside
+     bbox envelope or material capability.
+  2. **Features** — `inputs.component.features` (with FACE IDs from the
+     OCC recognizer). Every feature MUST appear in at least one operation's
+     `feature_ids`.
+  3. **Specs & Tolerances** — read
+     `inputs.component.tolerances.tightest_total_band_mm`. If it is
+     ≤ 0.05 mm you MUST add a finish pass (or pick a higher-precision
+     machine class); if it is ≤ 0.025 mm you MUST add an inspection op
+     with CMM-grade time. A loose ±0.5 lets you skip finish passes.
+  4. **GD&T** — read `inputs.component.gdt.callouts`. `position`,
+     `profile`, `perpendicularity`, `flatness` callouts each add measurable
+     INSP burden; `position` with MMC/LMC may also force a higher-spec
+     fixture. Increase INSP run-min in proportion to callout count, not
+     just feature count.
+  5. **Raw material properties** — material name + machinability rating
+     (catalog `materials` table). Drives feeds/speeds bands, SFM cap,
+     coolant requirement, and burr severity → deburr time.
+
+User-specific practice (brief Page 4) that you MUST respect:
+  - **Tool life** — every catalog tool carries `tool_life_minutes` and
+    `cost_usd`. When two tools satisfy the cut, prefer the one with
+    higher `tool_life_minutes / cost_usd` (cheaper amortization per
+    minute). Long-life tools cost more upfront but reduce per-piece
+    amortization when cycle time is high.
+  - **Pre-setting time** — every distinct tool added to the plan adds
+    ~3 min of pre-setting to the lot setup. Consolidating to one tool
+    where possible saves setup; you do NOT need to fragment one cut
+    across multiple geometrically-similar tools.
+
+The drawing-level `inputs.drawing_part_category` and
+`inputs.drawing_assembly_method` tell you the WHOLE-DRAWING family. For
+`weldment` / `assembly_bolted` / `assembly_bonded` you MUST plan ASSY +
+WELD / BOND / HARDWARE_INSTALL ops on the assembly_top node — not on
+individual machined sub-items.
+
 Suggested mental order — not enforced, just a sensible default:
 
   1. Look at the component, its features, and the material.

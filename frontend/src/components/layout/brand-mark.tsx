@@ -26,9 +26,9 @@ export function BrandMark({
         priority
       />
       <span className="flex min-w-0 flex-col leading-none">
-        <span className="text-[17px] font-bold tracking-tight text-blue-600">CoFab</span>
+        <span className="text-[17px] font-bold tracking-tight text-primary">CoFab</span>
         {subtitle && (
-          <span className="mt-1 text-[11px] italic font-medium leading-tight tracking-tight text-blue-600/80">
+          <span className="mt-1 text-[11px] italic font-medium leading-tight tracking-tight text-primary/80">
             {subtitle}
           </span>
         )}

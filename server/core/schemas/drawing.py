@@ -107,6 +107,20 @@ class DrawingExtraction(BaseModel):
     material:       str = ""
     surface_finish: str | None = None
     dimension_unit: str = Field("mm", description='"mm" | "in"')
+    # Drawing-level "mfg spec" (brief Page 3 OCR output). Mirrors the
+    # VLM's `assembly_method` JSON key — bolted | welded | riveted |
+    # bonded | null. Drives top-level `part_category` derivation.
+    assembly_method: str | None = None
+    # Drawing-level part category (brief Page 3 OCR output, distinct
+    # from per-row BomItem.part_type). Derived from assembly_method +
+    # BOM heterogeneity:
+    #   assembly_method=welded   → "weldment"
+    #   assembly_method=bolted   → "assembly_bolted"
+    #   assembly_method=riveted  → "assembly_riveted"
+    #   assembly_method=bonded   → "assembly_bonded"
+    #   single BOM row           → that row's part_type
+    #   multi-row, no method     → "assembly"
+    part_category:  str | None = None
     title_block:    TitleBlock | dict | None = None
     bom_items:      list[BomItem | dict] = Field(default_factory=list)
     drawing_notes:  list[str] = Field(default_factory=list)

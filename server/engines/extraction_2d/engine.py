@@ -36,6 +36,43 @@ def _strip_replacement(s: Any) -> Any:
     return s
 
 
+def _derive_part_category(assembly_method: str | None, bom_rows: list[dict]) -> str | None:
+    """Drawing-level "part category".
+
+    Distinct from per-row :attr:`BomItem.part_type`; this is the
+    top-level family of the WHOLE drawing.
+
+    Priority:
+      1. ``assembly_method`` (welded → "weldment", bolted → "assembly_bolted",
+         riveted → "assembly_riveted", bonded → "assembly_bonded")
+      2. Single non-hardware BOM row → that row's ``part_type``
+      3. Multiple non-hardware BOM rows → "assembly"
+      4. Nothing extractable → None
+    """
+    am = (assembly_method or "").strip().lower()
+    if am == "welded":
+        return "weldment"
+    if am == "bolted":
+        return "assembly_bolted"
+    if am == "riveted":
+        return "assembly_riveted"
+    if am == "bonded":
+        return "assembly_bonded"
+    non_hw: list[str] = []
+    for row in bom_rows or []:
+        if not isinstance(row, dict):
+            continue
+        pt = (row.get("part_type") or "").lower().strip()
+        if pt and pt != "hardware":
+            non_hw.append(pt)
+    unique = sorted(set(non_hw))
+    if len(unique) == 1:
+        return unique[0]
+    if len(non_hw) > 1:
+        return "assembly"
+    return None
+
+
 def _backfill_material_from_bom(material: str, bom_rows: list[dict]) -> str:
     """If top-level material is empty, fall back to the only non-hardware BOM
     line's material. Stays silent when ambiguous (multiple candidates with
@@ -179,19 +216,26 @@ async def run(
             material,
         )
 
+    assembly_method = _strip_replacement(merged.get("assembly_method")) or None
+    if isinstance(assembly_method, str):
+        assembly_method = assembly_method.strip().lower() or None
+    part_category = _derive_part_category(assembly_method, bom_items)
+
     extraction = DrawingExtraction(
-        part_number    = part_number,
-        revision       = revision,
-        description    = description,
-        material       = material,
-        surface_finish = _strip_replacement(merged.get("surface_finish")) or None,
-        dimension_unit = unit,
-        title_block    = tb if isinstance(tb, dict) and tb else None,
-        bom_items      = bom_items,
-        drawing_notes  = merged.get("notes") or [],
-        dimensions     = merged.get("dimensions") or [],
-        gdt_callouts   = merged.get("gdt") or [],
-        threads        = merged.get("threads") or [],
+        part_number     = part_number,
+        revision        = revision,
+        description     = description,
+        material        = material,
+        surface_finish  = _strip_replacement(merged.get("surface_finish")) or None,
+        dimension_unit  = unit,
+        assembly_method = assembly_method,
+        part_category   = part_category,
+        title_block     = tb if isinstance(tb, dict) and tb else None,
+        bom_items       = bom_items,
+        drawing_notes   = merged.get("notes") or [],
+        dimensions      = merged.get("dimensions") or [],
+        gdt_callouts    = merged.get("gdt") or [],
+        threads         = merged.get("threads") or [],
     )
 
     logger.info(

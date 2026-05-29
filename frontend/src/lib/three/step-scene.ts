@@ -36,8 +36,13 @@ export interface Dims {
   h: number;
 }
 
-/** Minimal shape of an occt-import-js mesh entry. */
+/** Minimal shape of an occt-import-js mesh entry. The `name` field is the
+ *  STEP PRODUCT_DEFINITION name (e.g. "TC2-4464619_01") — preserving it
+ *  lets `applyComponentIsolation` map meshes to BoM rows by name instead
+ *  of by position index, which matters for assemblies where one BoM line
+ *  fans out to multiple OCCT meshes (qty > 1 hardware). */
 interface OcctMesh {
+  name?: string;
   attributes?: {
     position?: { array?: ArrayLike<number> };
     normal?: { array?: ArrayLike<number> };
@@ -111,6 +116,9 @@ export function buildMeshGroup(meshes: OcctMesh[]): { group: THREE.Group; meshLi
     }
     const material = new THREE.MeshPhongMaterial({ color, side: THREE.DoubleSide, flatShading: false, shininess: 30 });
     const threeMesh = new THREE.Mesh(geometry, material);
+    // Preserve the STEP product name so isolation can match by name —
+    // for assemblies with qty > 1, multiple meshes share one BoM row.
+    threeMesh.userData.occtName = mesh.name ?? "";
     group.add(threeMesh);
     meshList.push(threeMesh);
   }
