@@ -50,7 +50,32 @@ export function ProgressTimeline({ messages, liveThinking, isStreaming, classNam
   // Collapse tool_call/tool_result pairs into one row per invocation.
   const rows = useMemo(() => collapseToolPairs(messages), [messages]);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+    // Auto-scroll the timeline to its tail, but scoped to the NEAREST
+    // scrollable ancestor only — never the page-level <ScrollBody>. The old
+    // implementation called `scrollIntoView({ block: "end" })`, which walks
+    // every ancestor scrollport on its way up and ends up smooth-scrolling
+    // the main page on every SSE event during a live run, fighting the
+    // user when they try to read Part Info / 3D viewer.
+    //
+    // Extra guard: skip the auto-scroll if the user has scrolled up away
+    // from the tail (≥80px). Lets the timeline "snap-to-bottom" only when
+    // the user is actively following the live feed.
+    const tail = endRef.current;
+    if (!tail) return;
+    let scrollable: HTMLElement | null = tail.parentElement;
+    while (scrollable) {
+      const style = window.getComputedStyle(scrollable);
+      const oy = style.overflowY;
+      if ((oy === "auto" || oy === "scroll") && scrollable.scrollHeight > scrollable.clientHeight) {
+        break;
+      }
+      scrollable = scrollable.parentElement;
+    }
+    if (!scrollable) return;
+    const distanceFromBottom = scrollable.scrollHeight - scrollable.scrollTop - scrollable.clientHeight;
+    if (distanceFromBottom <= 80) {
+      scrollable.scrollTop = scrollable.scrollHeight;
+    }
   }, [rows.length, liveThinking]);
 
   return (

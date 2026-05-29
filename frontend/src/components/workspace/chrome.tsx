@@ -1,6 +1,7 @@
 "use client";
 
-import { Plus, X, Cpu, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Plus, X, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -60,9 +61,14 @@ export function EmptyState({ onNewEstimate }: { onNewEstimate: () => void }) {
   return (
     <div className="flex flex-1 items-center justify-center p-8">
       <div className="max-w-md space-y-6 text-center">
-        <div className="brand-gradient mx-auto flex h-16 w-16 items-center justify-center rounded-2xl shadow-lg">
-          <Cpu className="h-8 w-8 text-white" />
-        </div>
+        <Image
+          src="/cofab-icon.png"
+          alt="CoFab"
+          width={80}
+          height={80}
+          className="mx-auto h-20 w-20 object-contain"
+          priority
+        />
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/8 px-3.5 py-1">
             <Sparkles className="h-3 w-3 text-primary" />
