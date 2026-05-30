@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 interface PartInformationProps {
   vlm?: VlmExtraction | null;
   totalUsd?: number;
+  totalUsdPerLot?: number;
+  batchSize?: number;
+  confidenceBandPct?: number | null;
   nComponents?: number;
   className?: string;
 }
@@ -25,9 +28,11 @@ interface PartInformationProps {
  * and the notes from `drawingNotes`. Sized to fill its grid cell so it lines
  * up with the 3D / 2D viewer height.
  */
-export function PartInformation({ vlm, totalUsd, nComponents, className }: PartInformationProps) {
+export function PartInformation({ vlm, totalUsd, totalUsdPerLot, batchSize, confidenceBandPct, nComponents, className }: PartInformationProps) {
   const fields = buildPartInfoFields(vlm);
   const notes = drawingNotes(vlm);
+  const showLot = typeof totalUsdPerLot === "number" && typeof batchSize === "number" && batchSize > 1;
+  const showConf = typeof confidenceBandPct === "number";
 
   return (
     <div className={cn("flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card", className)}>
@@ -90,6 +95,17 @@ export function PartInformation({ vlm, totalUsd, nComponents, className }: PartI
           value={nComponents != null ? String(nComponents) : "—"}
         />
       </div>
+
+      {(showLot || showConf) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-[11px] text-muted-foreground">
+          {showLot && (
+            <span>Per lot (×{batchSize}): <span className="font-semibold tabular-nums text-foreground/80">{usd(totalUsdPerLot)}</span></span>
+          )}
+          {showConf && (
+            <span>Confidence band: <span className="font-semibold tabular-nums text-foreground/80">±{confidenceBandPct}%</span></span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

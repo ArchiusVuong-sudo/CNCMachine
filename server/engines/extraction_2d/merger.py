@@ -81,7 +81,28 @@ def merge_pages(parsed_list: list[dict]) -> dict:
                 if not isinstance(row, dict):
                     continue
                 key = (str(row.get("item_no") or ""), str(row.get("part_number") or ""))
-                if key in seen_bom_keys and key != ("", ""):
+                # Anonymous rows (no item_no AND no part_number) used to skip
+                # dedup entirely, so a BOM repeated on every drawing page got
+                # appended N times → cost tripled. Fall back to a
+                # (description, qty) key for those so repeats still collapse.
+                if key == ("", ""):
+                    key = (
+                        "desc:" + str(row.get("description") or "").strip().lower(),
+                        "qty:" + str(row.get("qty") or ""),
+                    )
+                    if key == ("desc:", "qty:"):
+                        # Truly empty row — nothing to dedup on; keep it.
+                        bom_rows.append({
+                            "item_no":            row.get("item_no"),
+                            "description":        row.get("description"),
+                            "part_number":        row.get("part_number"),
+                            "qty":                row.get("qty") or 1,
+                            "teng_c":             row.get("teng_c"),
+                            "materials_inferred": row.get("materials_inferred") or row.get("material"),
+                            "part_type":          row.get("part_type"),
+                        })
+                        continue
+                if key in seen_bom_keys:
                     continue
                 seen_bom_keys.add(key)
                 qty = row.get("qty", 1)
@@ -143,10 +164,14 @@ def resolve_dimension_unit(merged: dict) -> str:
     tb_unit = (tb.get("dimension_unit") if isinstance(tb, dict) else None) or ""
     s = str(tb_unit).strip().lower()
     if s:
-        if "in" in s or "imp" in s or "inch" in s:
-            return "in"
-        if "mm" in s or "milli" in s or "metric" in s:
+        # Check mm FIRST and use word boundaries: a naive `"in" in s` matches
+        # the substring "in" inside "dimensions in millimeters", flipping a
+        # metric drawing to inches (every dim then ×25.4). Metric tokens win
+        # the tie, and "in"/"inch" must be whole words.
+        if re.search(r"\b(mm|milli\w*|metric)\b", s):
             return "mm"
+        if re.search(r"\b(in|inch|inches|imperial|imp)\b", s):
+            return "in"
 
     counts: dict[str, int] = {}
     for d in (merged.get("dimensions") or []):
@@ -158,10 +183,12 @@ def resolve_dimension_unit(merged: dict) -> str:
             counts[k] = counts.get(k, 0) + 1
     if counts:
         best = max(counts.items(), key=lambda kv: kv[1])[0]
-        if "in" in best:
-            return "in"
-        if "mm" in best or "metric" in best:
+        # Same word-boundary discipline as the title-block check above:
+        # mm-first so a stray "in" substring can't flip a metric drawing.
+        if re.search(r"\b(mm|milli\w*|metric)\b", best):
             return "mm"
+        if re.search(r"\b(in|inch|inches|imperial|imp)\b", best):
+            return "in"
 
     thread_text = " ".join(
         str((t or {}).get("spec") or (t or {}).get("label") or "")

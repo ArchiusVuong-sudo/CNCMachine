@@ -13,10 +13,12 @@ This is the single function the orchestrator calls. Internally it:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
+from typing import Any
 
-from ...core.events import OnEvent, OnThinking, safe_emit, safe_emit_thinking
+from ...core.events import OnEvent, OnThinking, safe_emit
 from ...core.schemas import DrawingExtraction
 from ...core.settings import get_settings
 from .merger import merge_pages, resolve_dimension_unit
@@ -154,26 +156,55 @@ async def run(
     logger.info("engine_2d: rasterized %d page(s)", total)
 
     all_parsed: list[dict] = []
-    for i, page_b64 in enumerate(pages_b64):
+    # Running tally so each page's status frame reports cumulative findings —
+    # the live signal during 2D extraction. We deliberately do NOT stream the
+    # raw per-page VLM content as "thinking" (it's JSON output, not reasoning).
+    #
+    # Pages run CONCURRENTLY (bounded by a semaphore) instead of one-at-a-time:
+    # a 21-page drawing went from ~170s sequential to ~50s. Status frames fire
+    # via asyncio.as_completed so progress still advances live as each page lands.
+    tally = {"dimensions": 0, "gdt": 0, "threads": 0, "bom": 0}
+    sem = asyncio.Semaphore(4)
+
+    async def _process_page(idx: int, b64: str) -> tuple[int, dict | None, str]:
+        async with sem:
+            try:
+                parsed, outcome = await analyze_one_page(b64, on_thinking=None)
+                logger.info(
+                    "engine_2d: page %d/%d outcome=%s keys=%s",
+                    idx + 1, total, outcome,
+                    list(parsed.keys())[:8] if parsed else [],
+                )
+                return idx, parsed, outcome
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("engine_2d: page %d/%d failed: %s", idx + 1, total, exc)
+                return idx, None, "error"
+
+    await safe_emit(on_event, "status", {
+        "title":   "Drawing Extraction",
+        "message": f"Reading {total} drawing page(s) concurrently…",
+    })
+
+    tasks = [asyncio.create_task(_process_page(i, b64)) for i, b64 in enumerate(pages_b64)]
+    done_count = 0
+    for coro in asyncio.as_completed(tasks):
+        _idx, parsed, _outcome = await coro
+        done_count += 1
+        if parsed and not parsed.get("raw_model_output"):
+            all_parsed.append(parsed)
+            tally["dimensions"] += len(parsed.get("dimensions") or [])
+            tally["gdt"]        += len(parsed.get("gdt") or [])
+            tally["threads"]    += len(parsed.get("threads") or [])
+            tally["bom"]        += len(parsed.get("bom") or [])
+        found = (
+            f" · found so far: {tally['dimensions']} dims, {tally['gdt']} GD&T, "
+            f"{tally['threads']} threads, {tally['bom']} BOM"
+            if any(tally.values()) else ""
+        )
         await safe_emit(on_event, "status", {
-            "title":   "GD&T Extraction",
-            "message": f"Drawing page {i + 1}/{total}…",
+            "title":   "Drawing Extraction",
+            "message": f"Page {done_count}/{total} read{found}…",
         })
-
-        async def _forward(chunk: str) -> None:
-            await safe_emit_thinking(on_thinking, chunk)
-
-        try:
-            parsed, outcome = await analyze_one_page(page_b64, on_thinking=_forward)
-            if parsed and not parsed.get("raw_model_output"):
-                all_parsed.append(parsed)
-            logger.info(
-                "engine_2d: page %d/%d outcome=%s keys=%s",
-                i + 1, total, outcome,
-                list(parsed.keys())[:8] if parsed else [],
-            )
-        except Exception as exc:
-            logger.warning("engine_2d: page %d/%d failed: %s", i + 1, total, exc)
 
     if not all_parsed:
         logger.warning("engine_2d: no parseable pages in %.2fs — empty extraction",

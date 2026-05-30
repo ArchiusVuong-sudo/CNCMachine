@@ -8,6 +8,7 @@ import {
   ChevronLeft, ChevronRight, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface DrawingViewerProps {
   fileUrl: string | null;
@@ -50,7 +51,14 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const docRef = useRef<any>(null);
   const renderTaskRef = useRef<any>(null);
-  const lastAvailRef = useRef(0);
+  const lastAvailRef = useRef({ w: 0, h: 0 });
+  // Serialization guards: pdf.js throws "Cannot use the same canvas during
+  // multiple render() operations" if two renders overlap. The load-effect and
+  // the ResizeObserver both call renderPage, so we (a) run at most one render
+  // at a time and (b) coalesce any request that arrives mid-render into a
+  // single re-run afterwards.
+  const renderingRef = useRef(false);
+  const rerenderRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,41 +99,60 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
     };
   }, [fileUrl]);
 
-  // Render the active page whenever page/zoom/doc changes.
+  // Render the active page whenever page/zoom/doc changes. Serialized so two
+  // renders never share the canvas concurrently.
   const renderPage = useCallback(async () => {
-    const doc = docRef.current;
-    const canvas = canvasRef.current;
-    if (!doc || !canvas) return;
+    if (renderingRef.current) { rerenderRef.current = true; return; }
+    renderingRef.current = true;
     try {
-      renderTaskRef.current?.cancel?.();
-      const pdfPage = await doc.getPage(page);
+      do {
+        rerenderRef.current = false;
+        const doc = docRef.current;
+        const canvas = canvasRef.current;
+        if (!doc || !canvas) break;
 
-      // Fit the page to the scroll container's content width (p-4 = 16px each
-      // side), then apply the user's zoom on top. Engineering-drawing PDFs are
-      // large-format, so rendering at native size overflows the panel — fitting
-      // to width shows the whole sheet by default.
-      const base = pdfPage.getViewport({ scale: 1 });
-      const scroller = scrollRef.current;
-      const avail = scroller ? Math.max(160, scroller.clientWidth - 32) : base.width;
-      lastAvailRef.current = avail;
-      const cssScale = (avail / base.width) * zoom;
+        // Cancel AND await any in-flight task so the canvas is free before the
+        // next render() — awaiting is what prevents the "same canvas" error.
+        if (renderTaskRef.current) {
+          try { renderTaskRef.current.cancel(); } catch { /* ignore */ }
+          try { await renderTaskRef.current.promise; } catch { /* cancellation */ }
+          renderTaskRef.current = null;
+        }
 
-      const dpr = window.devicePixelRatio || 1;
-      const viewport = pdfPage.getViewport({ scale: cssScale * dpr });
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${viewport.width / dpr}px`;
-      canvas.style.height = `${viewport.height / dpr}px`;
-      const task = pdfPage.render({ canvasContext: ctx, viewport });
-      renderTaskRef.current = task;
-      await task.promise;
-    } catch (err: unknown) {
-      const name = err instanceof Error ? err.name : (err as { name?: string } | null)?.name;
-      if (name !== "RenderingCancelledException") {
-        setError(err instanceof Error ? err.message : "Failed to render page");
-      }
+        try {
+          const pdfPage = await doc.getPage(page);
+
+          // Fit the WHOLE page inside the scroll container (contain), then apply
+          // the user's zoom. zoom=1 shows the full sheet with no scrollbar.
+          const base = pdfPage.getViewport({ scale: 1 });
+          const scroller = scrollRef.current;
+          const availW = scroller ? Math.max(120, scroller.clientWidth - 24) : base.width;
+          const availH = scroller ? Math.max(120, scroller.clientHeight - 24) : base.height;
+          lastAvailRef.current = { w: availW, h: availH };
+          const fit = Math.min(availW / base.width, availH / base.height);
+          const cssScale = fit * zoom;
+
+          const dpr = window.devicePixelRatio || 1;
+          const viewport = pdfPage.getViewport({ scale: cssScale * dpr });
+          const ctx = canvas.getContext("2d");
+          if (!ctx) break;
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.style.width = `${viewport.width / dpr}px`;
+          canvas.style.height = `${viewport.height / dpr}px`;
+          const task = pdfPage.render({ canvasContext: ctx, viewport });
+          renderTaskRef.current = task;
+          await task.promise;
+          if (renderTaskRef.current === task) renderTaskRef.current = null;
+        } catch (err: unknown) {
+          const name = err instanceof Error ? err.name : (err as { name?: string } | null)?.name;
+          if (name !== "RenderingCancelledException") {
+            setError(err instanceof Error ? err.message : "Failed to render page");
+          }
+        }
+      } while (rerenderRef.current); // a request arrived mid-render — run once more
+    } finally {
+      renderingRef.current = false;
     }
   }, [page, zoom]);
 
@@ -137,8 +164,10 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
     const scroller = scrollRef.current;
     if (!scroller || loading || error) return;
     const ro = new ResizeObserver(() => {
-      const avail = Math.max(160, scroller.clientWidth - 32);
-      if (Math.abs(avail - lastAvailRef.current) < 4) return;
+      const w = Math.max(120, scroller.clientWidth - 24);
+      const h = Math.max(120, scroller.clientHeight - 24);
+      // Re-fit on EITHER dimension changing (contain depends on both).
+      if (Math.abs(w - lastAvailRef.current.w) < 4 && Math.abs(h - lastAvailRef.current.h) < 4) return;
       renderPage();
     });
     ro.observe(scroller);
@@ -147,35 +176,34 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/20">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-2 backdrop-blur-sm">
-        <span className="truncate text-xs text-muted-foreground">{title ?? "Drawing"}</span>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} title="Previous page">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="min-w-16 text-center text-xs tabular-nums text-muted-foreground">
-            {numPages ? `${page} / ${numPages}` : "—"}
-          </span>
-          <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= numPages} onClick={() => setPage((p) => Math.min(numPages, p + 1))} title="Next page">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <div className="mx-1 h-5 w-px bg-border" />
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Zoom out">
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="min-w-12 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.min(6, +(z + 0.25).toFixed(2)))} title="Zoom in">
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw PDF">
-            <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
-          </Button>
-        </div>
+      {/* Floating control cluster (top-right), consistent with the 3D viewer —
+         no full-width toolbar bar to clash with the shared switch header. */}
+      <div className="absolute right-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1 rounded-lg border border-border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+        <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} title="Previous page">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <span className="min-w-14 text-center text-xs tabular-nums text-muted-foreground">
+          {numPages ? `${page} / ${numPages}` : "—"}
+        </span>
+        <Button variant="outline" size="icon" className="h-7 w-7" disabled={page >= numPages} onClick={() => setPage((p) => Math.min(numPages, p + 1))} title="Next page">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <div className="mx-0.5 h-5 w-px bg-border" />
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.max(0.25, +(z - 0.25).toFixed(2)))} title="Zoom out">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <span className="min-w-11 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setZoom((z) => Math.min(6, +(z + 0.25).toFixed(2)))} title="Zoom in">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw PDF">
+          <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+        </Button>
       </div>
 
-      <div ref={scrollRef} className="relative flex-1 overflow-auto">
+      <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
         {loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <span className="text-sm text-muted-foreground">Loading drawing…</span>
@@ -183,7 +211,7 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
           </div>
         )}
         {error && !loading && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center px-4 text-center">
+          <div className="absolute inset-0 z-20 flex items-center justify-center px-4 text-center">
             <div className="flex flex-col items-center gap-2">
               <AlertCircle className="h-8 w-8 text-destructive" />
               <span className="text-sm text-destructive">{error}</span>
@@ -193,7 +221,9 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
             </div>
           </div>
         )}
-        <div className="flex min-h-full items-start justify-center p-4">
+        {/* At zoom ≤ 1 the page fits (contain) → center it. When zoomed in it
+           overflows → top-align so the user can scroll to every edge. */}
+        <div className={cn("flex min-h-full min-w-full justify-center p-3", zoom > 1 ? "items-start" : "items-center")}>
           <canvas ref={canvasRef} className="rounded-sm shadow-md ring-1 ring-border" />
         </div>
       </div>
@@ -211,22 +241,19 @@ function ImageViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/20">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-background/80 px-3 py-2 backdrop-blur-sm">
-        <span className="truncate text-xs text-muted-foreground">{title ?? "Drawing"}</span>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setScale((s) => Math.max(0.25, s - 0.25))} title="Zoom out">
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="min-w-12 text-center text-xs tabular-nums text-muted-foreground">{Math.round(scale * 100)}%</span>
-          <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setScale((s) => Math.min(5, s + 0.25))} title="Zoom in">
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw image">
-            <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
-          </Button>
-        </div>
+      <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border border-border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setScale((s) => Math.max(0.25, s - 0.25))} title="Zoom out">
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <span className="min-w-11 text-center text-xs tabular-nums text-muted-foreground">{Math.round(scale * 100)}%</span>
+        <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setScale((s) => Math.min(5, s + 0.25))} title="Zoom in">
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw image">
+          <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
+        </Button>
       </div>
-      <div className="relative flex-1 overflow-auto">
+      <div className="relative min-h-0 flex-1 overflow-auto">
         {error ? (
           <div className="absolute inset-0 flex items-center justify-center px-4 text-center">
             <div className="flex flex-col items-center gap-2">
@@ -235,13 +262,17 @@ function ImageViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
             </div>
           </div>
         ) : (
-          <div className="flex min-h-full items-start justify-center p-4">
+          <div className={cn("flex min-h-full min-w-full justify-center p-3", scale > 1 ? "items-start" : "items-center")}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={fileUrl}
               alt={title ?? "Drawing"}
               onError={() => setError(true)}
-              style={{ width: `${scale * 100}%`, maxWidth: "none" }}
+              // scale=1 → fit inside the panel (contain, no scrollbar);
+              // scale>1 → grow past the panel and scroll.
+              style={scale > 1
+                ? { width: `${scale * 100}%`, maxWidth: "none" }
+                : { maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }}
               className="rounded-sm shadow-md ring-1 ring-border"
             />
           </div>

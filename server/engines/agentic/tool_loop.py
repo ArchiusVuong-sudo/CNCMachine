@@ -73,6 +73,43 @@ def _truncate_result(payload: Any, *, cap: int) -> Any:
     }
 
 
+def _estimate_tokens(messages: list[dict]) -> int:
+    """Rough token estimate for the whole message list.
+
+    ~3.3 chars/token for English+JSON is conservative-low, so we divide by 3
+    to over-estimate slightly and stay on the safe side of the real limit.
+    Plus ~4 tokens of role/format overhead per message.
+    """
+    chars = sum(len(str(m.get("content") or "")) for m in messages)
+    return chars // 3 + 4 * len(messages)
+
+
+def _trim_history(messages: list[dict], *, max_input_tokens: int) -> int:
+    """Bound the ReAct history in place so the prompt never overflows context.
+
+    Keeps the system prompt (messages[0]) and the original task user message
+    (messages[1]) — both load-bearing — then evicts the OLDEST middle turns in
+    (assistant, tool-result) PAIRS until the estimate fits ``max_input_tokens``.
+    Pair-eviction preserves the assistant/user alternation the chat endpoint
+    expects. The most recent turns (where the model's working state lives) are
+    always retained. Returns the number of messages dropped (0 if none).
+
+    This is the fix for the unbounded-history overflow that silently failed
+    complex components at ~iteration 18 (24577 input + 8192 output > 32768).
+    """
+    if len(messages) <= 4 or _estimate_tokens(messages) <= max_input_tokens:
+        return 0
+    head = messages[:2]
+    tail = messages[2:]
+    dropped = 0
+    # Evict from the front of the tail in pairs, always leaving the last pair.
+    while len(tail) > 2 and _estimate_tokens(head + tail) > max_input_tokens:
+        del tail[0:2]
+        dropped += 2
+    messages[:] = head + tail
+    return dropped
+
+
 async def _invoke_tool(fn: ToolFn, args: dict | None) -> Any:
     """Run a tool function (sync or async) with kwargs from the model."""
     args = args or {}
@@ -232,6 +269,16 @@ async def run_tool_loop(
     max_tool_result_chars = settings.max_tool_result_chars
 
     chat = chat_fn or _default_chat
+
+    # Input-token budget for history trimming. The model context window minus
+    # the reserved completion budget minus a safety margin. Overridable via env
+    # for non-32k backends. This is what stops the unbounded ReAct history from
+    # eventually exceeding the context window mid-run.
+    import os as _os
+    _ctx_window = int(_os.environ.get("AGENT_LLM_CONTEXT_WINDOW", "32768"))
+    _reserve_out = max(int(getattr(settings, "agent_max_tokens", 8192) or 8192), 4096)
+    _max_input_tokens = max(_ctx_window - _reserve_out - 2048, 4096)
+
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -244,6 +291,16 @@ async def run_tool_loop(
     dup_blocks = 0                     # exact-duplicate calls blocked so far
 
     for iteration in range(1, max_iterations + 1):
+        # Bound history BEFORE the call so the prompt can never exceed the
+        # context window, no matter how many iterations or how large the tool
+        # results. Keeps system + task message + most-recent turns.
+        _dropped = _trim_history(messages, max_input_tokens=_max_input_tokens)
+        if _dropped:
+            logger.info(
+                "tool_loop[%s] iter=%d trimmed %d old message(s) to fit context "
+                "(~%d input tokens budget)",
+                label, iteration, _dropped, _max_input_tokens,
+            )
         try:
             # No `response_format`: guided JSON crashes the Kimi engine (no
             # grammar backend). We rely on the prompt's "one JSON object" rule

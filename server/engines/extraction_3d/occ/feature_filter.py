@@ -102,6 +102,20 @@ _HARDWARE_FEATURES: set[FeatureType] = {
     FeatureType.TAPERED_BORE,
 }
 
+# Weldment join/fastening features only. A weldment is an assembly-level part;
+# per-sub-body CNC noise (pockets, steps, ribs, undercuts, drafts) is suppressed
+# so the routing doesn't invent spurious milling ops for the welded assembly.
+_WELDMENT_FEATURES: set[FeatureType] = {
+    FeatureType.THROUGH_HOLE,
+    FeatureType.BLIND_HOLE,
+    FeatureType.COUNTERBORE,
+    FeatureType.COUNTERSINK,
+    FeatureType.THREAD,
+    FeatureType.CHAMFER,
+    FeatureType.FILLET,
+    FeatureType.GROOVE,
+}
+
 _FEATURE_MAP: dict[PartType, set[FeatureType]] = {
     # Sheet-metal entry intentionally dropped — vocabulary is CNC-only.
     PartType.CNC_MILLING: _CNC_MILLING_FEATURES,
@@ -110,6 +124,7 @@ _FEATURE_MAP: dict[PartType, set[FeatureType]] = {
     # TUBE_PIPE classification disabled.
     # PartType.TUBE_PIPE: _TUBE_PIPE_FEATURES,
     PartType.HARDWARE: _HARDWARE_FEATURES,
+    PartType.WELDMENT: _WELDMENT_FEATURES,
 }
 
 

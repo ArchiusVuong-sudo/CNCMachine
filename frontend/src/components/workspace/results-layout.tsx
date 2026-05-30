@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain/extraction-model";
 import { BillOfMaterial } from "@/components/results/bill-of-material";
 import { CostBreakdown } from "@/components/results/cost-breakdown";
+import { ManufacturingPlanCard } from "@/components/results/manufacturing-plan";
 import type { ViewerSrc } from "./types";
 
 /**
@@ -53,7 +54,7 @@ export function ResultsLayout({
 
   const vlm = results?.vlm_extraction ?? null;
   const components = useMemo<Component[]>(() => adoptCostedComponents(results), [results]);
-  const { totalUsd, totalMin, assemblyName } = useMemo(
+  const { totalUsd, totalUsdPerLot, batchSize, confidenceBandPct, totalMin, assemblyName } = useMemo(
     () => deriveResultTotals(results, components),
     [results, components],
   );
@@ -92,7 +93,7 @@ export function ResultsLayout({
          and Cost Breakdown (Row 3) stay reachable without large page scroll.
          Mobile/tablet (<xl): stacks, each card uses its natural / min height. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[30%_minmax(0,70%)] xl:items-stretch xl:h-[clamp(420px,calc(100vh-180px),640px)]">
-        <PartInformation vlm={vlm} totalUsd={totalUsd} nComponents={hasComponents ? components.length : undefined} />
+        <PartInformation vlm={vlm} totalUsd={totalUsd} totalUsdPerLot={totalUsdPerLot} batchSize={batchSize} confidenceBandPct={confidenceBandPct} nComponents={hasComponents ? components.length : undefined} />
         <div className="min-h-90 min-w-0 xl:min-h-0 xl:h-full">
           <Viewport
             stepUrl={viewer.stepUrl}
@@ -134,6 +135,13 @@ export function ResultsLayout({
             />
             <ExtractionPanel results={results} components={components} selectedIndex={selectedIndex} />
           </div>
+
+          {/* Row 4 — Manufacturing Plan + Complexity (full width). Surfaces the
+             planner's machine ranking, op sequence, feeds/speeds + a derived
+             complexity summary that the cost/extraction cards don't show. */}
+          {components.some((c) => (c.planner ?? c.agentic) || (c.manufacturing_processes ?? []).length) && (
+            <ManufacturingPlanCard components={components} selectedIndex={selectedIndex} />
+          )}
         </>
       )}
     </>

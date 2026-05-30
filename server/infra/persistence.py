@@ -51,6 +51,9 @@ _EXTRACTION_2D_COLS = {
     "analysis_id", "part_number", "revision", "description", "material",
     "dimension_unit", "bom_items", "drawing_notes", "dimensions",
     "gdt_callouts", "threads", "surface_finish", "title_block",
+    # Added by migration 005. Persisted via a tolerant upsert so the row
+    # still saves if 005 has not been applied yet.
+    "part_category", "assembly_method",
 }
 
 _COMPONENT_COLS = {
@@ -79,6 +82,8 @@ _PROCESS_COLS = {
     "total_cost_usd", "setup_min_per_lot", "run_min_per_part",
     "labor_role", "work_center", "tooling_ref", "machine_ref", "op_id",
     "agent_phase", "tool_dimensions", "feeds_speeds",
+    # Routing-agent columns added by migration 007 (were silently dropped).
+    "op_code", "description", "tool_type", "operation_type",
 }
 
 _CAM_RUN_COLS = {
@@ -209,7 +214,7 @@ def _norm_status(value: Any) -> str:
 
 
 _PART_TYPE_ENUM = {"sheet_metal", "cnc_milling", "cnc_lathe", "cnc_lathe_milling",
-                   "tube_pipe", "hardware", "unknown"}
+                   "tube_pipe", "hardware", "weldment", "unknown"}
 _PART_TYPE_ALIASES = {
     "sheet":     "sheet_metal",
     "milling":   "cnc_milling",
@@ -222,6 +227,10 @@ _PART_TYPE_ALIASES = {
     "pipe":      "tube_pipe",
     "purchased": "hardware",
     "fastener":  "hardware",
+    # The synthetic top-of-assembly node carries part_type "assembly_top";
+    # persist it as the weldment family it represents (brief category).
+    "assembly_top": "weldment",
+    "assembly":     "weldment",
 }
 
 
@@ -332,6 +341,41 @@ def _norm_post_processor(value: Any) -> str:
 # Sync helpers (run on a worker thread by the async wrappers)
 # ---------------------------------------------------------------------------
 
+def _valid_uuid(value: Any) -> str | None:
+    """Return ``value`` as a string only if it is a syntactically valid UUID.
+
+    The FK columns ``chosen_machine_id`` / ``machine_id`` / ``tooling_id`` are
+    Postgres ``uuid`` columns. The planner sometimes returns a machine *name*
+    or work-center label ("EXXACT1616", "Exact CNC Router") instead of the
+    catalog UUID — inserting that raises ``invalid input syntax for type uuid``
+    and silently drops the WHOLE component (and its features + processes). We
+    coerce any non-UUID to NULL so the row still persists; the machine name is
+    preserved separately in ``machine_class`` / the planner block / routing rows.
+    """
+    if value is None:
+        return None
+    import uuid as _uuid
+    try:
+        return str(_uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return None
+
+
+def _bbox_dim(comp: dict, key: str) -> float | None:
+    """Read a bbox dimension, accepting both the nested ``bbox: {length_mm…}``
+    shape the OCC engine emits and the flat ``bbox_length_mm`` legacy shape.
+    Without this the a4_components bbox columns always persisted NULL.
+    """
+    flat = comp.get(f"bbox_{key}")
+    if flat is not None:
+        return flat
+    for parent in ("bbox", "bounding_box"):
+        bb = comp.get(parent)
+        if isinstance(bb, dict) and bb.get(key) is not None:
+            return bb.get(key)
+    return None
+
+
 def _upsert(client: Any, table: str, row: dict, *, on_conflict: str = "id") -> dict | None:
     try:
         res = client.table(table).upsert(row, on_conflict=on_conflict).execute()
@@ -340,6 +384,34 @@ def _upsert(client: Any, table: str, row: dict, *, on_conflict: str = "id") -> d
     except Exception as exc:
         logger.warning("persistence: upsert %s failed: %s", table, exc)
         return None
+
+
+def _upsert_with_fallback(
+    client: Any, table: str, row: dict, *, drop_keys: set[str], on_conflict: str = "id",
+) -> dict | None:
+    """Upsert ``row``; if it raises (e.g. a column in ``drop_keys`` doesn't
+    exist yet), retry once with those keys removed so the rest of the row
+    still persists. Retries ONLY on a real exception — never on a successful
+    upsert that simply returned no data — so it can't overwrite freshly-written
+    optional columns with NULL.
+    """
+    try:
+        res = client.table(table).upsert(row, on_conflict=on_conflict).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
+    except Exception as exc:
+        logger.info(
+            "persistence: upsert %s failed (%s); retrying without %s",
+            table, exc, sorted(drop_keys),
+        )
+        reduced = {k: v for k, v in row.items() if k not in drop_keys}
+        try:
+            res = client.table(table).upsert(reduced, on_conflict=on_conflict).execute()
+            rows = res.data or []
+            return rows[0] if rows else None
+        except Exception as exc2:
+            logger.warning("persistence: upsert %s fallback also failed: %s", table, exc2)
+            return None
 
 
 def _insert(client: Any, table: str, rows: list[dict]) -> list[dict]:
@@ -351,6 +423,36 @@ def _insert(client: Any, table: str, rows: list[dict]) -> list[dict]:
     except Exception as exc:
         logger.warning("persistence: insert %s (n=%d) failed: %s", table, len(rows), exc)
         return []
+
+
+def _insert_resilient(client: Any, table: str, rows: list[dict]) -> list[dict]:
+    """Insert a batch; if the batch fails (one bad row would otherwise drop the
+    whole set — e.g. a single routing row with an out-of-enum value killing all
+    20), fall back to inserting row-by-row so the good rows still persist. Each
+    skipped row is logged with its cause.
+    """
+    if not rows:
+        return []
+    try:
+        res = client.table(table).insert(rows).execute()
+        return res.data or []
+    except Exception as exc:
+        logger.warning(
+            "persistence: batch insert %s (n=%d) failed (%s) — retrying per-row",
+            table, len(rows), exc,
+        )
+        out: list[dict] = []
+        skipped = 0
+        for r in rows:
+            try:
+                res = client.table(table).insert([r]).execute()
+                out += res.data or []
+            except Exception as exc2:
+                skipped += 1
+                logger.warning("persistence: skipped 1 %s row: %s", table, exc2)
+        if skipped:
+            logger.warning("persistence: %s — %d/%d rows skipped", table, skipped, len(rows))
+        return out
 
 
 # ---------------------------------------------------------------------------
@@ -470,7 +572,7 @@ async def persist_analysis_complete(
     await asyncio.to_thread(_upsert, client, "a4_analyses", analysis_row)
 
     if extraction_2d:
-        ext_row = _filter({
+        _base_2d = {
             "analysis_id":      analysis_id,
             "part_number":      extraction_2d.get("part_number"),
             "revision":         extraction_2d.get("revision"),
@@ -484,9 +586,18 @@ async def persist_analysis_complete(
             "threads":          extraction_2d.get("threads") or [],
             "surface_finish":   extraction_2d.get("surface_finish"),
             "title_block":      extraction_2d.get("title_block"),
-        }, _EXTRACTION_2D_COLS)
+        }
+        # Routing-critical drawing-level fields (brief Page 3 OCR outputs).
+        # Columns added by migration 005 — if it has not run, the upsert below
+        # fails and we retry without them so the rest of the row still saves.
+        _optional_2d = {
+            "part_category":   extraction_2d.get("part_category"),
+            "assembly_method": extraction_2d.get("assembly_method"),
+        }
+        ext_row = _filter({**_base_2d, **_optional_2d}, _EXTRACTION_2D_COLS)
         await asyncio.to_thread(
-            _upsert, client, "a4_2d_extraction", ext_row,
+            _upsert_with_fallback, client, "a4_2d_extraction", ext_row,
+            drop_keys={"part_category", "assembly_method"},
             on_conflict="analysis_id",
         )
 
@@ -501,9 +612,9 @@ async def persist_analysis_complete(
             "part_type_confidence": comp.get("part_type_confidence"),
             "volume_mm3":           comp.get("volume_mm3"),
             "surface_area_mm2":     comp.get("surface_area_mm2"),
-            "bbox_length_mm":       comp.get("bbox_length_mm"),
-            "bbox_width_mm":        comp.get("bbox_width_mm"),
-            "bbox_height_mm":       comp.get("bbox_height_mm"),
+            "bbox_length_mm":       _bbox_dim(comp, "length_mm"),
+            "bbox_width_mm":        _bbox_dim(comp, "width_mm"),
+            "bbox_height_mm":       _bbox_dim(comp, "height_mm"),
             "thickness_min_mm":     comp.get("thickness_min_mm"),
             "thickness_max_mm":     comp.get("thickness_max_mm"),
             "thickness_mean_mm":    comp.get("thickness_mean_mm"),
@@ -522,7 +633,11 @@ async def persist_analysis_complete(
             # back-compat — DB column name kept as `agentic_plan` for migration
             # stability; rename is at the API/UI/code boundary only.
             "agentic_plan":         comp.get("planner") or comp.get("agentic"),
-            "chosen_machine_id":    (comp.get("planner") or comp.get("agentic") or {}).get("chosen_machine_id"),
+            # UUID-validate the FK: the planner may emit a machine NAME here,
+            # which would crash the uuid column and drop the whole component.
+            "chosen_machine_id":    _valid_uuid(
+                (comp.get("planner") or comp.get("agentic") or {}).get("chosen_machine_id")
+            ),
             "machine_class":        (comp.get("planner") or comp.get("agentic") or {}).get("machine_class"),
         }, _COMPONENT_COLS)
 
@@ -543,7 +658,14 @@ async def persist_analysis_complete(
                     "feature_index":   f_idx,
                     "feature_type":    _norm_feature_type(f.get("feature_type")),
                     "feature_id":      f.get("feature_id") or f"F{f_idx}",
-                    "key_face_ids":    f.get("key_face_ids") or [],
+                    # The OCC recognizer writes a single `key_face_id` (a
+                    # persistent geometric hash). The DB column is the plural
+                    # `key_face_ids` array — accept both shapes so the face
+                    # id isn't silently dropped to [] on every feature.
+                    "key_face_ids":    (
+                        f.get("key_face_ids")
+                        or ([f["key_face_id"]] if f.get("key_face_id") else [])
+                    ),
                     "count":           f.get("count") or 1,
                     "confidence":      f.get("confidence"),
                     "source":          _norm_feature_source(f.get("source")),
@@ -557,7 +679,7 @@ async def persist_analysis_complete(
                 for f_idx, f in enumerate(features)
             ]
             await asyncio.to_thread(
-                _insert, client, "a4_features", feature_rows,
+                _insert_resilient, client, "a4_features", feature_rows,
             )
 
         processes = (
@@ -567,16 +689,37 @@ async def persist_analysis_complete(
             process_rows = [
                 _filter({
                     "component_id":      component_id,
-                    "sequence_order":    p.get("sequence_order", seq_idx),
+                    # Routing rows carry the agent sequence under "sequence"
+                    # (10,20,30…); fall back to "sequence_order" then index.
+                    "sequence_order":    p.get("sequence_order") or p.get("sequence") or seq_idx,
                     "process_type":      _norm_process_type(p.get("process_type")),
                     "category":          _norm_category(p.get("category")),
+                    "op_code":           p.get("op_code"),
+                    "description":       p.get("description"),
+                    "tool_type":         p.get("tool_type"),
+                    "operation_type":    p.get("operation_type"),
                     "feature_ids":       p.get("feature_ids") or [],
                     "operation_count":   p.get("operation_count") or 1,
                     "notes":             p.get("notes"),
-                    "tooling_id":        (p.get("tooling_ref") or {}).get("tool_id"),
-                    "machine_id":        (p.get("machine_ref") or {}).get("machine_id"),
-                    "spindle_rpm":       p.get("spindle_rpm"),
-                    "feed_mm_per_min":   p.get("feed_mm_per_min"),
+                    # Current ManufacturingProcess projection emits FLAT keys
+                    # (machine_id, tool_ids[], spindle_speed_rpm,
+                    # feed_rate_mm_min); the legacy process_mapping shape used
+                    # nested *_ref + spindle_rpm/feed_mm_per_min. Read both so
+                    # these columns stop persisting NULL on every routing row.
+                    # Both are uuid FKs (a4_tooling / a4_machines) — coerce a
+                    # non-UUID (tool/machine name) to NULL so the routing row
+                    # still persists instead of throwing and dropping them all.
+                    "tooling_id":        _valid_uuid(
+                        (p.get("tool_ids") or [None])[0]
+                        or p.get("tool_id")
+                        or (p.get("tooling_ref") or {}).get("tool_id")
+                    ),
+                    "machine_id":        _valid_uuid(
+                        p.get("machine_id")
+                        or (p.get("machine_ref") or {}).get("machine_id")
+                    ),
+                    "spindle_rpm":       p.get("spindle_speed_rpm") or p.get("spindle_rpm"),
+                    "feed_mm_per_min":   p.get("feed_rate_mm_min") or p.get("feed_mm_per_min"),
                     "depth_of_cut_mm":   p.get("depth_of_cut_mm"),
                     "cut_length_mm":     p.get("cut_length_mm"),
                     "cycle_time_min":    p.get("cycle_time_min"),
@@ -597,7 +740,7 @@ async def persist_analysis_complete(
                 for seq_idx, p in enumerate(processes)
             ]
             await asyncio.to_thread(
-                _insert, client, "a4_processes", process_rows,
+                _insert_resilient, client, "a4_processes", process_rows,
             )
 
     logger.info(

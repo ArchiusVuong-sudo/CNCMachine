@@ -160,7 +160,7 @@ export function CostBreakdown({
           <div className="px-4 py-4 text-sm text-muted-foreground">
             {isHardware
               ? "Purchased hardware — no machining routing."
-              : selected?.agentic?.suppressed_by_consolidation_gate
+              : (selected?.planner ?? selected?.agentic)?.suppressed_by_consolidation_gate
                 ? "Machining consolidated into the assembly total."
                 : "No process routing for this component."}
           </div>

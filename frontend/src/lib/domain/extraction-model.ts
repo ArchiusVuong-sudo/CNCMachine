@@ -20,6 +20,7 @@ import type {
   Component,
   DimensionRow,
   Feature,
+  FeatureMapRow,
   GdtCallout,
   ThreadSpec,
   VlmExtraction,
@@ -79,7 +80,7 @@ export function componentThreads(c: Component): ThreadSpec[] {
   // Per-feature first: catches OCC-recognised threads or the
   // `is_threaded` / `thread_spec` flags the dim_tagger sets when a thread
   // dimension matched a drilled hole's minor diameter.
-  type ThreadFeat = (typeof c.features)[number] & {
+  type ThreadFeat = Feature & {
     is_threaded?: boolean;
     thread_spec?: string;
   };
@@ -104,6 +105,49 @@ export function componentThreads(c: Component): ThreadSpec[] {
   // when the diameter match was loose / missing.
   const compLevel = (c as Component & { threads?: ThreadSpec[] }).threads;
   return Array.isArray(compLevel) ? compLevel : [];
+}
+
+/**
+ * Per-feature ↔ tolerance / GD&T / process map for one component. This is the
+ * row-per-feature view the customer reference ("Feature ↔ Tolerance Map") wants:
+ * every recognised feature with its key dimension, tolerance, tolerance class,
+ * GD&T, thread, and the operations that touch it. All of this already arrives on
+ * `component.features[]` (OCC geometry + dim_tagger tags) — it was just never
+ * surfaced as a table.
+ */
+export function componentFeatureMap(c: Component): FeatureMapRow[] {
+  return (c.features ?? []).map((f: Feature, i: number): FeatureMapRow => {
+    const d = f.dimensions ?? {};
+    // Most-prominent dimension as the readable "key dimension".
+    let keyDim: string | undefined;
+    if (d.diameter_mm != null)    keyDim = `Ø${d.diameter_mm} mm`;
+    else if (d.radius_mm != null) keyDim = `R${d.radius_mm} mm`;
+    else if (d.depth_mm != null)  keyDim = `depth ${d.depth_mm} mm`;
+    else if (d.length_mm != null) keyDim = `${d.length_mm} mm`;
+    else if (d.width_mm != null)  keyDim = `${d.width_mm} mm`;
+    else if (d.angle_deg != null) keyDim = `${d.angle_deg}°`;
+
+    const tp = f.tolerance_plus, tm = f.tolerance_minus;
+    let tol: string | undefined;
+    if (tp != null && tm != null) tol = `+${tp} / −${tm}`;
+    else if (tp != null) tol = `±${tp}`;
+    else if (tm != null) tol = `+0 / −${tm}`;
+
+    const ops = Array.isArray(f.operations) ? (f.operations as string[]).join(", ") : undefined;
+    const gdt = (f.gdt_callouts ?? []).filter(Boolean).join("; ") || undefined;
+
+    return {
+      feature_id:      String(f.feature_index ?? i),
+      feature_type:    prettyFeatureLabel(f),
+      count:           f.count,
+      key_dimension:   keyDim,
+      tolerance:       tol,
+      tolerance_class: typeof f.tolerance_class === "string" ? f.tolerance_class : undefined,
+      gdt,
+      thread:          typeof f.thread_spec === "string" ? f.thread_spec : (f.is_threaded ? "threaded" : undefined),
+      operations:      ops,
+    };
+  });
 }
 
 /** Notes are drawing-level only — components don't carry their own notes. */

@@ -33,6 +33,12 @@ logger = logging.getLogger("cncserver.api.analyze")
 
 router = APIRouter(prefix="/v1", tags=["analyze"])
 
+# Strong references to in-flight background pipeline tasks. asyncio only keeps
+# a WEAK reference to tasks created via create_task(), so a fire-and-forget
+# task can be garbage-collected mid-run — silently killing the pipeline and
+# losing persistence. Holding the task here until it finishes prevents that.
+_BACKGROUND_TASKS: set[asyncio.Task] = set()
+
 
 @router.post("/analyze-stream")
 async def analyze_stream(request: Request) -> StreamingResponse:
@@ -164,12 +170,26 @@ async def analyze_stream(request: Request) -> StreamingResponse:
                 analysis_id, exc,
             )
         finally:
-            try:
-                queue.put_nowait(None)
-            except asyncio.QueueFull:
-                pass
+            # Guarantee the terminal sentinel reaches the consumer even when
+            # the queue is full (slow but live consumer): evict one buffered
+            # event to free a slot, then enqueue None. We never block here —
+            # blocking would leak this task forever if the consumer is gone.
+            while True:
+                try:
+                    queue.put_nowait(None)
+                    break
+                except asyncio.QueueFull:
+                    try:
+                        queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
 
-    asyncio.create_task(_drain_to_queue())
+    # Keep a strong reference so the task isn't GC'd mid-run, and drop it on
+    # completion. Without this, asyncio's weak task reference lets the pipeline
+    # vanish at any await point.
+    _bg_task = asyncio.create_task(_drain_to_queue())
+    _BACKGROUND_TASKS.add(_bg_task)
+    _bg_task.add_done_callback(_BACKGROUND_TASKS.discard)
 
     async def _pump_to_sse() -> AsyncIterator[tuple[str, dict]]:
         """Yield queued events. On client disconnect, the consumer is

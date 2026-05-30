@@ -66,8 +66,10 @@ export function BillOfMaterial({
         )}
       </div>
 
-      <div>
-        <table className="w-full table-fixed text-sm">
+      {/* Horizontal scroll on narrow screens — the costing columns stay
+         readable instead of being squished on a phone. */}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] table-fixed text-sm">
           <colgroup>
             <col style={{ width: "48px" }} />   {/* LVL */}
             <col style={{ width: "56px" }} />   {/* QTY */}

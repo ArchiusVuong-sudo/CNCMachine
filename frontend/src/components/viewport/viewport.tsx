@@ -59,28 +59,39 @@ export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className
 
   return (
     <div className={cn("relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card", className)}>
-      {/* Segmented switch */}
-      <div className="absolute left-1/2 top-3 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-lg border border-border bg-background/90 p-0.5 shadow-sm backdrop-blur-sm">
-        <SwitchButton
-          active={mode === "3d"}
-          disabled={!has3d}
-          onClick={() => setMode("3d")}
-          icon={<Box className="h-3.5 w-3.5" />}
-          label="3D Model"
-        />
-        <SwitchButton
-          active={mode === "2d"}
-          disabled={!has2d}
-          onClick={() => setMode("2d")}
-          icon={<FileImage className="h-3.5 w-3.5" />}
-          label="2D Drawing"
-        />
+      {/* Shared top header: filename (sm+) on the left, the 3D/2D segmented
+         switch centered. Both viewers fill the area below and float their own
+         controls top-right — so the switch never overlaps a viewer toolbar
+         (the old absolute-float switch sat on top of the 2D toolbar bar and
+         looked shifted down). */}
+      <div className="relative flex shrink-0 items-center justify-center border-b border-border bg-background/80 px-3 py-2 backdrop-blur-sm">
+        {fileName && (
+          <span className="absolute left-3 hidden max-w-[45%] truncate text-xs text-muted-foreground sm:block">
+            {fileName}
+          </span>
+        )}
+        <div className="flex items-center gap-0.5 rounded-lg border border-border bg-background p-0.5 shadow-sm">
+          <SwitchButton
+            active={mode === "3d"}
+            disabled={!has3d}
+            onClick={() => setMode("3d")}
+            icon={<Box className="h-3.5 w-3.5" />}
+            label="3D Model"
+          />
+          <SwitchButton
+            active={mode === "2d"}
+            disabled={!has2d}
+            onClick={() => setMode("2d")}
+            icon={<FileImage className="h-3.5 w-3.5" />}
+            label="2D Drawing"
+          />
+        </div>
       </div>
 
-      <div className="h-full w-full">
+      <div className="relative min-h-0 flex-1">
         {mode === "3d"
-          ? <StepViewer fileUrl={stepUrl ?? null} title={fileName ?? undefined} components={components} selectedIndex={selectedIndex} hoveredIndex={hoveredIndex} onSelectComponent={onSelectComponent} selectedCounts={selectedCounts} />
-          : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} title={fileName ?? undefined} />}
+          ? <StepViewer fileUrl={stepUrl ?? null} components={components} selectedIndex={selectedIndex} hoveredIndex={hoveredIndex} onSelectComponent={onSelectComponent} selectedCounts={selectedCounts} />
+          : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} />}
       </div>
     </div>
   );

@@ -1132,6 +1132,20 @@ async def run(
                 if inferred and current in ("", "unknown", "assembly"):
                     drawing_dict["part_category"] = inferred
                     drawing_dict["part_category_source"] = "afr_cross_feed"
+                    # Write back to the ORIGINAL Pydantic model too — the
+                    # orchestrator builds final_answer + DB persist from
+                    # `drawing.as_dict()`, NOT from this local drawing_dict
+                    # copy. Without this, the refined category never leaves
+                    # the coordinator. part_category is a declared field
+                    # (DrawingExtraction); part_category_source is an extra.
+                    if isinstance(drawing, DrawingExtraction):
+                        try:
+                            drawing.part_category = inferred
+                            object.__setattr__(drawing, "part_category_source", "afr_cross_feed")
+                        except Exception as wb_exc:  # noqa: BLE001
+                            logger.warning(
+                                "agentic: part_category write-back to model failed: %s", wb_exc,
+                            )
                     logger.info(
                         "agentic: refined drawing.part_category → %s "
                         "(was %r, source=afr_cross_feed)",
@@ -1195,17 +1209,23 @@ async def run(
             await asyncio.sleep(5.0)
 
         processes_per_component: list[list[dict]] = []
+        failed_components: list[dict] = []
         for i, task in enumerate(comp_tasks):
             exc = task.exception()
             if exc is not None:
-                logger.warning("agentic: component %d task raised %s", i, exc)
+                cname = components[i].get("name", f"Component_{i}")
+                logger.warning("agentic: component %d (%s) task raised %s", i, cname, exc)
                 processes_per_component.append([])
+                failed_components.append({"component_index": i, "name": cname, "error": str(exc)})
                 await safe_emit(on_event, "tool_result", {
                     "tool": f"agentic_component_{i}",
-                    "result": {
-                        "component": components[i].get("name", f"Component_{i}"),
-                        "error": str(exc),
-                    },
+                    "result": {"component": cname, "error": str(exc)},
+                })
+                # Distinct, human-readable surfacing so the failure isn't lost
+                # among tool rows — the FE renders `warning` as an amber row.
+                await safe_emit(on_event, "warning", {
+                    "message": f"Component “{cname}” failed to plan ({str(exc)[:120]}). "
+                               f"Its cost/routing is excluded; the assembly total may be understated.",
                 })
                 continue
             updated_comp, routing_rows, _mp, error_event = task.result()

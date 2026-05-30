@@ -24,7 +24,7 @@ import { parseSSEBuffer } from "@/lib/api/client";
 import { saveRunSource } from "@/lib/run-sources";
 import type {
   AgentStreamMessage,
-  AgenticData,
+  PlannerData,
   BBox,
   ComponentCost,
   Component as WireComponent,
@@ -61,8 +61,8 @@ export interface CanvasComponent {
   features?:    Feature[];
   /** Routing rows once the per-component agent finishes (filled on final_answer). */
   processes?:   RoutingRow[];
-  /** Agentic engine output (Phase A→D). Filled on final_answer. */
-  agentic?:     AgenticData;
+  /** Planner engine output. Filled on final_answer. */
+  agentic?:     PlannerData;
   cost?:        ComponentCost;
   cycleTimeMin?: number;
   totalUsd?:    number;
@@ -250,6 +250,13 @@ export function useAnalysisStream() {
 
           switch (event) {
             case "status":
+              // Clear any streamed "thinking" from the previous phase/page.
+              // During 2D extraction there are no tool_calls between pages, so
+              // without this the thinking buffer accumulates page after page and
+              // the line-clamped block shows the same stale head forever —
+              // looking frozen. A new status = a new step, so reset it.
+              localThinking = "";
+              setLiveThinking("");
               setMessages((prev) => {
                 const next = prev.map((m) =>
                   m.type === "status" && !(m.data as any).completed && !(m.data as any).failed

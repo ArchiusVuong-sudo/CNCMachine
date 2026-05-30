@@ -33,12 +33,21 @@ export function adoptCostedComponents(results: FinalAnswer | null): Component[] 
   const ppc = results?.processes_per_component;
   if (!Array.isArray(ppc)) return base;
   return base.map((c, i) =>
-    Array.isArray(ppc[i]) ? { ...c, manufacturing_processes: ppc[i] } : c,
+    Array.isArray(ppc[i])
+      // Preserve the pre-adapter manufacturing_processes (which carry per-tool
+      // feeds/speeds + tool detail) under raw_manufacturing_processes BEFORE
+      // the costed routing rows overwrite `manufacturing_processes`. Without
+      // this the Manufacturing Plan card's feeds/speeds source is erased.
+      ? { ...c, raw_manufacturing_processes: c.manufacturing_processes, manufacturing_processes: ppc[i] }
+      : c,
   );
 }
 
 export interface ResultTotals {
   totalUsd?: number;
+  totalUsdPerLot?: number;
+  batchSize?: number;
+  confidenceBandPct?: number | null;
   totalMin: number;
   assemblyName?: string;
 }
@@ -49,12 +58,16 @@ export interface ResultTotals {
  * (consolidation-aware via `componentCycleMin`) to keep the headline non-zero.
  */
 export function deriveResultTotals(results: FinalAnswer | null, components: Component[]): ResultTotals {
-  const totalUsd = results?.total_usd ?? results?.cost?.total_usd;
+  const cs = results?.cost_summary;
+  const totalUsd = cs?.total_usd_per_piece ?? results?.total_usd ?? results?.cost?.total_usd;
+  const totalUsdPerLot = cs?.total_usd_per_lot;
+  const batchSize = cs?.batch_size ?? results?.batch_size;
+  const confidenceBandPct = cs?.confidence_band_pct ?? null;
   const rawTotalMin = results?.total_minutes ?? results?.cycle_time?.total_minutes;
   const totalMin =
     typeof rawTotalMin === "number" && rawTotalMin > 0
       ? rawTotalMin
       : components.reduce((a, c) => a + componentCycleMin(c), 0);
   const assemblyName = firstStr(results?.assembly_name, results?.file_name);
-  return { totalUsd, totalMin, assemblyName };
+  return { totalUsd, totalUsdPerLot, batchSize, confidenceBandPct, totalMin, assemblyName };
 }

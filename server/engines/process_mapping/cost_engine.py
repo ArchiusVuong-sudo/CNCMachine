@@ -71,6 +71,23 @@ _FIXED_LOT_SETUP_MIN = 20.0
 _TOOL_PRESET_MIN_PER_TOOL = float(os.environ.get("A4_TOOL_PRESET_MIN", "3.0"))
 
 
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    """Coerce to float, mapping None / non-numeric / NaN / inf to ``default``.
+
+    A bare ``float(x) or 0.0`` does NOT catch NaN — ``float('nan')`` is truthy,
+    so a NaN that slips out of a Supabase numeric column would pass straight
+    through and poison ``total_usd`` (NaN serializes to invalid JSON, breaking
+    the SSE frame). This guards every cost arithmetic input.
+    """
+    try:
+        f = float(value)
+    except (TypeError, ValueError):
+        return default
+    if f != f or f in (float("inf"), float("-inf")):  # NaN or inf
+        return default
+    return f
+
+
 def _blended_rate_usd_per_hr() -> float:
     """Read A4_BLENDED_RATE_USD_PER_HR env var.
 
@@ -314,7 +331,22 @@ def _estimate_qty_per_stock(comp: dict, stock_row: dict) -> int:
     n_short = max(1, int((W_stock) // (W_part + kerf))) if (W_part + kerf) > 0 else 1
     qty = n_long * n_short
 
-    return max(1, min(qty, 50))
+    # A blanket cap of 50 over-charges material for genuinely small parts on a
+    # large sheet (e.g. a 2 mm tab nests ~170/sheet → capped to 50 → 3.4× the
+    # real per-part stock cost). Only clamp when a part dimension is so small
+    # the packing estimate is unreliable; otherwise trust the geometry and log
+    # if the count is unusually high so the number is auditable.
+    SMALL_PART_MM = 5.0
+    if L_part < SMALL_PART_MM or W_part < SMALL_PART_MM:
+        capped = max(1, min(qty, 50))
+    else:
+        capped = max(1, min(qty, 500))
+    if capped < qty:
+        logger.info(
+            "nesting: %s qty_per_stock clamped %d → %d (part %.1fx%.1f on %.0fx%.0f stock)",
+            (comp.get("name") or "?"), qty, capped, L_part, W_part, L_stock, W_stock,
+        )
+    return capped
 
 
 def _pick_stock(comp: dict, catalog: dict) -> dict | None:
@@ -509,6 +541,10 @@ async def compute_cost(
     # component gets 0 setup. This keeps total assembly setup = 20 min/batch
     # rather than 20 × component_count.
     _lot_setup_charged = False
+    # Tools already pre-set somewhere in this lot. Pre-setting is paid ONCE per
+    # distinct tool across the whole job, not once per component — otherwise a
+    # 5-component assembly sharing 6 tools is charged 5× the real preset time.
+    _preset_tool_ids: set[str] = set()
 
     for comp_idx, comp in enumerate(components):
         processes = (
@@ -586,8 +622,8 @@ async def compute_cost(
             )
             continue
 
-        cost_per_stock = float(stock.get("cost_per_stock_usd") or 0.0)
-        qty_per_stock  = max(int(stock.get("qty_per_stock") or 1), 1)
+        cost_per_stock = _safe_float(stock.get("cost_per_stock_usd"))
+        qty_per_stock  = max(int(_safe_float(stock.get("qty_per_stock"), 1.0)) or 1, 1)
         raw_material_usd = cost_per_stock / qty_per_stock
         logger.info(
             "cost_engine COMP[%d] %s START: part_type=%s material=%s stock=%s "
@@ -655,7 +691,11 @@ async def compute_cost(
             ).get("tool_id")
             if single_tid:
                 distinct_tool_ids.add(str(single_tid))
-        preset_min = len(distinct_tool_ids) * _TOOL_PRESET_MIN_PER_TOOL
+        # Only charge pre-setting for tools not already pre-set elsewhere in
+        # this lot. Shared tools are paid once, not once per component.
+        new_tool_ids = distinct_tool_ids - _preset_tool_ids
+        _preset_tool_ids |= new_tool_ids
+        preset_min = len(new_tool_ids) * _TOOL_PRESET_MIN_PER_TOOL
 
         if processes and not _lot_setup_charged:
             setup_min_total = _FIXED_LOT_SETUP_MIN + preset_min

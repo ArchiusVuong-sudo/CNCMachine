@@ -552,6 +552,21 @@ def _score_part_type(
         if bend_count > 0:
             score -= 2.0
 
+    elif part_type == PartType.WELDMENT:
+        # Weldments are assembly-level parts; geometry is secondary to the name
+        # keywords (handled in _score_name_keywords). Give a small constant
+        # floor so a name-keyword hit isn't competing against 0.0 while every
+        # other type accrues positive geometry score.
+        score += 1.5
+        if plane_frac > 0.3:        # cut-stock / machined interface pads
+            score += 1.0
+        elif plane_frac > 0.15:
+            score += 0.5
+        if bspline_frac + torus_frac > 0.1:  # weld-bead / fillet topology
+            score += 1.0
+        if total_faces > 50:        # multi-body welded assemblies expose many faces
+            score += 0.5
+
     elif part_type == PartType.CNC_LATHE_MILLING:
         # Circular cross-section guard: the two bbox dims perpendicular to the
         # spindle axis must be nearly equal, confirming a circular outer profile.

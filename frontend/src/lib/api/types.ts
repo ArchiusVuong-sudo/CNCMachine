@@ -97,6 +97,11 @@ export interface VlmExtraction {
   material?:        string;
   surface_finish?:  string | null;
   dimension_unit?:  "mm" | "in" | string;
+  /** Drawing-level family (brief Page 3 OCR output): weldment |
+   *  assembly_bolted | assembly_bonded | sheet_metal | cnc_milling | … */
+  part_category?:   string | null;
+  /** Drawing mfg spec: welded | bolted | riveted | bonded | null. */
+  assembly_method?: string | null;
   title_block?:     TitleBlock | null;
   bom_items?:       BomItem[];
   /** Server emits ``list[str]``; tolerate ``{text}`` objects defensively. */
@@ -169,7 +174,27 @@ export interface Feature {
   tolerance_plus?:  number | null;
   tolerance_minus?: number | null;
   gdt_callouts?:    string[];
+  /** dim_tagger flags carried on the feature. */
+  tolerance_class?: string;
+  is_threaded?:     boolean;
+  thread_spec?:     string;
+  operations?:      string[];
+  needs_finishing?: boolean;
+  key_face_id?:     string;
   [key: string]: unknown;
+}
+
+/** One row of the per-feature ↔ tolerance/GD&T/process map (UI projection). */
+export interface FeatureMapRow {
+  feature_id:       string;
+  feature_type:     string;
+  count?:           number;
+  key_dimension?:   string;
+  tolerance?:       string;
+  tolerance_class?: string;
+  gdt?:             string;
+  thread?:          string;
+  operations?:      string;
 }
 
 /** One ranked machine returned by Phase A. */
@@ -326,6 +351,11 @@ export interface Component {
   features?:              Feature[];
   /** Routing + per-op costing rows for this component. */
   manufacturing_processes?: RoutingRow[];
+  /** Pre-adapter manufacturing_processes (per-tool feeds/speeds + tool detail),
+   *  preserved by adoptCostedComponents() before the costed routing rows
+   *  overwrite `manufacturing_processes`. The Manufacturing Plan card reads
+   *  feeds/speeds from here. */
+  raw_manufacturing_processes?: RoutingRow[];
   /** Alias kept for components that still use the legacy field name. */
   processes?:             RoutingRow[];
   stock?:                 StockInfo | null;
@@ -423,6 +453,14 @@ export interface FinalAnswer {
   cost?:                    CostBlock;
   cycle_time?:              CycleTimeBlock;
   cam?:                     CamBlock;
+  /** Assembly-level cost rollup (per-piece / per-lot + confidence band). */
+  cost_summary?: {
+    total_usd_per_piece?: number;
+    total_usd_per_lot?:   number;
+    batch_size?:          number;
+    confidence_band_pct?: number | null;
+    evidence?:            unknown;
+  } | null;
   /**
    * SSE pipeline events captured at the route layer and persisted into
    * the saved analysis JSON. Powers the History view's pipeline-activity

@@ -24,6 +24,10 @@ interface RunsPanelProps {
   liveRun?: { id: string; label: string; streaming: boolean } | null;
   /** Bump to force a re-fetch (e.g. after a run finishes). */
   refreshSignal?: number;
+  /** Mobile (<lg) drawer open state. Ignored on desktop where the panel is a
+   *  permanent column. */
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 /** Projects per page in the expanded listing before pagination kicks in. */
@@ -46,6 +50,7 @@ function runSubtitle(r: AnalysisSummary): string {
 
 export function RunsPanel({
   collapsed, onToggleCollapse, activeId, onSelectRun, onNewEstimate, liveRun, refreshSignal,
+  mobileOpen = false, onMobileClose,
 }: RunsPanelProps) {
   const [runs, setRuns]       = useState<AnalysisSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,10 +106,9 @@ export function RunsPanel({
   const safePage  = Math.min(page, pageCount - 1);
   const pageRows  = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
 
-  // ── Collapsed rail ───────────────────────────────────────────────────────
-  if (collapsed) {
-    return (
-      <aside className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r border-sidebar-border bg-sidebar py-3">
+  // ── Collapsed rail (desktop only — mobile always uses the drawer) ─────────
+  const railEl = collapsed ? (
+      <aside className="hidden h-full w-14 shrink-0 flex-col items-center gap-2 border-r border-sidebar-border bg-sidebar py-3 lg:flex">
         <button
           onClick={onToggleCollapse}
           className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -148,19 +152,33 @@ export function RunsPanel({
           <Database className="h-4.5 w-4.5" />
         </Link>
       </aside>
-    );
-  }
+  ) : null;
 
-  // ── Expanded panel ─────────────────────────────────────────────────────────
-  return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+  // ── Expanded panel — permanent column on lg+, slide-in drawer on mobile ────
+  const panelEl = (
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-transform duration-200 ease-out",
+        "lg:static lg:z-auto lg:max-w-none lg:translate-x-0",
+        mobileOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full",
+        collapsed && "lg:hidden",
+      )}
+    >
       {/* Header */}
       <div className="flex items-start justify-between px-3 py-3">
         <BrandMark />
+        {/* Desktop: collapse to rail. Mobile: close the drawer. */}
         <button
           onClick={onToggleCollapse}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:flex"
           title="Collapse panel"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </button>
+        <button
+          onClick={onMobileClose}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground lg:hidden"
+          aria-label="Close panel"
         >
           <PanelLeftClose className="h-4 w-4" />
         </button>
@@ -280,6 +298,21 @@ export function RunsPanel({
         </Link>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Mobile-only dim backdrop behind the drawer */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={onMobileClose}
+          aria-hidden
+        />
+      )}
+      {railEl}
+      {panelEl}
+    </>
   );
 }
 

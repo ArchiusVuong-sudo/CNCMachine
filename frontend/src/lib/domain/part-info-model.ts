@@ -22,17 +22,41 @@ function topLevel(v: unknown): string | undefined {
   return v == null || v === "" ? undefined : String(v);
 }
 
+/** Human-readable label for the drawing-level part_category enum. */
+function prettyCategory(v: unknown): string | undefined {
+  if (v == null || v === "") return undefined;
+  const key = String(v).toLowerCase();
+  const map: Record<string, string> = {
+    weldment: "Weldment",
+    assembly_bolted: "Bolted Assembly",
+    assembly_riveted: "Riveted Assembly",
+    assembly_bonded: "Bonded Assembly",
+    assembly: "Assembly",
+    sheet_metal: "Sheet Metal",
+    cnc_milling: "CNC Milling",
+    cnc_lathe: "CNC Lathe",
+    cnc_lathe_milling: "CNC Turn-Mill",
+    hardware: "Hardware",
+  };
+  return map[key] ?? String(v).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /**
  * The identity fields shown in the Part Information card. Surface Finish and
  * the drawn/checked/date/scale/sheet/company sub-block are intentionally
  * omitted per the 27 May review.
  */
 export function buildPartInfoFields(vlm: VlmExtraction | null | undefined): PartInfoField[] {
-  return [
+  const fields: PartInfoField[] = [
     { label: "Part Description", value: topLevel(vlm?.description) ?? tb(vlm, "description") ?? tb(vlm, "title") },
     { label: "Part Number",      value: topLevel(vlm?.part_number) ?? tb(vlm, "part_number") },
     { label: "Revision",         value: topLevel(vlm?.revision) ?? tb(vlm, "revision") },
     { label: "Material",         value: topLevel(vlm?.material) },
     { label: "Units",            value: topLevel(vlm?.dimension_unit) ?? tb(vlm, "dimension_unit") },
   ];
+  // Part Category is shown only when the pipeline classified one (weldment /
+  // assembly / sheet_metal / …) so single-part drawings don't get a blank row.
+  const category = prettyCategory(vlm?.part_category);
+  if (category) fields.push({ label: "Part Category", value: category });
+  return fields;
 }
