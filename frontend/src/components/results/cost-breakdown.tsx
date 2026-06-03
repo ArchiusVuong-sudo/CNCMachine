@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { usd, minutes, toNum } from "@/lib/format";
 import { rowTotal, type CostView, type EditModel } from "@/lib/domain/cost-model";
+import { deriveComplexity } from "@/lib/domain/complexity";
 import { useCostBreakdown } from "@/lib/hooks/useCostBreakdown";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +42,9 @@ export function CostBreakdown({
   const name = selected ? (selected.name ?? `Component ${selected.component_index}`) : (assemblyName || "Assembly");
   const typeLabel = selected ? (selected.part_type ?? "—") : "Assembly";
   const isHardware = (selected?.part_type ?? "").toLowerCase() === "hardware";
-  const headComplexity = selected?.complexity != null ? String(selected.complexity) : undefined;
+  // Component complexity is derived from features (no backend field sets it) —
+  // same band the Manufacturing Plan card and the Cycle-Time column show.
+  const headComplexity = selected ? deriveComplexity(selected).band : undefined;
 
   return (
     <div className={cn("flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card", className)}>
@@ -89,7 +92,7 @@ export function CostBreakdown({
       {/* Table */}
       <div className="min-h-0 flex-1 overflow-auto">
         {model.rows.length > 0 ? (
-          <table className="w-full text-sm">
+          <table className="w-full text-[13px]">
             <thead>
               <tr className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2 text-left font-medium">Process</th>
@@ -121,7 +124,7 @@ export function CostBreakdown({
                             {r.compTag}
                           </div>
                         )}
-                        <div className="truncate text-sm font-medium capitalize" title={r.process}>
+                        <div className="truncate text-[13px] font-medium capitalize" title={r.process}>
                           {r.process.replace(/_/g, " ")}
                         </div>
                         {(r.opCode || r.machine) && (
@@ -166,23 +169,35 @@ export function CostBreakdown({
           </div>
         )}
 
-        {/* Component-level money lines */}
+        {/* Summary cells — Material / Setup / Deburr / Inspection / Machining.
+           Cost view shows $ (the first four editable); Cycle Time view shows
+           per-bucket minutes (Material has no time → "—"). Machining now lives
+           in this grid instead of a separate footer row. */}
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 border-t border-border px-4 py-3">
-          <MoneyLine label="Material" value={model.materialUsd} editing={edit} onChange={(v) => setField("materialUsd", v)} />
-          <MoneyLine label="Setup" value={model.setupUsd} editing={edit} onChange={(v) => setField("setupUsd", v)} />
-          <MoneyLine label="Deburr" value={model.deburrUsd} editing={edit} onChange={(v) => setField("deburrUsd", v)} />
-          <MoneyLine label="Inspection" value={model.inspectionUsd} editing={edit} onChange={(v) => setField("inspectionUsd", v)} />
+          {view === "cost" ? (
+            <>
+              <MoneyLine label="Material" value={model.materialUsd} editing={edit} onChange={(v) => setField("materialUsd", v)} />
+              <MoneyLine label="Setup" value={model.setupUsd} editing={edit} onChange={(v) => setField("setupUsd", v)} />
+              <MoneyLine label="Deburr" value={edit ? model.deburrUsd : String(totals.deburr)} editing={edit} onChange={(v) => setField("deburrUsd", v)} />
+              <MoneyLine label="Inspection" value={edit ? model.inspectionUsd : String(totals.inspection)} editing={edit} onChange={(v) => setField("inspectionUsd", v)} />
+              <StatLine label="Machining" value={usd(totals.machining)} />
+            </>
+          ) : (
+            <>
+              <StatLine label="Material" value="—" />
+              <StatLine label="Setup" value={minutes(toNum(model.setupMin))} />
+              <StatLine label="Deburr" value={minutes(totals.deburrMin)} />
+              <StatLine label="Inspection" value={minutes(totals.inspectionMin)} />
+              <StatLine label="Machining" value={minutes(totals.machiningMin)} />
+            </>
+          )}
         </div>
       </div>
 
-      {/* Totals + actions */}
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-4 py-3">
-        <div className="flex items-center gap-5 text-sm">
-          <span className="text-muted-foreground">Machining <span className="font-semibold text-foreground tabular-nums">{usd(totals.machining)}</span></span>
-          <span className="text-muted-foreground">Cycle <span className="font-semibold text-foreground tabular-nums">{minutes(totals.cycle)}</span></span>
-          <span className="text-muted-foreground">Total <span className="text-base font-bold text-foreground tabular-nums">{usd(totals.total)}</span></span>
-        </div>
-        {edit && (
+      {/* Edit actions only — the Machining/Cycle/Total footer is removed; the
+         Total + Cycle headline lives in the card header (top-right). */}
+      {edit && (
+        <div className="mt-auto flex items-center justify-end gap-2 border-t border-border bg-muted/20 px-4 py-3">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={reset} disabled={!dirty || submitting}>
               <RotateCcw className="h-3.5 w-3.5" /> Reset
@@ -192,8 +207,8 @@ export function CostBreakdown({
               Submit corrections
             </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -267,7 +282,7 @@ function MoneyLine({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 py-0.5 text-sm">
+    <div className="flex items-center justify-between gap-2 py-0.5 text-[13px]">
       <span className="text-muted-foreground">{label}</span>
       {editing ? (
         <Input
@@ -280,6 +295,17 @@ function MoneyLine({
       ) : (
         <span className="font-medium tabular-nums">{usd(toNum(value))}</span>
       )}
+    </div>
+  );
+}
+
+/** Read-only summary line — shows a pre-formatted value (e.g. minutes or a
+ *  derived $ total) that isn't directly editable as a scalar bucket. */
+function StatLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-0.5 text-[13px]">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium tabular-nums">{value}</span>
     </div>
   );
 }

@@ -44,7 +44,7 @@ _ANALYSIS_COLS = {
     "assembly_name", "component_count", "total_volume_mm3", "total_minutes",
     "total_usd", "batch_size", "pmi_available", "welding_contacts",
     "error_message", "elapsed_seconds", "assembly_data", "data_quality",
-    "trace_json", "cam_run_id",
+    "trace_json", "cam_run_id", "messages_json",
 }
 
 _EXTRACTION_2D_COLS = {
@@ -65,6 +65,8 @@ _COMPONENT_COLS = {
     "mapped_to_bom_item", "material", "mapping_method", "cycle_time_min",
     "cost_usd", "cost_breakdown", "bom_part_type", "pmi_annotations",
     "stock_json", "agentic_plan", "chosen_machine_id", "machine_class",
+    # Drawing-level GD&T fallback list (migration 009).
+    "gdt_callouts",
 }
 
 _FEATURE_COLS = {
@@ -72,6 +74,8 @@ _FEATURE_COLS = {
     "key_face_ids", "count", "confidence", "source", "dimensions",
     "perimeter_mm", "location", "tolerance_plus", "tolerance_minus",
     "gdt_callouts",
+    # dim_tagger enrichment (migration 009).
+    "tolerance_class", "is_threaded", "thread_spec", "operations",
 }
 
 _PROCESS_COLS = {
@@ -506,6 +510,32 @@ async def persist_analysis_failed(
     await asyncio.to_thread(_upsert, client, "a4_analyses", row)
 
 
+def _update_messages(client: Any, analysis_id: str, messages: list[dict]) -> None:
+    try:
+        client.table("a4_analyses").update(
+            {"messages_json": messages}
+        ).eq("id", analysis_id).execute()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("persistence: messages update failed for %s: %s", analysis_id, exc)
+
+
+async def persist_analysis_messages(
+    client: Any,
+    *,
+    analysis_id: str,
+    messages: list[dict],
+) -> None:
+    """Store the captured SSE activity log on the analysis row.
+
+    Called once, after the stream completes, so the saved-run pipeline-activity
+    card can replay the timeline. Best-effort; the row already exists (created
+    by ``persist_analysis_start``) so this is a plain UPDATE.
+    """
+    if client is None or not messages:
+        return
+    await asyncio.to_thread(_update_messages, client, analysis_id, messages)
+
+
 async def persist_analysis_complete(
     client: Any,
     *,
@@ -628,6 +658,7 @@ async def persist_analysis_complete(
             "cost_usd":             (comp.get("cost") or {}).get("total_usd"),
             "cost_breakdown":       comp.get("cost"),
             "pmi_annotations":      comp.get("pmi_annotations") or [],
+            "gdt_callouts":         comp.get("gdt_callouts") or [],
             "stock_json":           comp.get("stock"),
             # Prefer `planner` (engine-agnostic) but accept `agentic` for
             # back-compat — DB column name kept as `agentic_plan` for migration
@@ -675,6 +706,11 @@ async def persist_analysis_complete(
                     "tolerance_plus":  f.get("tolerance_plus"),
                     "tolerance_minus": f.get("tolerance_minus"),
                     "gdt_callouts":    f.get("gdt_callouts") or [],
+                    # dim_tagger enrichment (migration 009).
+                    "tolerance_class": f.get("tolerance_class"),
+                    "is_threaded":     f.get("is_threaded"),
+                    "thread_spec":     f.get("thread_spec"),
+                    "operations":      f.get("operations") or [],
                 }, _FEATURE_COLS)
                 for f_idx, f in enumerate(features)
             ]

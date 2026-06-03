@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Cog, Gauge, Cpu } from "lucide-react";
 import type { Component, RoutingRow, RankedMachine } from "@/lib/api/types";
+import { deriveComplexity } from "@/lib/domain/complexity";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,37 +28,6 @@ function fmt(v: unknown, digits = 0): string {
   const n = num(v);
   if (n == null) return "—";
   return Number.isInteger(n) ? String(n) : n.toFixed(digits);
-}
-
-/** A feature counts as "tight" when its total tolerance band ≤ 0.05 mm
- *  (≈ ±0.001"), or dim_tagger tagged it tight/ground. */
-function isTight(f: { tolerance_plus?: number | null; tolerance_minus?: number | null; tolerance_class?: unknown }): boolean {
-  const cls = typeof f.tolerance_class === "string" ? f.tolerance_class.toLowerCase() : "";
-  if (cls === "tight" || cls === "ground") return true;
-  const tp = typeof f.tolerance_plus === "number" ? Math.abs(f.tolerance_plus) : null;
-  const tm = typeof f.tolerance_minus === "number" ? Math.abs(f.tolerance_minus) : null;
-  const band = (tp ?? 0) + (tm ?? 0);
-  return band > 0 && band <= 0.05;
-}
-
-interface Complexity {
-  nFeatures: number;
-  nTight: number;
-  nThreads: number;
-  nGdt: number;
-  band: "Low" | "Medium" | "High";
-}
-
-function deriveComplexity(c: Component): Complexity {
-  const feats = c.features ?? [];
-  const nFeatures = feats.reduce((a, f) => a + (f.count && f.count > 1 ? f.count : 1), 0);
-  const nTight = feats.filter(isTight).length;
-  const nThreads = feats.filter((f) => f.is_threaded || typeof f.thread_spec === "string").length;
-  const nGdt = feats.reduce((a, f) => a + ((f.gdt_callouts ?? []).length), 0);
-  // Simple, honest heuristic — not a fake /10 score.
-  const score = nFeatures * 0.3 + nTight * 1.2 + nThreads * 1.0 + nGdt * 0.8;
-  const band: Complexity["band"] = score >= 8 ? "High" : score >= 3.5 ? "Medium" : "Low";
-  return { nFeatures, nTight, nThreads, nGdt, band };
 }
 
 /** Pick the component whose plan to show: the selected one, else the richest
@@ -129,7 +99,7 @@ export function ManufacturingPlanCard({
             <p className="text-sm text-muted-foreground">No machine ranking recorded.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] text-sm">
+              <table className="w-full min-w-[420px] text-[13px]">
                 <thead><tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
                   <Th>#</Th><Th>Machine</Th><Th className="text-right">Score</Th><Th className="text-right">$/hr</Th><Th>Why</Th>
                 </tr></thead>
@@ -153,7 +123,7 @@ export function ManufacturingPlanCard({
         {ops.length > 0 && (
           <Section icon={<Cog className="h-3.5 w-3.5" />} title={`Operation sequence (${ops.length})`}>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-sm">
+              <table className="w-full min-w-[480px] text-[13px]">
                 <thead><tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
                   <Th>Seq</Th><Th>Operation</Th><Th>Tool</Th><Th className="text-right">Ø mm</Th><Th className="text-right">Run min</Th>
                 </tr></thead>
@@ -177,7 +147,7 @@ export function ManufacturingPlanCard({
         {feeds.length > 0 && (
           <Section icon={<Gauge className="h-3.5 w-3.5" />} title="Feeds & speeds">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] text-sm">
+              <table className="w-full min-w-[520px] text-[13px]">
                 <thead><tr className="border-b border-border text-[11px] uppercase tracking-wide text-muted-foreground">
                   <Th>Operation</Th><Th>Tool</Th><Th className="text-right">Spindle RPM</Th><Th className="text-right">Feed mm/min</Th><Th className="text-right">Stepdown</Th><Th className="text-right">Stepover</Th>
                 </tr></thead>

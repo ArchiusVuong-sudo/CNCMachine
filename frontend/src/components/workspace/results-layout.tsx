@@ -11,6 +11,7 @@ import {
   drawingTolerances, drawingGdt, drawingThreads,
 } from "@/lib/domain/extraction-model";
 import { BillOfMaterial } from "@/components/results/bill-of-material";
+import { isTopAssemblyComponent } from "@/lib/domain/bom-model";
 import { CostBreakdown } from "@/components/results/cost-breakdown";
 import { ManufacturingPlanCard } from "@/components/results/manufacturing-plan";
 import type { ViewerSrc } from "./types";
@@ -59,6 +60,25 @@ export function ResultsLayout({
     [results, components],
   );
   const hasComponents = components.length > 0;
+  // Physical part count — excludes the synthetic TOP_ASSEMBLY node so the
+  // "Components" headline matches the Bill of Material part count.
+  const partCount = useMemo(
+    () => components.filter((c) => !isTopAssemblyComponent(c)).length,
+    [components],
+  );
+
+  // Item 12 — the level-0 Bill-of-Material row must show the real drawing part
+  // number, never the internal STEP "TC…_…" assembly id. Prefer the 2D part
+  // number (+ description); fall back to the STEP name with the TC prefix
+  // stripped. `drawingDescription` also backstops the sole machined part's
+  // Description cell (item 13).
+  const drawingDescription = typeof vlm?.description === "string" ? vlm.description.trim() : "";
+  const drawingPartNumber = typeof vlm?.part_number === "string" ? vlm.part_number.trim() : "";
+  // The level-0 row's PART NUMBER cell shows just the drawing part number; its
+  // description goes in the DESCRIPTION cell (passed separately) so it no longer
+  // spans both columns. Fall back to the STEP name with the TC prefix stripped.
+  const assemblyPartNumber = drawingPartNumber
+    || ((assemblyName ?? "").replace(/^TC\d+-\w+-/i, "").trim() || assemblyName);
 
   const viewerComponents: ViewportComponentInfo[] = components.map((c) => ({
     component_index: c.component_index,
@@ -93,7 +113,7 @@ export function ResultsLayout({
          and Cost Breakdown (Row 3) stay reachable without large page scroll.
          Mobile/tablet (<xl): stacks, each card uses its natural / min height. */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[30%_minmax(0,70%)] xl:items-stretch xl:h-[clamp(420px,calc(100vh-180px),640px)]">
-        <PartInformation vlm={vlm} totalUsd={totalUsd} totalUsdPerLot={totalUsdPerLot} batchSize={batchSize} confidenceBandPct={confidenceBandPct} nComponents={hasComponents ? components.length : undefined} />
+        <PartInformation vlm={vlm} analysisId={analysisId} totalUsd={totalUsd} totalUsdPerLot={totalUsdPerLot} batchSize={batchSize} confidenceBandPct={confidenceBandPct} nComponents={hasComponents ? partCount : undefined} />
         <div className="min-h-90 min-w-0 xl:min-h-0 xl:h-full">
           <Viewport
             stepUrl={viewer.stepUrl}
@@ -115,7 +135,10 @@ export function ResultsLayout({
           {/* Row 2 — Bill of Material (full width) */}
           <BillOfMaterial
             components={components}
-            assemblyName={assemblyName}
+            bomItems={vlm?.bom_items ?? []}
+            analysisId={analysisId}
+            assemblyName={assemblyPartNumber}
+            drawingDescription={drawingDescription}
             totalUsd={totalUsd}
             totalMin={totalMin}
             selectedIndex={selectedIndex}
@@ -129,7 +152,7 @@ export function ResultsLayout({
               analysisId={analysisId}
               components={components}
               selectedIndex={selectedIndex}
-              assemblyName={assemblyName}
+              assemblyName={assemblyPartNumber}
               totalUsd={totalUsd}
               totalMin={totalMin}
             />

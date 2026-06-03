@@ -51,6 +51,12 @@ export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className
   // Prefer 3D when present; otherwise fall back to whichever exists.
   const [mode, setMode] = useState<ViewportMode>(has3d ? "3d" : "2d");
 
+  // Header-right slot: the active viewer can portal its toolbar up here so the
+  // controls sit on the SAME row as the 3D/2D switch instead of dropping into
+  // the viewer area below it. Callback ref via state so the viewer re-renders
+  // once the slot node exists.
+  const [controlsSlot, setControlsSlot] = useState<HTMLDivElement | null>(null);
+
   // Keep the active tab valid as sources arrive/clear (e.g. switching runs).
   useEffect(() => {
     if (mode === "3d" && !has3d && has2d) setMode("2d");
@@ -86,12 +92,14 @@ export function Viewport({ stepUrl, drawingUrl, drawingType, fileName, className
             label="2D Drawing"
           />
         </div>
+        {/* Right-aligned slot for the active viewer's toolbar (filled via portal). */}
+        <div ref={setControlsSlot} className="absolute right-2 flex items-center" />
       </div>
 
       <div className="relative min-h-0 flex-1">
         {mode === "3d"
           ? <StepViewer fileUrl={stepUrl ?? null} components={components} selectedIndex={selectedIndex} hoveredIndex={hoveredIndex} onSelectComponent={onSelectComponent} selectedCounts={selectedCounts} />
-          : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} />}
+          : <DrawingViewer fileUrl={drawingUrl ?? null} mimeType={drawingType} controlsSlot={controlsSlot} />}
       </div>
     </div>
   );

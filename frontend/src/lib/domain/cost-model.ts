@@ -11,6 +11,7 @@ import type { Component } from "@/lib/api/types";
 import { num, toNum } from "@/lib/format";
 import { isUuid } from "@/lib/utils";
 import { rowsFromComponent } from "./selectors";
+import { deriveComplexity } from "./complexity";
 
 /** Which of the two merged tables (cost vs. cycle time) is shown. */
 export type CostView = "cost" | "cycle";
@@ -24,6 +25,9 @@ export interface EditRow {
   compTag?: string;
   opCode?: string;
   machine?: string;
+  /** Cost category from the backend routing row: 'machining' | 'deburring' |
+   *  'inspection' | 'hole_making' | 'finishing' | … Absent on legacy rows. */
+  category?: string;
   complexity: string;
   cycleMin: string;
   laborUsd: string;
@@ -37,6 +41,8 @@ export interface EditModel {
   setupUsd: string;
   deburrUsd: string;
   inspectionUsd: string;
+  /** Setup time (min/lot) — shown in the Cycle-Time view's Setup cell. */
+  setupMin: string;
   rows: EditRow[];
 }
 
@@ -47,6 +53,9 @@ export interface EditModel {
  *  (`machine_name`) first and the legacy nested `machine_ref` as a back-compat
  *  fallback for runs persisted before the schema flatten. */
 export function rowsForComponent(comp: Component, prefix = false): EditRow[] {
+  // Derive once per component — all rows share the component-level band (no
+  // per-op complexity exists in the data model).
+  const complexityBand = deriveComplexity(comp).band;
   return rowsFromComponent(comp).map((p, i): EditRow => {
     const machineName =
       p.machine_name ??
@@ -57,7 +66,8 @@ export function rowsForComponent(comp: Component, prefix = false): EditRow[] {
       compTag: prefix ? (comp.name ?? `Comp ${comp.component_index}`) : undefined,
       opCode: p.op_code,
       machine: machineName && !isUuid(machineName) ? machineName : undefined,
-      complexity: p.complexity != null ? String(p.complexity) : "",
+      category: p.category ?? undefined,
+      complexity: p.complexity != null ? String(p.complexity) : complexityBand,
       cycleMin: num(p.cycle_time_min) || "0",
       laborUsd: num(p.labor_cost_usd, 4) || "0",
       burdenUsd: num(p.machine_cost_usd, 4) || "0",
@@ -74,6 +84,7 @@ export function buildComponentModel(comp: Component): EditModel {
     setupUsd: num(cost.setup_usd, 4) || "0",
     deburrUsd: num(cost.deburr_usd, 4) || "0",
     inspectionUsd: num(cost.inspection_usd, 4) || "0",
+    setupMin: num(cost.setup_min_per_lot, 2) || "0",
     rows: rowsForComponent(comp),
   };
 }
@@ -87,17 +98,46 @@ export function buildAssemblyModel(components: Component[]): EditModel {
     setupUsd: String(sum((c) => c.cost?.setup_usd)),
     deburrUsd: String(sum((c) => c.cost?.deburr_usd)),
     inspectionUsd: String(sum((c) => c.cost?.inspection_usd)),
+    setupMin: String(sum((c) => c.cost?.setup_min_per_lot)),
     rows: components.flatMap((c) => rowsForComponent(c, true)),
   };
 }
 
 export const rowTotal = (r: EditRow): number => toNum(r.laborUsd) + toNum(r.burdenUsd) + toNum(r.toolUsd);
 
+/** Classify a row's display bucket. Rows whose category is 'deburring' or
+ *  'inspection' flow into those buckets; everything else (machining,
+ *  hole_making, finishing, admin, …) stays in Machining. cost_engine bills
+ *  DEBUR + INSPECT op rows into machining_total (deburr_usd=0 by design), so
+ *  moving them to their visual buckets here changes NO total — it just labels
+ *  the money correctly instead of hiding deburr/per-part inspection in
+ *  "Machining". */
+function rowBucket(r: EditRow): "machining" | "deburring" | "inspection" {
+  const cat = (r.category ?? "").toLowerCase();
+  if (cat === "deburring") return "deburring";
+  if (cat === "inspection") return "inspection";
+  return "machining";
+}
+
 export function deriveTotals(m: EditModel) {
-  const machining = m.rows.reduce((acc, r) => acc + rowTotal(r), 0);
-  const cycle = m.rows.reduce((acc, r) => acc + toNum(r.cycleMin), 0);
-  const total = toNum(m.materialUsd) + toNum(m.setupUsd) + machining + toNum(m.deburrUsd) + toNum(m.inspectionUsd);
-  return { machining, cycle, total };
+  let machining = 0, deburrRows = 0, inspectionRows = 0, cycle = 0;
+  // Per-bucket cycle minutes — feed the Cycle-Time view's summary cells.
+  let machiningMin = 0, deburrMin = 0, inspectionMin = 0;
+  for (const r of m.rows) {
+    const cost = rowTotal(r);
+    const min = toNum(r.cycleMin);
+    const bucket = rowBucket(r);
+    if (bucket === "deburring") { deburrRows += cost; deburrMin += min; }
+    else if (bucket === "inspection") { inspectionRows += cost; inspectionMin += min; }
+    else { machining += cost; machiningMin += min; }
+    cycle += min;
+  }
+  // Add the backend scalar buckets (deburr_usd=0 / inspection_usd=lot-inspection)
+  // on top of the op-row subtotals so each display line is complete.
+  const deburr = deburrRows + toNum(m.deburrUsd);
+  const inspection = inspectionRows + toNum(m.inspectionUsd);
+  const total = toNum(m.materialUsd) + toNum(m.setupUsd) + machining + deburr + inspection;
+  return { machining, deburr, inspection, cycle, total, machiningMin, deburrMin, inspectionMin };
 }
 
 /** Project the edit model back to the numeric shape the feedback endpoint wants. */

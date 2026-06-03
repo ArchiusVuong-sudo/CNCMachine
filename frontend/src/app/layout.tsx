@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { AnalysisStreamProvider } from "@/lib/hooks/analysis-stream-context";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -31,7 +32,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${dmSans.variable} ${jetbrains.variable} min-h-screen bg-background text-foreground antialiased`}>
-        {children}
+        <AnalysisStreamProvider>
+          {children}
+        </AnalysisStreamProvider>
         <Toaster position="bottom-right" richColors closeButton />
       </body>
     </html>

@@ -1,9 +1,10 @@
 "use client";
 
-import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink, Scan, Ruler, Crosshair, Spline } from "lucide-react";
+import { Box, Loader2, AlertCircle, RotateCcw, ZoomIn, ZoomOut, Scissors, ExternalLink, Scan, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useStepViewer } from "@/lib/hooks/viewer/useStepViewer";
 import type { ViewportComponentInfo } from "./viewport";
 
@@ -35,29 +36,13 @@ export function StepViewer({ fileUrl, title, components, selectedIndex, hoveredI
 
   return (
     <div className="relative h-full w-full">
-      {modelLoaded && !loading && selectedCounts && (selectedCounts.tolerances + selectedCounts.gdt + selectedCounts.threads) > 0 && (
-        <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-3 rounded-md border border-border bg-background/90 px-3 py-1.5 text-[11px] font-medium text-foreground shadow-sm backdrop-blur-sm">
-          <span className="inline-flex items-center gap-1" title="Tolerances">
-            <Ruler className="h-3.5 w-3.5 text-primary" />
-            <span className="tabular-nums">{selectedCounts.tolerances}</span>
-          </span>
-          <span className="inline-flex items-center gap-1" title="GD&T callouts">
-            <Crosshair className="h-3.5 w-3.5 text-primary" />
-            <span className="tabular-nums">{selectedCounts.gdt}</span>
-          </span>
-          <span className="inline-flex items-center gap-1" title="Threads">
-            <Spline className="h-3.5 w-3.5 text-primary" />
-            <span className="tabular-nums">{selectedCounts.threads}</span>
-          </span>
-        </div>
-      )}
       {modelLoaded && !loading && (
         <div className="absolute right-3 top-3 z-10 flex gap-1.5">
           {/* Measure tool */}
           <Button
             variant={measure.active ? "default" : "outline"}
             size="icon"
-            className="h-8 w-8 bg-background/90 backdrop-blur-sm"
+            className={cn("h-8 w-8 backdrop-blur-sm", !measure.active && "bg-background/90")}
             title="Measure distance"
             onClick={measure.toggle}
           >
@@ -67,7 +52,7 @@ export function StepViewer({ fileUrl, title, components, selectedIndex, hoveredI
           <Button
             variant={bbox.visible ? "default" : "outline"}
             size="icon"
-            className="h-8 w-8 bg-background/90 backdrop-blur-sm"
+            className={cn("h-8 w-8 backdrop-blur-sm", !bbox.visible && "bg-background/90")}
             title="Bounding box dimensions"
             onClick={bbox.toggle}
           >
@@ -78,7 +63,7 @@ export function StepViewer({ fileUrl, title, components, selectedIndex, hoveredI
               <Button
                 variant={section.enabled ? "default" : "outline"}
                 size="icon"
-                className="h-8 w-8 bg-background/90 backdrop-blur-sm"
+                className={cn("h-8 w-8 backdrop-blur-sm", !section.enabled && "bg-background/90")}
                 title="Cross section"
               >
                 <Scissors className="h-4 w-4" />

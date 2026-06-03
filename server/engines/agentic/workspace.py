@@ -131,7 +131,12 @@ class ComponentWorkspace:
             return {"error": f"invalid filename: {filename!r}"}
         target = self._dir / safe
         if not target.exists() or not target.is_file():
-            return {"error": f"file not found: {safe}"}
+            # An absent file is a VALID answer to a probe (the agent reads
+            # before writing to detect resume state) — NOT a failure. Return
+            # it without an `error` key so the activity UI doesn't flag a
+            # routine "not yet written" read as a red error.
+            return {"ok": False, "exists": False, "filename": safe,
+                    "message": f"file not found: {safe}"}
         try:
             raw = target.read_text(encoding="utf-8", errors="replace")
         except OSError as exc:

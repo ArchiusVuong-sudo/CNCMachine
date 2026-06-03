@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   FileImage, Loader2, AlertCircle, ZoomIn, ZoomOut,
   ChevronLeft, ChevronRight, ExternalLink,
@@ -14,6 +15,10 @@ interface DrawingViewerProps {
   fileUrl: string | null;
   mimeType?: string | null;
   title?: string;
+  /** When provided, the viewer renders its toolbar into this header slot
+   *  (via portal) so it lines up with the 3D/2D switch. Falls back to a
+   *  floating top-right cluster when absent. */
+  controlsSlot?: HTMLElement | null;
 }
 
 /** Decide whether the source is a PDF (vs. a raster image). */
@@ -25,7 +30,7 @@ function looksLikePdf(url: string | null, mime?: string | null): boolean {
   return path.endsWith(".pdf");
 }
 
-export function DrawingViewer({ fileUrl, mimeType, title }: DrawingViewerProps) {
+export function DrawingViewer({ fileUrl, mimeType, title, controlsSlot }: DrawingViewerProps) {
   const isPdf = looksLikePdf(fileUrl, mimeType);
 
   if (!fileUrl) {
@@ -38,15 +43,31 @@ export function DrawingViewer({ fileUrl, mimeType, title }: DrawingViewerProps) 
   }
 
   return isPdf
-    ? <PdfViewer fileUrl={fileUrl} title={title} />
-    : <ImageViewer fileUrl={fileUrl} title={title} />;
+    ? <PdfViewer fileUrl={fileUrl} title={title} controlsSlot={controlsSlot} />
+    : <ImageViewer fileUrl={fileUrl} title={title} controlsSlot={controlsSlot} />;
+}
+
+/** Wrap a toolbar so it either portals into the shared header slot (inline,
+ *  aligned with the 3D/2D switch) or floats top-right inside the viewer. */
+function Toolbar({ slot, children }: { slot?: HTMLElement | null; children: React.ReactNode }) {
+  const bar = (
+    <div
+      className={cn(
+        "z-10 flex items-center justify-end gap-1 rounded-lg border border-border bg-background/90 p-1 shadow-sm backdrop-blur-sm",
+        slot ? "flex-nowrap" : "absolute right-2 top-2 max-w-[calc(100%-1rem)] flex-wrap",
+      )}
+    >
+      {children}
+    </div>
+  );
+  return slot ? createPortal(bar, slot) : bar;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
 // PDF
 // ───────────────────────────────────────────────────────────────────────────
 
-function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
+function PdfViewer({ fileUrl, title, controlsSlot }: { fileUrl: string; title?: string; controlsSlot?: HTMLElement | null }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const docRef = useRef<any>(null);
@@ -176,9 +197,9 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/20">
-      {/* Floating control cluster (top-right), consistent with the 3D viewer —
-         no full-width toolbar bar to clash with the shared switch header. */}
-      <div className="absolute right-2 top-2 z-10 flex max-w-[calc(100%-1rem)] flex-wrap items-center justify-end gap-1 rounded-lg border border-border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+      {/* Toolbar: portals into the shared header slot (aligned with the 3D/2D
+         switch) when available, else floats top-right inside the viewer. */}
+      <Toolbar slot={controlsSlot}>
         <Button variant="outline" size="icon" className="h-7 w-7" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} title="Previous page">
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -199,7 +220,7 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
         <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw PDF">
           <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
         </Button>
-      </div>
+      </Toolbar>
 
       <div ref={scrollRef} className="relative min-h-0 flex-1 overflow-auto">
         {loading && (
@@ -235,13 +256,13 @@ function PdfViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
 // Raster image
 // ───────────────────────────────────────────────────────────────────────────
 
-function ImageViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
+function ImageViewer({ fileUrl, title, controlsSlot }: { fileUrl: string; title?: string; controlsSlot?: HTMLElement | null }) {
   const [scale, setScale] = useState(1);
   const [error, setError] = useState(false);
 
   return (
     <div className="relative flex h-full w-full flex-col bg-muted/20">
-      <div className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded-lg border border-border bg-background/90 p-1 shadow-sm backdrop-blur-sm">
+      <Toolbar slot={controlsSlot}>
         <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => setScale((s) => Math.max(0.25, s - 0.25))} title="Zoom out">
           <ZoomOut className="h-4 w-4" />
         </Button>
@@ -252,7 +273,7 @@ function ImageViewer({ fileUrl, title }: { fileUrl: string; title?: string }) {
         <Button asChild variant="outline" size="icon" className="h-7 w-7" title="Open raw image">
           <a href={fileUrl} target="_blank" rel="noreferrer"><ExternalLink className="h-4 w-4" /></a>
         </Button>
-      </div>
+      </Toolbar>
       <div className="relative min-h-0 flex-1 overflow-auto">
         {error ? (
           <div className="absolute inset-0 flex items-center justify-center px-4 text-center">

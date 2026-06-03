@@ -1,19 +1,59 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useCallback, useState } from "react";
+import { toast } from "sonner";
 import { Table2, Plus, Trash2, Layers, Undo2 } from "lucide-react";
-import type { Component } from "@/lib/api/types";
+import type { BomItem, Component } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { InlineEdit } from "@/components/ui/inline-edit";
 import { usd, minutes } from "@/lib/format";
-import { ASSEMBLY_KEY, manualRowTotal, type FlatBomRow, type ManualBomRow } from "@/lib/domain/bom-model";
+import { ASSEMBLY_KEY, manualRowTotal, type BomComponentRow, type FlatBomRow, type ManualBomRow } from "@/lib/domain/bom-model";
 import { useBomTable } from "@/lib/hooks/useBomTable";
+import { patchAnalysis } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
+
+/** Overlay this session's not-yet-reloaded inline edits on top of a computed
+ *  BoM row (the DB-persisted ui_overrides are already baked in by
+ *  buildComponentRows; this layers the optimistic local edits). */
+function withEdits(row: BomComponentRow, edits?: Record<string, string>): BomComponentRow {
+  if (!edits || Object.keys(edits).length === 0) return row;
+  const s = (v: string | undefined, fb: string) => (v != null && v !== "" ? v : fb);
+  const n = (v: string | undefined, fb: number) => {
+    if (v == null || v === "") return fb;
+    const x = Number(v);
+    return Number.isFinite(x) ? x : fb;
+  };
+  const materialUsd = n(edits.materialUsd, row.materialUsd);
+  const processUsd = n(edits.processUsd, row.processUsd);
+  return {
+    ...row,
+    partNumber:  s(edits.partNumber, row.partNumber),
+    description: s(edits.description, row.description),
+    qty:         n(edits.qty, row.qty),
+    partType:    edits.partType != null ? (edits.partType || undefined) : row.partType,
+    material:    edits.material != null ? (edits.material || undefined) : row.material,
+    machine:     edits.machine != null ? (edits.machine || undefined) : row.machine,
+    cycleMin:    n(edits.cycleMin, row.cycleMin),
+    materialUsd,
+    processUsd,
+    totalUsd:    n(edits.totalUsd, materialUsd + processUsd),
+  };
+}
 
 interface BillOfMaterialProps {
   components: Component[];
+  /** Drawing BOM (vlm.bom_items) — surfaces the real part number + 2D
+   *  description for each mapped component. */
+  bomItems?: BomItem[];
+  /** When present, component-row cells become double-click editable and
+   *  persist to the DB (overwrites the saved run). */
+  analysisId?: string | null;
   assemblyName?: string;
+  /** Drawing-level part description — stands in for the sole machined part's
+   *  Description cell when it has no 2D-BOM line of its own (item 13). */
+  drawingDescription?: string;
   totalUsd?: number;
   totalMin?: number;
   /** Selected component_index, or null for the level-0 assembly row. */
@@ -42,12 +82,27 @@ const COLS = 13;
  * come from `useBomTable`.
  */
 export function BillOfMaterial({
-  components, assemblyName, totalUsd, totalMin, selectedIndex, hoveredIndex, onSelect, className,
+  components, bomItems, analysisId, assemblyName, drawingDescription, totalUsd, totalMin, selectedIndex, hoveredIndex, onSelect, className,
 }: BillOfMaterialProps) {
   const {
     flat, totals, partsCount, hidden,
     addChild, setCell, removeManual, hideComponent, restoreHidden,
-  } = useBomTable(components, totalMin, totalUsd);
+  } = useBomTable(components, totalMin, totalUsd, bomItems, drawingDescription);
+
+  // Optimistic local overrides for component-row inline edits (item 14). Keyed
+  // by component_index → field → value. Applied via withEdits() on render;
+  // persisted to a4_components.ui_overrides so a reload reflects them.
+  const editable = !!analysisId;
+  const [compEdits, setCompEdits] = useState<Record<number, Record<string, string>>>({});
+  const editComponentCell = useCallback((ci: number, key: string, value: string) => {
+    setCompEdits((before) => {
+      if (analysisId) {
+        patchAnalysis(analysisId, { components: [{ component_index: ci, overrides: { [key]: value } }] })
+          .catch(() => { setCompEdits(before); toast.error("Couldn't save edit"); });
+      }
+      return { ...before, [ci]: { ...before[ci], [key]: value } };
+    });
+  }, [analysisId]);
 
   return (
     <div className={cn("overflow-hidden rounded-xl border border-border bg-card", className)}>
@@ -69,27 +124,31 @@ export function BillOfMaterial({
       {/* Horizontal scroll on narrow screens — the costing columns stay
          readable instead of being squished on a phone. */}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[860px] table-fixed text-sm">
+        <table className="w-full min-w-[860px] table-fixed text-[13px]">
+          {/* Column widths: LVL, QTY, Part Number, Description, Type, Material,
+             Machine (flex), Cycle, Material Cost, Process Cost, Total, Actions.
+             No inline comments between <col>s — the surrounding whitespace
+             would become a text-node child of <colgroup> (hydration error). */}
           <colgroup>
-            <col style={{ width: "48px" }} />   {/* LVL */}
-            <col style={{ width: "56px" }} />   {/* QTY */}
-            <col style={{ width: "190px" }} />  {/* Part Number */}
-            <col style={{ width: "150px" }} />  {/* Description */}
-            <col style={{ width: "120px" }} />  {/* Type */}
-            <col style={{ width: "84px" }} />   {/* Material */}
-            <col />                              {/* Machine — flex */}
-            <col style={{ width: "84px" }} />   {/* Cycle */}
-            <col style={{ width: "100px" }} />  {/* Material Cost */}
-            <col style={{ width: "100px" }} />  {/* Process Cost */}
-            <col style={{ width: "100px" }} />  {/* Total Cost */}
-            <col style={{ width: "64px" }} />   {/* Actions */}
+            <col style={{ width: "48px" }} />
+            <col style={{ width: "172px" }} />
+            <col style={{ width: "148px" }} />
+            <col style={{ width: "88px" }} />
+            <col style={{ width: "100px" }} />
+            <col style={{ width: "118px" }} />
+            <col />
+            <col style={{ width: "92px" }} />
+            <col style={{ width: "96px" }} />
+            <col style={{ width: "96px" }} />
+            <col style={{ width: "96px" }} />
+            <col style={{ width: "60px" }} />
           </colgroup>
           <thead>
             <tr className="border-b border-border bg-muted/30 text-[11px] uppercase tracking-wide text-muted-foreground">
               <Th className="text-left">Lvl</Th>
-              <Th className="text-right">Qty</Th>
               <Th className="text-left">Part Number</Th>
               <Th className="text-left">Description</Th>
+              <Th className="text-right">Qty</Th>
               <Th className="text-left">Type</Th>
               <Th className="text-left">Material</Th>
               <Th className="text-left">Machine</Th>
@@ -106,6 +165,7 @@ export function BillOfMaterial({
                 <AssemblyRow
                   key="asm"
                   assemblyName={assemblyName}
+                  assemblyDescription={drawingDescription}
                   totals={totals}
                   selected={selectedIndex === null}
                   onSelect={() => onSelect(null)}
@@ -114,13 +174,15 @@ export function BillOfMaterial({
               ) : r.kind === "component" ? (
                 <ComponentRow
                   key={r.row.key}
-                  row={r.row}
+                  row={withEdits(r.row, compEdits[r.row.componentIndex])}
                   level={r.level}
                   active={selectedIndex === r.row.componentIndex}
                   hovered={hoveredIndex === r.row.componentIndex}
+                  editable={editable}
                   onSelect={() => onSelect(r.row.componentIndex)}
                   onAddChild={() => addChild(r.row.key)}
                   onHide={() => hideComponent(r.row.key)}
+                  onEdit={(key, value) => editComponentCell(r.row.componentIndex, key, value)}
                 />
               ) : (
                 <ManualRow
@@ -153,9 +215,10 @@ export function BillOfMaterial({
  * ----------------------------------------------------------------------- */
 
 const AssemblyRow = memo(function AssemblyRow({
-  assemblyName, totals, selected, onSelect, onAddChild,
+  assemblyName, assemblyDescription, totals, selected, onSelect, onAddChild,
 }: {
   assemblyName?: string;
+  assemblyDescription?: string;
   totals: { material: number; process: number; cycle: number; total: number };
   selected: boolean;
   onSelect: () => void;
@@ -170,13 +233,16 @@ const AssemblyRow = memo(function AssemblyRow({
       )}
     >
       <Td className="text-left font-semibold text-primary">0</Td>
-      <Td className="text-right text-muted-foreground">—</Td>
-      <Td className="text-left" colSpan={2} title={assemblyName || "Assembly"}>
-        <span className="inline-flex min-w-0 items-center gap-1.5 font-semibold">
-          <Layers className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate">{assemblyName || "Assembly"}</span>
+      <Td className="text-left" title={assemblyName || "Assembly"}>
+        <span className="flex min-w-0 items-start gap-1.5">
+          <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="break-words">{assemblyName || "Assembly"}</span>
         </span>
       </Td>
+      <Td className="text-left" title={assemblyDescription || undefined}>
+        {assemblyDescription || <span className="text-muted-foreground">—</span>}
+      </Td>
+      <Td className="text-right text-muted-foreground">—</Td>
       <Td className="text-left"><Badge variant="info" className="text-[10px]">Assy</Badge></Td>
       <Td className="text-left text-muted-foreground">—</Td>
       <Td className="text-left text-muted-foreground">—</Td>
@@ -190,16 +256,30 @@ const AssemblyRow = memo(function AssemblyRow({
 });
 
 const ComponentRow = memo(function ComponentRow({
-  row, level, active, hovered, onSelect, onAddChild, onHide,
+  row, level, active, hovered, editable, onSelect, onAddChild, onHide, onEdit,
 }: {
-  row: import("@/lib/domain/bom-model").BomComponentRow;
+  row: BomComponentRow;
   level: number;
   active: boolean;
   hovered?: boolean;
+  editable?: boolean;
   onSelect: () => void;
   onAddChild: () => void;
   onHide: () => void;
+  onEdit: (key: string, value: string) => void;
 }) {
+  const dash = <span className="text-muted-foreground">—</span>;
+  const eTxt = (key: string, val: string) => <InlineEdit value={val} onSave={(v) => onEdit(key, v)} />;
+  const eNum = (key: string, val: number, display: React.ReactNode) => (
+    <InlineEdit value={String(val)} type="number" align="right" display={display} onSave={(v) => onEdit(key, v)} />
+  );
+  const typeBadge = row.partType
+    ? <Badge variant="secondary" className="text-[10px] capitalize">{row.partType.replace(/_/g, " ")}</Badge>
+    : null;
+  const cycleDisp = row.cycleMin > 0
+    ? minutes(row.cycleMin)
+    : <span className="text-muted-foreground" title={row.consolidated ? "Consolidated into assembly" : undefined}>—</span>;
+
   return (
     <tr
       onClick={onSelect}
@@ -209,24 +289,36 @@ const ComponentRow = memo(function ComponentRow({
       )}
     >
       <LevelCell level={level} />
-      <Td className="text-right tabular-nums">{row.qty}</Td>
-      <Td className={cn("text-left font-medium", active && "text-primary")} title={row.partNumber}>{row.partNumber}</Td>
-      <Td className="text-left text-muted-foreground" title={row.description ?? undefined}>{row.description || "—"}</Td>
+      <Td className={cn("text-left", active && "text-primary")} title={row.partNumber}>
+        {editable ? eTxt("partNumber", row.partNumber) : (row.partNumber || dash)}
+      </Td>
+      <Td className="text-left" title={row.description ?? undefined}>
+        {editable ? eTxt("description", row.description) : (row.description || dash)}
+      </Td>
+      <Td className="text-right tabular-nums">{editable ? eNum("qty", row.qty, row.qty) : row.qty}</Td>
       <Td className="text-left">
-        {row.partType
-          ? <Badge variant="secondary" className="text-[10px] capitalize">{row.partType.replace(/_/g, " ")}</Badge>
-          : <span className="text-muted-foreground">—</span>}
+        {editable
+          ? <InlineEdit value={row.partType ?? ""} onSave={(v) => onEdit("partType", v)} display={typeBadge ?? undefined} />
+          : (typeBadge ?? dash)}
       </Td>
-      <Td className="text-left" title={row.material ?? undefined}>{row.material ?? <span className="text-muted-foreground">—</span>}</Td>
-      <Td className="text-left" title={row.machine ?? undefined}>{row.machine ?? <span className="text-muted-foreground">—</span>}</Td>
+      <Td className="text-left" title={row.material ?? undefined}>
+        {editable ? eTxt("material", row.material ?? "") : (row.material ?? dash)}
+      </Td>
+      <Td className="text-left" title={row.machine ?? undefined}>
+        {editable ? eTxt("machine", row.machine ?? "") : (row.machine ?? dash)}
+      </Td>
       <Td className="whitespace-nowrap text-right tabular-nums">
-        {row.cycleMin > 0
-          ? minutes(row.cycleMin)
-          : <span className="text-muted-foreground" title={row.consolidated ? "Consolidated into assembly" : undefined}>—</span>}
+        {editable ? eNum("cycleMin", row.cycleMin, cycleDisp) : cycleDisp}
       </Td>
-      <Td className="whitespace-nowrap text-right tabular-nums">{usd(row.materialUsd)}</Td>
-      <Td className="whitespace-nowrap text-right tabular-nums">{usd(row.processUsd)}</Td>
-      <Td className="whitespace-nowrap text-right font-semibold tabular-nums">{usd(row.totalUsd)}</Td>
+      <Td className="whitespace-nowrap text-right tabular-nums">
+        {editable ? eNum("materialUsd", row.materialUsd, usd(row.materialUsd)) : usd(row.materialUsd)}
+      </Td>
+      <Td className="whitespace-nowrap text-right tabular-nums">
+        {editable ? eNum("processUsd", row.processUsd, usd(row.processUsd)) : usd(row.processUsd)}
+      </Td>
+      <Td className="whitespace-nowrap text-right font-semibold tabular-nums">
+        {editable ? eNum("totalUsd", row.totalUsd, usd(row.totalUsd)) : usd(row.totalUsd)}
+      </Td>
       <ActionsCell
         onAddChild={onAddChild}
         onRemove={onHide}
@@ -248,9 +340,9 @@ const ManualRow = memo(function ManualRow({
   return (
     <tr className="bg-amber-50/40">
       <LevelCell level={level} muted />
-      <CellInput value={row.qty} onChange={(v) => onSetCell("qty", v)} align="right" w="w-14" type="number" />
       <CellInput value={row.partNumber} onChange={(v) => onSetCell("partNumber", v)} placeholder="Part number" w="w-36" />
       <CellInput value={row.description} onChange={(v) => onSetCell("description", v)} placeholder="Description" w="w-44" />
+      <CellInput value={row.qty} onChange={(v) => onSetCell("qty", v)} align="right" w="w-14" type="number" />
       <CellInput value={row.type} onChange={(v) => onSetCell("type", v)} placeholder="Type" w="w-24" />
       <CellInput value={row.material} onChange={(v) => onSetCell("material", v)} placeholder="Material" w="w-28" />
       <CellInput value={row.machine} onChange={(v) => onSetCell("machine", v)} placeholder="Machine" w="w-28" />
@@ -268,12 +360,15 @@ const ManualRow = memo(function ManualRow({
  * ----------------------------------------------------------------------- */
 
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <th className={cn("truncate px-2 py-2 font-medium", className)}>{children}</th>;
+  return <th className={cn("px-2 py-2 align-bottom font-medium", className)}>{children}</th>;
 }
 
-/** Default cell — truncates overflowing text with an ellipsis. Numeric /
- *  short-content cells override with `whitespace-nowrap` to keep on one line
- *  without truncation; long-text cells get an explicit title for tooltip. */
+/** Default cell — shows content in FULL (wrapped, never clipped) per the
+ *  1 June review ("Content in all columns need to be fully displayed").
+ *  `align-top` keeps every column's first line on the same baseline so a row
+ *  with a long wrapped Material/Description stays visually aligned (the old
+ *  `align-middle` floated the short cells in the vertical centre of a tall row,
+ *  which is what read as "misaligned"). */
 function Td({
   children, className, colSpan, title,
 }: {
@@ -286,7 +381,7 @@ function Td({
     <td
       colSpan={colSpan}
       title={title}
-      className={cn("truncate px-2 py-2 align-middle", className)}
+      className={cn("break-words px-2 py-2 align-top", className)}
     >
       {children}
     </td>
@@ -295,7 +390,7 @@ function Td({
 
 function LevelCell({ level, muted }: { level: number; muted?: boolean }) {
   return (
-    <td className={cn("whitespace-nowrap px-2 py-2 text-left align-middle", muted ? "text-muted-foreground" : "")}>
+    <td className={cn("whitespace-nowrap px-2 py-2 text-left align-top", muted ? "text-muted-foreground" : "")}>
       <span className="inline-flex items-center gap-1">
         {level > 1 && (
           <span aria-hidden className="text-muted-foreground/40" style={{ paddingLeft: `${(level - 1) * 10}px` }}>
@@ -321,7 +416,7 @@ function CellInput({
   type?: "text" | "number";
 }) {
   return (
-    <td className={cn("px-2 py-1.5", align === "right" ? "text-right" : "text-left")}>
+    <td className={cn("px-2 py-2 align-top", align === "right" ? "text-right" : "text-left")}>
       <Input
         type={type}
         inputMode={type === "number" ? "decimal" : undefined}
@@ -343,7 +438,7 @@ function ActionsCell({
   removeTitle?: string;
 }) {
   return (
-    <td className="whitespace-nowrap px-2 py-1.5 text-right align-middle">
+    <td className="whitespace-nowrap px-2 py-2 text-right align-top">
       <div className="flex items-center justify-end gap-1">
         {onAddChild && (
           <button
@@ -359,7 +454,7 @@ function ActionsCell({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-600"
+            className="flex h-6 w-6 items-center justify-center rounded text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
             title={removeTitle ?? "Remove row"}
           >
             <Trash2 className="h-3.5 w-3.5" />

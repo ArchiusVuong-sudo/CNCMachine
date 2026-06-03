@@ -708,6 +708,12 @@ async def compute_cost(
 
         machining_by_process: dict[str, float] = {}
         machining_total = 0.0
+        # Per-part cycle time = sum of every op's run minutes. The cost
+        # engine already reads each op's cycle_time_min to bill machining;
+        # we accumulate it here so the component (and the run total) surface
+        # a non-zero cycle instead of the per-op minutes being used for cost
+        # and then discarded. Setup is excluded — it's a separate per-lot line.
+        cycle_run_min = 0.0
 
         for proc in processes:
             proc_type    = str(proc.get("process_type") or proc.get("category") or "cnc_milling")
@@ -757,6 +763,7 @@ async def compute_cost(
             key = proc_type.lower().replace(" ", "_")
             machining_by_process[key] = machining_by_process.get(key, 0.0) + proc_cost
             machining_total += proc_cost
+            cycle_run_min += ct_min
 
             proc["labor_cost_usd"]    = round(labor_cost, 4)
             proc["machine_cost_usd"]  = round(mach_cost,   4)
@@ -776,6 +783,9 @@ async def compute_cost(
             # the separate fixed_lot_usd line.
             deburr_usd = 0.0
             inspection_usd = round(fixed_lot_usd, 4)
+            # Cycle = sum of every routing op's run minutes (machining +
+            # bench ops; setup is the separate per-lot line above).
+            comp_cycle_min = round(cycle_run_min, 3)
         else:
             # Deburr cycle time from FreeCAD when available (comp-level),
             # else the feature-count heuristic. Billed at run_labor +
@@ -799,6 +809,10 @@ async def compute_cost(
             inspection_time_min = 0.16 + 0.1 * gdt_count
             insp_rate = blended if blended > 0 else inspector_rate
             inspection_usd = (inspection_time_min / 60.0) * insp_rate
+            # No routing produced for this component, so the only modeled run
+            # time is deburr + inspection. Surface it so the cycle is
+            # consistent with the legacy cost that bills exactly those minutes.
+            comp_cycle_min = round(deburr_time_min + inspection_time_min, 3)
 
         total_usd = (
             raw_material_usd
@@ -819,10 +833,16 @@ async def compute_cost(
             "deburr_usd":               round(deburr_usd,         4),
             "inspection_usd":           round(inspection_usd,     4),
             "total_usd":                total_usd,
+            "cycle_time_min":           comp_cycle_min,
             "cost_source":              "routing" if routing_style else "legacy",
         }
 
         comp["cost"] = cost_obj
+        # Roll the per-part cycle onto the component so persistence stores it
+        # (a4_components.cycle_time_min) and the run total_minutes sums to a
+        # real value instead of NULL. This is the field the FE reads as the
+        # headline cycle time.
+        comp["cycle_time_min"] = comp_cycle_min
         grand_total += total_usd
         breakdown_by_component.append({
             "component_index": comp.get("component_index", comp_idx),

@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { Ruler, Crosshair, Spline, ListTree } from "lucide-react";
-import type { Component, DimensionRow, FeatureMapRow, FinalAnswer, GdtCallout, ThreadSpec } from "@/lib/api/types";
+import { Ruler, Crosshair, Spline } from "lucide-react";
+import type { Component, DimensionRow, FinalAnswer, GdtCallout, ThreadSpec } from "@/lib/api/types";
 import {
-  componentTolerances, componentGdt, componentThreads, componentFeatureMap,
+  componentTolerances, componentGdt, componentThreads,
   drawingTolerances, drawingGdt, drawingThreads,
 } from "@/lib/domain/extraction-model";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -68,13 +68,6 @@ export function ExtractionPanel({ results, components, selectedIndex, className 
     () => (selected ? componentThreads(selected) : drawingThreads(vlm)),
     [selected, vlm],
   );
-  // Per-feature map — only meaningful for a selected component (features are
-  // per-component geometry). Empty for the whole-drawing assembly view.
-  const featureMap: FeatureMapRow[] = useMemo(
-    () => (selected ? componentFeatureMap(selected) : []),
-    [selected],
-  );
-
   const scopeLabel = selected
     ? (selected.name ?? `Component ${selected.component_index}`)
     : "Assembly · whole drawing";
@@ -93,7 +86,6 @@ export function ExtractionPanel({ results, components, selectedIndex, className 
               <TabTrigger value="tolerances" icon={<Ruler className="h-3.5 w-3.5" />} label="Tolerances" count={tolerances.length} />
               <TabTrigger value="gdt" icon={<Crosshair className="h-3.5 w-3.5" />} label="GD&T" count={gdt.length} />
               <TabTrigger value="threads" icon={<Spline className="h-3.5 w-3.5" />} label="Threads" count={threads.length} />
-              <TabTrigger value="features" icon={<ListTree className="h-3.5 w-3.5" />} label="Feature Map" count={featureMap.length} />
             </TabsList>
           </div>
 
@@ -150,24 +142,6 @@ export function ExtractionPanel({ results, components, selectedIndex, className 
             )}
           </TabsContent>
 
-          <TabsContent value="features" className="m-0 p-0">
-            {featureMap.length === 0 ? (
-              <Empty label={selected ? "No recognised features on this component" : "Select a component to see its feature map"} />
-            ) : (
-              <Grid head={["Feature", "Key Dimension", "Tolerance", "GD&T", "Thread", "Operations"]}>
-                {featureMap.map((f, i) => (
-                  <Row key={i} cells={[
-                    <span key="f" className="font-medium">{f.feature_type}</span>,
-                    <span key="d" className="tabular-nums">{f.key_dimension || "—"}</span>,
-                    <span key="t" className="font-mono">{f.tolerance || "—"}{f.tolerance_class ? <span className="ml-1 rounded bg-muted px-1 text-[10px] uppercase text-muted-foreground">{f.tolerance_class}</span> : null}</span>,
-                    <span key="g" className="font-mono text-muted-foreground">{f.gdt || "—"}</span>,
-                    <span key="th" className="font-mono text-muted-foreground">{f.thread || "—"}</span>,
-                    <span key="o" className="text-muted-foreground">{f.operations || "—"}</span>,
-                  ]} />
-                ))}
-              </Grid>
-            )}
-          </TabsContent>
         </Tabs>
       </div>
     </div>
@@ -192,7 +166,7 @@ function TabTrigger({ value, icon, label, count }: { value: string; icon: React.
 function Grid({ head, children }: { head: string[]; children: React.ReactNode }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+      <table className="w-full text-[13px]">
         <thead>
           <tr className="border-b border-border">
             {head.map((h) => (

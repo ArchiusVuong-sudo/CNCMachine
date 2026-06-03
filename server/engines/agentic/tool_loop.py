@@ -379,7 +379,9 @@ async def run_tool_loop(
                 label, iteration, tool_name, dup_blocks,
             )
             steer = {
-                "error": "duplicate_call",
+                # `blocked`, NOT `error` — a deduped repeat is a convergence
+                # nudge, not a failure, so the activity UI shouldn't flag it red.
+                "blocked": "duplicate_call",
                 "tool": tool_name,
                 "instruction": (
                     "You already called this tool with identical arguments; the "

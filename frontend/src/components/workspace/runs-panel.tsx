@@ -351,7 +351,7 @@ function RunRow({
         <button
           onClick={onDelete}
           disabled={deleting}
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-all hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-red-500 opacity-0 transition-all hover:bg-red-50 hover:text-red-700 group-hover:opacity-100"
           title="Delete project"
         >
           {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}

@@ -1,14 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
 import { FileText, DollarSign, Boxes, StickyNote } from "lucide-react";
 import type { VlmExtraction } from "@/lib/api/types";
 import { usd } from "@/lib/format";
-import { buildPartInfoFields } from "@/lib/domain/part-info-model";
+import { buildPartInfoFields, type PartInfoKey } from "@/lib/domain/part-info-model";
 import { drawingNotes } from "@/lib/domain/extraction-model";
+import { patchAnalysis } from "@/lib/api/client";
+import { InlineEdit } from "@/components/ui/inline-edit";
 import { cn } from "@/lib/utils";
 
 interface PartInformationProps {
   vlm?: VlmExtraction | null;
+  /** When present, Part Information fields become double-click editable and
+   *  persist to the DB (overwrites the saved run). */
+  analysisId?: string | null;
   totalUsd?: number;
   totalUsdPerLot?: number;
   batchSize?: number;
@@ -28,11 +35,24 @@ interface PartInformationProps {
  * and the notes from `drawingNotes`. Sized to fill its grid cell so it lines
  * up with the 3D / 2D viewer height.
  */
-export function PartInformation({ vlm, totalUsd, totalUsdPerLot, batchSize, confidenceBandPct, nComponents, className }: PartInformationProps) {
+export function PartInformation({ vlm, analysisId, totalUsd, totalUsdPerLot, batchSize, confidenceBandPct, nComponents, className }: PartInformationProps) {
   const fields = buildPartInfoFields(vlm);
   const notes = drawingNotes(vlm);
   const showLot = typeof totalUsdPerLot === "number" && typeof batchSize === "number" && batchSize > 1;
   const showConf = typeof confidenceBandPct === "number";
+
+  // Local optimistic overrides for inline edits — display updates instantly,
+  // then persists. Editing is only enabled for saved runs (analysisId present).
+  const [edits, setEdits] = useState<Partial<Record<PartInfoKey, string>>>({});
+  const editable = !!analysisId;
+  const saveField = (key: PartInfoKey, next: string) => {
+    const prev = edits[key];
+    setEdits((e) => ({ ...e, [key]: next }));
+    patchAnalysis(analysisId!, { part_info: { [key]: next } }).catch(() => {
+      setEdits((e) => ({ ...e, [key]: prev }));   // revert on failure
+      toast.error("Couldn't save edit");
+    });
+  };
 
   return (
     <div className={cn("flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card", className)}>
@@ -47,14 +67,21 @@ export function PartInformation({ vlm, totalUsd, totalUsdPerLot, batchSize, conf
       </div>
 
       <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
-        {fields.map((f) => (
-          <div key={f.label} className="px-4 py-3">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{f.label}</div>
-            <div className={cn("mt-1 text-sm font-semibold", !f.value && "font-normal text-muted-foreground/60")}>
-              {f.value ?? "—"}
+        {fields.map((f) => {
+          const shown = f.key && f.key in edits ? edits[f.key] : f.value;
+          return (
+            <div key={f.label} className="px-4 py-3">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{f.label}</div>
+              <div className={cn("mt-1 text-[13px] font-semibold", !shown && "font-normal text-muted-foreground/60")}>
+                {editable && f.key ? (
+                  <InlineEdit value={shown ?? ""} onSave={(v) => saveField(f.key!, v)} />
+                ) : (
+                  shown ?? "—"
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         <div className="px-4 py-3">
           <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">

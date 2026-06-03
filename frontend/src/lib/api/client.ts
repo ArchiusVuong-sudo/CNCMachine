@@ -184,6 +184,16 @@ export const deleteAnalysis = (id: string) => call<{ ok: boolean; removed: strin
   { method: "DELETE" },
 );
 
+/** Inline corrections to a saved run. `part_info` updates the Part Information
+ *  fields; `components` carries per-row BoM display overrides (one delta per
+ *  component_index). Persisted to the DB — reloading reflects the edits. */
+export interface AnalysisPatchBody {
+  part_info?: Partial<Record<"part_number" | "revision" | "description" | "material" | "dimension_unit", string>>;
+  components?: { component_index: number; overrides: Record<string, string> }[];
+}
+export const patchAnalysis = (id: string, body: AnalysisPatchBody) =>
+  call<{ ok: boolean }>(`/analyses/${encodeURIComponent(id)}`, { method: "PATCH", json: body });
+
 // ---------------------------------------------------------------------------
 // Catalog: machines
 // ---------------------------------------------------------------------------
@@ -275,7 +285,7 @@ export const api = {
   health,
   analyzeStream,
   // history
-  listAnalyses, getAnalysis, deleteAnalysis,
+  listAnalyses, getAnalysis, deleteAnalysis, patchAnalysis,
   // catalog
   listMachines, createMachine, updateMachine, deleteMachine,
   listTooling, createTooling, updateTooling, deleteTooling,

@@ -1,8 +1,8 @@
-"""LLM transport layer — vLLM (Qwen3-VL) + Agent vLLM (Kimi-Linear).
+"""LLM transport layer — vLLM (Qwen3-VL) vision + Agent vLLM (Engine 3).
 
 Why this exists
 ---------------
-The pipeline talks to two OpenAI-compatible vLLM backends, and the
+The pipeline talks to OpenAI-compatible vLLM backend(s), and the
 integration quirks of each are isolated here so the engines stay focused
 on extraction logic:
 
@@ -10,17 +10,19 @@ on extraction logic:
     Engine 1 (vision drawing extraction) and as a fallback text backend.
     Qwen-specific ``chat_template_kwargs`` + ``<think>...</think>``
     parsing live here.
-  * **Agent vLLM (Kimi-Linear)** — a second vLLM pod dedicated to the
-    Engine 3 (agentic planner). Sent PLAIN JSON-by-instruction: no
-    ``response_format`` (Kimi's slow tiktoken tokenizer has no vLLM
-    grammar backend — guided JSON crashes the engine) and no Qwen
-    ``chat_template_kwargs``.
+  * **Agent vLLM (Engine 3 planner)** — the agentic planner endpoint.
+    The current deployment points this at the SAME Qwen3-VL server as the
+    vision path (one model for both). Sent PLAIN JSON-by-instruction: no
+    ``response_format`` (guided-JSON grammar backend avoided) and no
+    ``chat_template_kwargs``. Sampling defaults to deterministic (temp 0).
+    The ``_KIMI_*`` helpers below are defensive no-ops for Qwen, retained
+    so a Kimi/Moonshot endpoint could still be plugged in unchanged.
 
 Per-request routing happens via :func:`chat_messages`'s ``model``
 parameter:
 
   * ``None`` or ``"vllm:<name>"`` → :class:`VLLMProvider`.
-  * ``"agent:<name>"`` → :class:`AgentVLLMProvider` (Kimi pod).
+  * ``"agent:<name>"`` → :class:`AgentVLLMProvider`.
 
 Both providers share:
 
@@ -1005,21 +1007,21 @@ class AgentVLLMProvider:
             # Ask vLLM for a trailing usage chunk (streaming omits it
             # otherwise) so per-turn token telemetry is captured.
             "stream_options": {"include_usage": True},
-            # Kimi-tuned sampling, NOT the inbound `temperature`. The agentic
-            # loop passes 0.0 (a Qwen-era deterministic default), but greedy
-            # decoding drops Kimi-Linear into a degenerate repetition attractor
-            # ('{"!!!!…'). Use Moonshot's recommended non-greedy sampling.
+            # Sampling comes from settings, NOT the inbound `temperature` arg.
+            # Default is a small NON-ZERO temp (0.2): greedy (temp 0) is unsafe
+            # here because the loop's parse-retry can't recover when every retry
+            # is byte-identical — one malformed turn then fails the whole
+            # component. Tune via AGENT_LLM_TEMPERATURE / AGENT_LLM_TOP_P.
             "temperature": settings.agent_temperature,
             "top_p":       settings.agent_top_p,
             "max_tokens":  max_tokens or settings.agent_max_tokens,
-            # Halt cleanly at Kimi's native tool-call framing tokens so one
-            # assistant turn = one JSON object (our protocol), and the model
-            # can't append a second native-format tool-call section. `stop` is
-            # a plain sampling param (unlike response_format) — safe for Kimi.
+            # Defensive stop at native tool-call framing tokens so one assistant
+            # turn = one JSON object (our protocol). No-op for Qwen (it never
+            # emits these); retained as a guard for any model that does.
             "stop": list(_KIMI_TOOL_TOKENS),
         }
-        # Deliberately NO `response_format` and NO `chat_template_kwargs` —
-        # see the class docstring; both break the Kimi endpoint.
+        # Deliberately NO `response_format` and NO `chat_template_kwargs` — the
+        # provider speaks plain JSON-by-instruction (see the class docstring).
 
         headers = {"Content-Type": "application/json"}
         if settings.agent_api_key:

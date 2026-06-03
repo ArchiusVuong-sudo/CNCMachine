@@ -163,12 +163,42 @@ OUTPUT_SCHEMA: dict[str, Any] = {
 }
 
 
+def _slim_feature(f: dict) -> dict:
+    """Compact per-feature projection for the prompt.
+
+    Keeps only the fields the agent needs to (a) cover the feature in an
+    operation's ``feature_ids`` and (b) size a tool / route a finish-vs-rough
+    op: ``feature_id``, ``type``, governing ``dimensions``, the tolerance
+    band, and thread info. Drops bulky / redundant fields — ``key_face_ids``,
+    ``perimeter_mm``, ``location``, ``gdt_callouts`` (already aggregated into
+    the component-level GD&T digest), ``operations``, and provenance
+    (``source`` / ``confidence`` / ``count``). On feature-heavy parts (100+
+    features) the full dicts blew the user message past the 32K context
+    window; this roughly halves per-feature size while preserving every
+    ``feature_id`` so the cover-every-feature rule still holds.
+    """
+    ff = f or {}
+    out: dict[str, Any] = {
+        "feature_id": ff.get("feature_id"),
+        "type": ff.get("type") or ff.get("feature_type"),
+    }
+    dims = ff.get("dimensions")
+    if dims is not None:
+        out["dimensions"] = dims
+    for k in ("tolerance_plus", "tolerance_minus", "is_threaded", "thread_spec"):
+        v = ff.get(k)
+        if v is not None:
+            out[k] = v
+    return out
+
+
 def _component_summary(component: dict) -> dict:
     """Project the component dict down to the fields the agent actually needs.
 
-    Keeps the user message small and focused. Pulls in the full feature
-    list (the agent needs every feature_id to satisfy the cover-every-
-    feature rule) but drops noisy debug fields.
+    Keeps the user message small and focused. Carries every feature (slimmed
+    to its essential fields via :func:`_slim_feature` so the agent still has
+    every feature_id for the cover-every-feature rule) plus the aggregated
+    tolerance / GD&T / thread digests, and drops noisy debug fields.
     """
     bbox = component.get("bbox") or component.get("bounding_box") or {}
     features = component.get("features") or []
@@ -255,7 +285,7 @@ def _component_summary(component: dict) -> dict:
             "n_threaded_features": n_features_threaded,
             "specs": list(dict.fromkeys(thread_specs))[:20],
         },
-        "features": features,
+        "features": [_slim_feature(f) for f in features],
     }
     # Synthetic assembly_top components carry an assembly_hint block that
     # tells the agent which sub-items / hardware to plan ADMIN + ASSY + WELD

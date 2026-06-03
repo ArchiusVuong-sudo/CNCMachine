@@ -42,7 +42,7 @@ class ServerSettings:
     port: int = 8001
     title: str = "CNC Analysis API"
     version: str = "1.0.0"
-    cors_origins: tuple[str, ...] = ("*",)
+    cors_origins: tuple[str, ...] = ("http://localhost:3000",)
 
 
 @dataclass(frozen=True)
@@ -77,31 +77,30 @@ class LLMSettings:
     text_max_tokens: int = 6144
     text_thinking_budget_tokens: int = 1024
 
-    # ── Agent vLLM (Kimi-Linear — Engine 3 planner) ────────────────────
-    # A second OpenAI-compatible vLLM endpoint dedicated to the agentic
-    # planner. When ``agent_base_url`` is set, the ``agent:`` model prefix
-    # routes here (and ``agent_default_model`` makes it the Engine-3
-    # default). This backend gets PLAIN JSON-by-instruction: the provider
-    # sends no ``response_format`` (Kimi's slow tokenizer has no vLLM
-    # grammar backend — guided JSON crashes the engine) and no Qwen
-    # ``chat_template_kwargs``.
+    # ── Agent vLLM (Engine 3 planner) ──────────────────────────────────
+    # OpenAI-compatible vLLM endpoint for the agentic planner. When
+    # ``agent_base_url`` is set, the ``agent:`` model prefix routes here (and
+    # ``agent_default_model`` makes it the Engine-3 default). It may point at
+    # the SAME endpoint as the vision model — the current deployment serves
+    # ONE Qwen3-VL for BOTH 2D extraction and the planner. This backend gets
+    # PLAIN JSON-by-instruction: the provider sends no ``response_format``
+    # (guided-JSON grammar backend is avoided) and no ``chat_template_kwargs``.
     agent_base_url: str | None = None
-    agent_model: str = "kimi-agent"
+    agent_model: str = "Qwen/Qwen3-VL-32B-Instruct-FP8"
     agent_api_key: str | None = None
     agent_default_model: str | None = None
     agent_inactivity_seconds: float = 120.0
-    # Kimi-VL-A3B-Thinking-2506 spends most of its budget on the inline
-    # ◁think▷…◁/think▷ reasoning block BEFORE the answer JSON; 8192 routinely
-    # truncates mid-thought (finish_reason=length, no answer). 16384 leaves
-    # room for the reasoning + a clean trailing JSON within the 65536 ctx.
+    # One JSON tool-call per turn; 16384 is generous headroom for the largest
+    # routing/cost JSON within the model context.
     agent_max_tokens: int = 16384
     agent_failover: str | None = None
-    # Kimi sampling. Greedy decoding (temp 0) collapses Kimi models into a
-    # degenerate repetition attractor, so we use Moonshot's recommended
-    # non-greedy defaults (Kimi-VL generation_config: temp 0.6 / top_p 0.95)
-    # instead of the deterministic 0.0 the Qwen vision path uses.
-    # Env-overridable for tuning.
-    agent_temperature: float = 0.6
+    # Agentic sampling — small NON-ZERO temperature. Greedy (temp 0) is unsafe
+    # here: when the model emits a malformed turn, the loop's parse-retry
+    # re-samples to recover — but at temp 0 every retry is IDENTICAL, so a bad
+    # turn can't self-correct and the whole component fails ("unparseable
+    # output after N retries"). 0.2 gives retries enough variation to recover
+    # while staying low-variance. Env-overridable (AGENT_LLM_TEMPERATURE/_TOP_P).
+    agent_temperature: float = 0.2
     agent_top_p: float = 0.95
 
 
@@ -191,10 +190,11 @@ class Settings:
 
 
 def _llm_settings() -> LLMSettings:
-    # Agent backend (Kimi-Linear). When the URL is set but no explicit
-    # default slug is given, make Kimi the Engine-3 default automatically.
+    # Agent backend (Engine 3 planner). When the URL is set but no explicit
+    # default slug is given, make this the Engine-3 default automatically.
+    # Defaults to the same Qwen3-VL the vision path uses (single-model deploy).
     agent_base_url = (os.environ.get("AGENT_LLM_URL") or "").rstrip("/") or None
-    agent_model = os.environ.get("AGENT_LLM_MODEL") or "kimi-agent"
+    agent_model = os.environ.get("AGENT_LLM_MODEL") or "Qwen/Qwen3-VL-32B-Instruct-FP8"
     agent_default_model = os.environ.get("AGENT_DEFAULT_MODEL") or None
     if agent_default_model is None and agent_base_url:
         agent_default_model = f"agent:{agent_model}"
@@ -225,7 +225,7 @@ def _llm_settings() -> LLMSettings:
         ),
         agent_max_tokens=_int("AGENT_LLM_MAX_TOKENS", 16384),
         agent_failover=os.environ.get("AGENT_LLM_FAILOVER") or None,
-        agent_temperature=float(os.environ.get("AGENT_LLM_TEMPERATURE", "0.6")),
+        agent_temperature=float(os.environ.get("AGENT_LLM_TEMPERATURE", "0.2")),
         agent_top_p=float(os.environ.get("AGENT_LLM_TOP_P", "0.95")),
     )
 

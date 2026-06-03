@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { FinalAnswer } from "@/lib/api/types";
-import { useAnalysisStream } from "@/lib/hooks/useAnalysisStream";
+import { useAnalysisStreamContext } from "@/lib/hooks/analysis-stream-context";
 import { getAnalysis } from "@/lib/api/client";
 import { resignRunSource, resignStoragePaths } from "@/lib/run-sources";
 import { Menu } from "lucide-react";
@@ -28,7 +28,7 @@ type View =
  * delegated to `LiveRunView` / `HistoryRunView`.
  */
 export function Workspace({ savedRunId }: { savedRunId?: string }) {
-  const hook = useAnalysisStream();
+  const hook = useAnalysisStreamContext();
   const router = useRouter();
 
   const [hist, setHist]           = useState<HistState>(EMPTY_HIST);

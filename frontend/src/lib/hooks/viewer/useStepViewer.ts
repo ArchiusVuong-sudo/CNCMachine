@@ -140,7 +140,18 @@ export function useStepViewer({ fileUrl, components, selectedIndex, hoveredIndex
     if (!modelRef.current || !sceneRef.current) return;
     removeBboxHelper();
 
-    const box = new THREE.Box3().setFromObject(modelRef.current);
+    // Box only the VISIBLE meshes. When a component is isolated,
+    // applyComponentIsolation() has hidden every other mesh, so this wraps just
+    // the selected component (matching the dim labels). In assembly view every
+    // mesh is visible, so it wraps the whole assembly. setFromObject() ignores
+    // visibility, which is why it always boxed the assembly before.
+    const box = new THREE.Box3();
+    let counted = false;
+    modelRef.current.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && m.visible && m.geometry) { box.expandByObject(m); counted = true; }
+    });
+    if (!counted) box.setFromObject(modelRef.current);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 

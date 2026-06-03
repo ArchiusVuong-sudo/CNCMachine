@@ -19,7 +19,7 @@ import {
   type EditRow,
   type CostView,
 } from "@/lib/domain/cost-model";
-import { componentTotalUsd } from "@/lib/domain/selectors";
+import { componentTotalUsd, componentCycleMin } from "@/lib/domain/selectors";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -86,7 +86,12 @@ export function useCostBreakdown({
   const headTotal = selected
     ? componentTotalUsd(selected)
     : (typeof totalUsd === "number" ? totalUsd : totals.total);
-  const headCycle = selected ? totals.cycle : (typeof totalMin === "number" ? totalMin : totals.cycle);
+  // Use the canonical per-component cycle (prefers the backend's component-level
+  // cycle_time_min, which now includes legacy deburr+inspection time) so the
+  // headline reconciles with the Bill of Material — which reads the same
+  // selector. Falls back to the row-sum for routing components, where the two
+  // are equal by construction.
+  const headCycle = selected ? componentCycleMin(selected) : (typeof totalMin === "number" ? totalMin : totals.cycle);
 
   const setField = useCallback(
     (key: keyof Omit<EditModel, "rows">, v: string) => setModel((m) => ({ ...m, [key]: v })),

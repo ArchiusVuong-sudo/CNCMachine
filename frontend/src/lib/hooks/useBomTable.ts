@@ -12,7 +12,7 @@
  * with their parent.
  */
 import { useCallback, useMemo, useState } from "react";
-import type { Component } from "@/lib/api/types";
+import type { BomItem, Component } from "@/lib/api/types";
 import {
   ASSEMBLY_KEY,
   buildComponentRows,
@@ -47,11 +47,11 @@ export interface UseBomTable {
   restoreHidden: () => void;
 }
 
-export function useBomTable(components: Component[], totalMin?: number, totalUsd?: number): UseBomTable {
+export function useBomTable(components: Component[], totalMin?: number, totalUsd?: number, bomItems: BomItem[] = [], drawingDescription = ""): UseBomTable {
   const [manual, setManual] = useState<ManualBomRow[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
 
-  const rows = useMemo(() => buildComponentRows(components), [components]);
+  const rows = useMemo(() => buildComponentRows(components, bomItems, drawingDescription), [components, bomItems, drawingDescription]);
   const totals = useMemo(() => aggregateBom(components, totalMin, totalUsd), [components, totalMin, totalUsd]);
   const flat = useMemo(() => flattenBom(rows, manual, hidden), [rows, manual, hidden]);
   const partsCount = useMemo(

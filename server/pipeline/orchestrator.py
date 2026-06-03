@@ -39,7 +39,6 @@ from ..core.http import download_bytes
 from ..core.schemas import AssemblyData, DrawingExtraction, ProcessPlan
 from ..core.settings import get_settings
 from ..core.tracing import finalize_trace, record_step, start_trace
-from ..core.writeback import write_full_result
 from ..engines.cam import run as engine_generate_gcode
 from ..engines.process_mapping.cost_engine import fetch_shop_catalog
 from ..infra.persistence import (
@@ -659,8 +658,8 @@ async def run_pipeline(
         status="ok",
     )
 
-    write_full_result(analysis_id, results)
-
+    # History is DB-only: the run is persisted to Supabase below (and the
+    # activity log via _capture_and_persist_messages). No local note file.
     yield ("final_answer", {"results": results, "summary": summary})
 
     # Persist after final_answer so the user sees results immediately;

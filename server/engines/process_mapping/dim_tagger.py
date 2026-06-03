@@ -440,8 +440,10 @@ def _apply_to_feature(feat: dict, tag: dict) -> None:
                 feat["tolerance_minus"] = minus
     elif tag.get("source") == "gdt":
         # Append raw callout strings to the feature so per-component GD&T
-        # tab can list them.  Dedup by exact string.
-        callout = raw.get("symbol") or raw.get("callout") or raw.get("text")
+        # tab can list them.  Dedup by exact string. The VLM often emits the
+        # callout under "type" (e.g. {"type": "flatness", ...}) rather than
+        # "symbol" — accept it so feature-level GD&T isn't silently dropped.
+        callout = raw.get("symbol") or raw.get("callout") or raw.get("text") or raw.get("type")
         if callout:
             existing = feat.setdefault("gdt_callouts", [])
             if callout not in existing:
